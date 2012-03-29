@@ -354,6 +354,11 @@ class MethodWriter extends MethodVisitor {
     private final int compute;
 
     /**
+     * Indicates whether we should split the method if the code is too large.
+     */
+    private final boolean split;
+
+    /**
      * A list of labels. This list is the list of basic blocks in the method,
      * i.e. a list of Label objects linked to each other by their
      * {@link Label#successor} field, in the order they are visited by
@@ -416,7 +421,8 @@ class MethodWriter extends MethodVisitor {
         final String signature,
         final String[] exceptions,
         final boolean computeMaxs,
-        final boolean computeFrames)
+        final boolean computeFrames,
+        final boolean split)
     {
         super(Opcodes.ASM4);
         if (cw.firstMethod == null) {
@@ -457,6 +463,7 @@ class MethodWriter extends MethodVisitor {
             labels.status |= Label.PUSHED;
             visitLabel(labels);
         }
+        this.split = split;
     }
 
     // ------------------------------------------------------------------------
