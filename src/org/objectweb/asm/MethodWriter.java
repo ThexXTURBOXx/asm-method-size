@@ -2670,4 +2670,12 @@ class MethodWriter extends MethodVisitor {
             label.status |= Label.RESIZED;
         }
     }
+
+    /**
+     * Computes strongly connected components of control-flow graph.
+     */
+    Label stronglyConnectedComponents() {
+        labels.stronglyConnectedComponents();
+        return labels;
+    }
 }

@@ -245,6 +245,31 @@ public class Label {
      */
     Label next;
 
+    /**
+     * The depth-first-search index for the SCC computation.
+     * -1 if undefined.
+     */
+    int sccIndex;
+
+    /**
+     * The depth-first low-link for the SCC compiarson - equal to the
+     * smallest index of some node reachable from this, and always
+     * less than this.sccIndex, or equal to this.sccIndex if no other
+     * node is reachable from this.
+     */
+    int sccLowLink;
+    
+    /**
+     * Next root of an SCC component.
+     */
+    Label sccNextRoot;
+
+    /**
+     * Next label in this SCC component.
+     */
+    Label sccNext;
+
+
     // ------------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------------
@@ -538,6 +563,87 @@ public class Label {
             }
         }
     }
+
+    // ------------------------------------------------------------------------
+    // Strongly-connected components of control-flow graph
+    // ------------------------------------------------------------------------
+
+    /**
+     * Computes strongly connected components of control-flow graph.
+     * Assumes that this is the first label.
+     *
+     * Sets the {@link #sccRoot} and {@link #sccNext} fields.
+     */
+    void stronglyConnectedComponents() {
+        // Tarjan's algorithm
+
+        // initialize the  sccIndex field
+        {
+            Label l = this;
+            while (l != null) {
+                l.sccIndex = -1;
+                l = l.successor;
+            }
+        }
+        {
+            int index = 0;
+            Label previous = null;
+            // #### probably should not be using java.util.Stack because of backwards compatibility
+            // maybe use next field?
+            java.util.Stack<Label> stack = new java.util.Stack<Label>();
+            Label l = this;
+            while (l != null) {
+                if (l.sccIndex == -1) {
+                    index = l.strongConnect(index, stack, this);
+                    if (previous != null)
+                        previous.sccNextRoot = l;
+                    previous = l;
+                }
+                l = l.successor;
+            }
+        }
+    }
+
+    private int strongConnect(int index, java.util.Stack<Label> stack, Label root) {
+        sccIndex = index;
+        sccLowLink = index;
+        ++index;
+        stack.push(this);
+
+        // Consider successors of this
+        Edge e = successors;
+        while (e != null) {
+            Label w = e.successor;
+            if (w.sccIndex == -1) {
+                // Successor w has not yet been visited; recurse on it
+                index = w.strongConnect(index, stack, root);
+                sccLowLink = Math.min(this.sccLowLink, w.sccLowLink);
+            } else if (stack.contains(w)) {
+                // Successor w is in stack S and hence in the current SCC
+                sccLowLink = Math.min(this.sccLowLink, w.sccIndex);
+            }
+            e = e.next;
+        }
+
+        // If this is a root node, pop the stack and generate an SCC
+        if (sccLowLink == sccIndex) {
+            // start a new strongly connected component
+            Label w;
+            Label previous = null;
+            do {
+                w = stack.pop();
+                w.sccNext = previous;
+                previous = w;
+            } while (w != this);
+
+            if (root != this) {
+                sccNextRoot = root.sccNextRoot;
+                root.sccNextRoot = this;
+            }
+        };
+        return index;
+    }
+
 
     // ------------------------------------------------------------------------
     // Overriden Object methods
