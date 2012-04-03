@@ -114,6 +114,7 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
+        mw.initializeSplitInfos();
         assertSCC(desired, mw.stronglyConnectedComponents());
     }
 

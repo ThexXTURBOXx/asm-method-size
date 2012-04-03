@@ -549,38 +549,36 @@ public class Label {
     // ------------------------------------------------------------------------
 
     /**
+     * Initializes the sccIndex field.
+     */
+    void initializeSplitInfos() {
+        Label l = this;
+        while (l != null) {
+            l.splitInfo = new SplitInfo();
+            l = l.successor;
+        }
+    }
+
+    /**
      * Computes strongly connected components of control-flow graph.
      * Assumes that this is the first label.
-     *
-     * Sets the {@link #sccRoot} and {@link #sccNext} fields.
      */
     void stronglyConnectedComponents() {
         // Tarjan's algorithm
-
-        // initialize the  sccIndex field
-        {
-            Label l = this;
-            while (l != null) {
-                l.splitInfo = new SplitInfo();
-                l = l.successor;
+        int index = 0;
+        Label previous = null;
+        // #### probably should not be using java.util.Stack because of backwards compatibility
+        // maybe use next field?
+        java.util.Stack<Label> stack = new java.util.Stack<Label>();
+        Label l = this;
+        while (l != null) {
+            if (l.splitInfo.sccIndex == -1) {
+                index = l.strongConnect(index, stack, this);
+                if (previous != null)
+                    previous.splitInfo.sccNextRoot = l;
+                previous = l;
             }
-        }
-        {
-            int index = 0;
-            Label previous = null;
-            // #### probably should not be using java.util.Stack because of backwards compatibility
-            // maybe use next field?
-            java.util.Stack<Label> stack = new java.util.Stack<Label>();
-            Label l = this;
-            while (l != null) {
-                if (l.splitInfo.sccIndex == -1) {
-                    index = l.strongConnect(index, stack, this);
-                    if (previous != null)
-                        previous.splitInfo.sccNextRoot = l;
-                    previous = l;
-                }
-                l = l.successor;
-            }
+            l = l.successor;
         }
     }
 
@@ -623,7 +621,6 @@ public class Label {
         };
         return index;
     }
-
 
     // ------------------------------------------------------------------------
     // Overriden Object methods

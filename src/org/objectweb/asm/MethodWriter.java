@@ -2672,6 +2672,13 @@ class MethodWriter extends MethodVisitor {
     }
 
     /**
+     * Initialize the {@link Label#splitInfo} fields of the labels.
+     */
+    void initializeSplitInfos() {
+        labels.initializeSplitInfos();
+    }
+
+    /**
      * Computes strongly connected components of control-flow graph.
      */
     Label stronglyConnectedComponents() {
