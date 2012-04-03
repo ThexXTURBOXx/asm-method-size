@@ -2681,8 +2681,7 @@ class MethodWriter extends MethodVisitor {
     /**
      * Computes strongly connected components of control-flow graph.
      */
-    Label stronglyConnectedComponents() {
-        labels.stronglyConnectedComponents();
-        return labels;
+    SccRoot stronglyConnectedComponents() {
+        return labels.stronglyConnectedComponents();
     }
 }

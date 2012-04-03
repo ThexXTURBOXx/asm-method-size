@@ -30,43 +30,28 @@
 package org.objectweb.asm;
 
 /**
- * Info attached to a label needed for splitting a large method. See {@link Label Label}.
+ * Root of SCC graph.
  *
  * @author Mike Sperber
  */
-class SplitInfo {
-    public SplitInfo() {
-        this.sccIndex = -1;
+class SccRoot {
+
+    public SccRoot(Label first) {
+        this.first = first;
     }
 
     /**
-     * The depth-first-search index for the SCC computation.
-     * -1 if undefined.
+     * First label of root.
      */
-    int sccIndex;
+    Label first;
 
     /**
-     * The depth-first low-link for the SCC comparison - equal to the
-     * smallest index of some node reachable from this, and always
-     * less than this.sccIndex, or equal to this.sccIndex if no other
-     * node is reachable from this.
+     * Next root of an SCC component.
      */
-    int sccLowLink;
+    SccRoot next;
 
     /**
-     * Root of this SCC component.
+     * Successors in SCC graph, i.e. their first labels.
      */
-    SccRoot sccRoot;
-
-    /**
-     * Next label in this SCC component.
-     */
-    Label sccNext;
-
-    /**
-     * Predecessors, i.e. inverse to {@link Label#successors}.
-     */
-    Edge predecessors;
+    Edge successors;
 }
-
-

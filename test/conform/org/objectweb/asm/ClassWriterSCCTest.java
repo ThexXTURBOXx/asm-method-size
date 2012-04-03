@@ -68,19 +68,19 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitCode();
     }
 
-    private Label findRoot(Label roots, Label l) {
-        Label root = roots;
+    private SccRoot findRoot(SccRoot roots, Label l) {
+        SccRoot root = roots;
         while (root != null) {
             if (isInRoot(root, l))
                 return root;
-            root = root.splitInfo.sccNextRoot;
+            root = root.next;
         }
         fail("root not found at all");
         return null;
     }
 
-    private boolean isInRoot(Label root, Label l) {
-        Label c = root;
+    private boolean isInRoot(SccRoot root, Label l) {
+        Label c = root.first;
         while (c != null) {
             if (c == l)
                 return true;
@@ -89,34 +89,34 @@ public class ClassWriterSCCTest extends TestCase {
         return false;
     }
 
-    private void assertSCC1(final Set<Label> desired, Label roots) {
+    private void assertSCC1(final Set<Label> desired, SccRoot roots) {
         // the labels of this desired root must all be in the same actual root
-        Label desiredRoot = findRoot(roots, desired.iterator().next());
+        SccRoot desiredRoot = findRoot(roots, desired.iterator().next());
         for (Label l: desired)
             assertTrue(isInRoot(desiredRoot, l));
         // ... and they must be in no other root
-        Label root = roots;
+        SccRoot root = roots;
         while (root != null) {
             if (root != desiredRoot) {
                 for (Label l: desired)
                     assertFalse(isInRoot(root, l));
             }
-            root = root.splitInfo.sccNextRoot;
+            root = root.next;
         }
 
         // check that the sccRoot fields match up
         root = roots;
         while (root != null) {
-            Label l = root;
+            Label l = root.first;
             while (l != null) {
-                assertSame(root.splitInfo.sccRoot, l.splitInfo.sccRoot);
+                assertSame(root, l.splitInfo.sccRoot);
                 l = l.splitInfo.sccNext;
             }
-            root = root.splitInfo.sccNextRoot;
+            root = root.next;
         }
     }
 
-    private void assertSCC(final Set<Set<Label>> desired, Label roots) {
+    private void assertSCC(final Set<Set<Label>> desired, SccRoot roots) {
         for (Set<Label> s: desired)
             assertSCC1(s, roots);
     }

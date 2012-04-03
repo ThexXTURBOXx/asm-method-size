@@ -563,26 +563,24 @@ public class Label {
      * Computes strongly connected components of control-flow graph.
      * Assumes that this is the first label.
      */
-    void stronglyConnectedComponents() {
+    SccRoot stronglyConnectedComponents() {
         // Tarjan's algorithm
         int index = 0;
-        Label previous = null;
         // #### probably should not be using java.util.Stack because of backwards compatibility
         // maybe use next field?
         java.util.Stack<Label> stack = new java.util.Stack<Label>();
         Label l = this;
+        SccRoot dummyRoot = new SccRoot(this); // needed so we can mutate its next field
         while (l != null) {
             if (l.splitInfo.sccIndex == -1) {
-                index = l.strongConnect(index, stack, this);
-                if (previous != null)
-                    previous.splitInfo.sccNextRoot = l;
-                previous = l;
+                index = l.strongConnect(index, stack, dummyRoot);
             }
             l = l.successor;
         }
+        return dummyRoot.next;
     }
 
-    private int strongConnect(int index, java.util.Stack<Label> stack, Label root) {
+    private int strongConnect(int index, java.util.Stack<Label> stack, SccRoot root) {
         splitInfo.sccIndex = index;
         splitInfo.sccLowLink = index;
         ++index;
@@ -608,17 +606,16 @@ public class Label {
             // start a new strongly connected component
             Label w;
             Label previous = null;
+            SccRoot newRoot = new SccRoot(this);
             do {
                 w = stack.pop();
-                w.splitInfo.sccRoot = this;
+                w.splitInfo.sccRoot = newRoot;
                 w.splitInfo.sccNext = previous;
                 previous = w;
             } while (w != this);
 
-            if (root != this) {
-                splitInfo.sccNextRoot = root.splitInfo.sccNextRoot;
-                root.splitInfo.sccNextRoot = this;
-            }
+            newRoot.next = root.next;
+            root.next = newRoot;
         };
         return index;
     }
