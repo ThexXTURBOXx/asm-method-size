@@ -73,7 +73,7 @@ public class ClassWriterSCCTest extends TestCase {
         while (root != null) {
             if (isInRoot(root, l))
                 return root;
-            root = root.sccNextRoot;
+            root = root.splitInfo.sccNextRoot;
         }
         fail("root not found at all");
         return null;
@@ -84,7 +84,7 @@ public class ClassWriterSCCTest extends TestCase {
         while (c != null) {
             if (c == l)
                 return true;
-            c = c.sccNext;
+            c = c.splitInfo.sccNext;
         }
         return false;
     }
@@ -101,7 +101,7 @@ public class ClassWriterSCCTest extends TestCase {
                 for (Label l: desired)
                     assertFalse(isInRoot(root, l));
             }
-            root = root.sccNextRoot;
+            root = root.splitInfo.sccNextRoot;
         }
     }
 

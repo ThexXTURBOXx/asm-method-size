@@ -246,29 +246,9 @@ public class Label {
     Label next;
 
     /**
-     * The depth-first-search index for the SCC computation.
-     * -1 if undefined.
+     * Info needed when splitting a large method.
      */
-    int sccIndex;
-
-    /**
-     * The depth-first low-link for the SCC compiarson - equal to the
-     * smallest index of some node reachable from this, and always
-     * less than this.sccIndex, or equal to this.sccIndex if no other
-     * node is reachable from this.
-     */
-    int sccLowLink;
-    
-    /**
-     * Next root of an SCC component.
-     */
-    Label sccNextRoot;
-
-    /**
-     * Next label in this SCC component.
-     */
-    Label sccNext;
-
+    SplitInfo splitInfo;
 
     // ------------------------------------------------------------------------
     // Constructor
@@ -581,7 +561,7 @@ public class Label {
         {
             Label l = this;
             while (l != null) {
-                l.sccIndex = -1;
+                l.splitInfo = new SplitInfo();
                 l = l.successor;
             }
         }
@@ -593,10 +573,10 @@ public class Label {
             java.util.Stack<Label> stack = new java.util.Stack<Label>();
             Label l = this;
             while (l != null) {
-                if (l.sccIndex == -1) {
+                if (l.splitInfo.sccIndex == -1) {
                     index = l.strongConnect(index, stack, this);
                     if (previous != null)
-                        previous.sccNextRoot = l;
+                        previous.splitInfo.sccNextRoot = l;
                     previous = l;
                 }
                 l = l.successor;
@@ -605,8 +585,8 @@ public class Label {
     }
 
     private int strongConnect(int index, java.util.Stack<Label> stack, Label root) {
-        sccIndex = index;
-        sccLowLink = index;
+        splitInfo.sccIndex = index;
+        splitInfo.sccLowLink = index;
         ++index;
         stack.push(this);
 
@@ -614,31 +594,31 @@ public class Label {
         Edge e = successors;
         while (e != null) {
             Label w = e.successor;
-            if (w.sccIndex == -1) {
+            if (w.splitInfo.sccIndex == -1) {
                 // Successor w has not yet been visited; recurse on it
                 index = w.strongConnect(index, stack, root);
-                sccLowLink = Math.min(this.sccLowLink, w.sccLowLink);
+                splitInfo.sccLowLink = Math.min(this.splitInfo.sccLowLink, w.splitInfo.sccLowLink);
             } else if (stack.contains(w)) {
                 // Successor w is in stack S and hence in the current SCC
-                sccLowLink = Math.min(this.sccLowLink, w.sccIndex);
+                splitInfo.sccLowLink = Math.min(this.splitInfo.sccLowLink, w.splitInfo.sccIndex);
             }
             e = e.next;
         }
 
         // If this is a root node, pop the stack and generate an SCC
-        if (sccLowLink == sccIndex) {
+        if (splitInfo.sccLowLink == splitInfo.sccIndex) {
             // start a new strongly connected component
             Label w;
             Label previous = null;
             do {
                 w = stack.pop();
-                w.sccNext = previous;
+                w.splitInfo.sccNext = previous;
                 previous = w;
             } while (w != this);
 
             if (root != this) {
-                sccNextRoot = root.sccNextRoot;
-                root.sccNextRoot = this;
+                splitInfo.sccNextRoot = root.splitInfo.sccNextRoot;
+                root.splitInfo.sccNextRoot = this;
             }
         };
         return index;
