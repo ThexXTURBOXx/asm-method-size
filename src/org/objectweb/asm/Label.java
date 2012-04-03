@@ -610,6 +610,7 @@ public class Label {
             Label previous = null;
             do {
                 w = stack.pop();
+                w.splitInfo.sccRoot = this;
                 w.splitInfo.sccNext = previous;
                 previous = w;
             } while (w != this);

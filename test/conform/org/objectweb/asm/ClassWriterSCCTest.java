@@ -103,6 +103,17 @@ public class ClassWriterSCCTest extends TestCase {
             }
             root = root.splitInfo.sccNextRoot;
         }
+
+        // check that the sccRoot fields match up
+        root = roots;
+        while (root != null) {
+            Label l = root;
+            while (l != null) {
+                assertSame(root.splitInfo.sccRoot, l.splitInfo.sccRoot);
+                l = l.splitInfo.sccNext;
+            }
+            root = root.splitInfo.sccNextRoot;
+        }
     }
 
     private void assertSCC(final Set<Set<Label>> desired, Label roots) {

@@ -46,13 +46,18 @@ class SplitInfo {
     int sccIndex;
 
     /**
-     * The depth-first low-link for the SCC compiarson - equal to the
+     * The depth-first low-link for the SCC comparison - equal to the
      * smallest index of some node reachable from this, and always
      * less than this.sccIndex, or equal to this.sccIndex if no other
      * node is reachable from this.
      */
     int sccLowLink;
-        
+
+    /**
+     * Root of this SCC component.
+     */
+    Label sccRoot;
+
     /**
      * Next root of an SCC component.
      */
