@@ -54,4 +54,53 @@ class SccRoot {
      * Successors in SCC graph, i.e. their first labels.
      */
     Edge successors;
+
+    /**
+     * Fills the {@link #successors} field of all roots.
+     */
+    void computeSuccessors() {
+        SccRoot r = this;
+        while (r != null) {
+            r.computeSuccessors1();
+            r = r.next;
+        }
+    }
+
+    /**
+     * Fills the {@link #successors} field of <code>this</code>.
+     */
+    private void computeSuccessors1() {
+        Label l = first;
+        successors = null;
+        while (l != null) {
+            Edge e = l.successors;
+            while (e != null) {
+                SccRoot root = e.successor.splitInfo.sccRoot;
+                Label rootFirst = root.first;
+                if ((root != this) && !hasLabel(successors, rootFirst)) {
+                    Edge re = new Edge();
+                    re.successor = rootFirst;
+                    re.next = successors;
+                    successors = re;
+                }
+                e = e.next;
+            }
+            l = l.splitInfo.sccNext;
+        }
+        
+    }
+
+    /**
+     * Does an edge contain a certain label?
+     *
+     * @return <code>true</code> if yes, <code>false</code> if no
+     */
+    private static boolean hasLabel(Edge e, Label l) {
+        while (e != null) {
+            if (e.successor == l)
+                return true;
+            e = e.next;
+        }
+        return false;
+    }
 }

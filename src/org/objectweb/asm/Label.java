@@ -577,6 +577,7 @@ public class Label {
             }
             l = l.successor;
         }
+        dummyRoot.next.computeSuccessors();
         return dummyRoot.next;
     }
 
