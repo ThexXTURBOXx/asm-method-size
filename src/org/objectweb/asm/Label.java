@@ -622,6 +622,26 @@ public class Label {
         return index;
     }
 
+    /**
+     * Computes the predecessor graph.
+     * Assumes that this is the first label.
+     */
+    public void computePredecessors() {
+        Label l = this;
+        while (l != null) {
+            Edge s = l.successors;
+            while (s != null) {
+                Edge ld = s.successor.splitInfo.predecessors;
+                Edge nw = new Edge();
+                nw.successor = l;
+                nw.next = ld;
+                s.successor.splitInfo.predecessors = nw;
+                s = s.next;
+            }
+            l = l.successor;
+        }
+    }
+
     // ------------------------------------------------------------------------
     // Overriden Object methods
     // ------------------------------------------------------------------------
