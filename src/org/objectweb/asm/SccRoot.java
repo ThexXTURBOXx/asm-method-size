@@ -103,4 +103,37 @@ class SccRoot {
         }
         return false;
     }
+
+    /**
+     * Tell us if this SCC component is a possible split point.
+     *
+     * This is the case if the component only has a single entry
+     * point, i.e. every basic block within the component only has
+     * predecessors within the component.
+     *
+     * This assumes that {@link SplitInfo#predecessors} is set.
+     *
+     * @return the entry basic block if it is, null if it isn't or if
+     * it's the root block
+     */
+    public Label splitPoint() {
+        Label entry = null;
+        Label l = first;
+        while (l != null) {
+            Edge p = l.splitInfo.predecessors;
+            while (p != null) {
+                if (p.successor.splitInfo.sccRoot != this) {
+                    if (entry == null) {
+                        entry = l;
+                        break;
+                    } else {
+                        return null;
+                    }
+                }
+                p = p.next;
+            }
+            l = l.splitInfo.sccNext;
+        }
+        return entry;
+    }
 }

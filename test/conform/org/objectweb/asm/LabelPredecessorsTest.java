@@ -36,7 +36,7 @@ import java.util.HashSet;
 import junit.framework.TestCase;
 
 /**
- * ClassWriter unit tests for the predecessor computation for the flow graph.
+ * Unit tests for the predecessor computation for the flow graph.
  *
  * @author Mike Sperber
  */
@@ -68,6 +68,19 @@ public class LabelPredecessorsTest extends TestCase {
         assertLabels(e, s);
     }
 
+    private static Edge makeEdge(Label... label) {
+        int i = label.length  - 1;
+        Edge e = null;
+        while (i >= 0) {
+            Edge o = e;
+            e = new Edge();
+            e.next = o;
+            e.successor = label[i];
+            --i;
+        }
+        return e;
+    }
+
     public void testDag1() {
         Label l1 = new Label();
         Label l2 = new Label();
@@ -86,23 +99,13 @@ public class LabelPredecessorsTest extends TestCase {
         l6.successor = l7;
         l7.successor = l8;
 
-        l1.successors = new Edge();
-        l1.successors.successor = l2;
-        l2.successors = new Edge();
-        l2.successors.successor = l3;
-        l3.successors = new Edge();
-        l3.successors.successor = l4;
-        l3.successors.next = new Edge();
-        l3.successors.next.successor = l5;
-        l4.successors = new Edge();
-        l4.successors.successor = l6;
-        l5.successors = new Edge();
-        l5.successors.successor = l6;
-        l5.successors.next = new Edge();
-        l5.successors.next.successor = l7;
-        /* l6 has no outgoing edges */
-        l7.successors = new Edge();
-        l7.successors.successor = l8;
+        l1.successors = makeEdge(l2);
+        l2.successors = makeEdge(l3);
+        l3.successors = makeEdge(l4, l5);
+        l4.successors = makeEdge(l6);
+        l5.successors = makeEdge(l6, l7);
+        l6.successors = makeEdge();
+        l7.successors = makeEdge(l8);
 
         l1.initializeSplitInfos();
         l1.computePredecessors();

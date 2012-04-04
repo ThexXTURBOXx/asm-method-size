@@ -2679,6 +2679,14 @@ class MethodWriter extends MethodVisitor {
     }
 
     /**
+     * Initialize the {@link SplitInfo#predecessors} fields of the
+     * split infos.
+     */
+    void computePredecessors() {
+        labels.computePredecessors();
+    }
+
+    /**
      * Computes strongly connected components of control-flow graph.
      */
     SccRoot stronglyConnectedComponents() {
