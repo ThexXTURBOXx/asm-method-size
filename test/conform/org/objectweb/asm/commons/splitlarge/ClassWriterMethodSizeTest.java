@@ -46,7 +46,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
     protected MethodVisitor mv;
 
     private void startMethod() {
-        this.cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.SPLIT);
+        this.cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         this.cw.visit(Opcodes.V1_1,
                       Opcodes.ACC_PUBLIC,
                       "C",
