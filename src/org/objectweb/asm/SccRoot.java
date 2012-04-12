@@ -40,6 +40,7 @@ class SccRoot {
 
     public SccRoot(Label first) {
         this.first = first;
+        this.predecessors = new HashSet<SccRoot>();
     }
 
     /**
@@ -56,6 +57,11 @@ class SccRoot {
      * Successors in SCC graph, i.e. their first labels.
      */
     Edge successors;
+
+    /**
+     * Predecessors in SCC graph.
+     */
+    HashSet<SccRoot> predecessors;
 
     /**
      * Transitive closure of the the successors of this node,
@@ -107,6 +113,31 @@ class SccRoot {
         }
         
     }
+
+    /**
+     * Fills the {@link #predecessors} field of all roots.
+     */
+    void computePredecessors() {
+        SccRoot r = this;
+        while (r != null) {
+            r.computePredecessors1();
+            r = r.next;
+        }
+    }
+
+    /**
+     * Fills the {@link #predecessors} field of <code>this</code>.
+     */
+    private void computePredecessors1() {
+        Edge e = successors;
+        while (e != null) {
+            Label rootFirst = e.successor;
+            SccRoot root = rootFirst.splitInfo.sccRoot;
+            root.predecessors.add(this);
+            e = e.next;
+        }
+    }
+     
 
     /**
      * Compute all size-relevant information, i.e. set the 
@@ -177,7 +208,7 @@ class SccRoot {
     * Compute size of all basic blocks in this component and set
     * the {@link #size} field to it.
     *
-    * @param total size of code in this method, sans the nodes in <code>seen</code>
+    * @param total size of code in this method.
     */
     private void computeSize(int total) {
         Label l = first;
@@ -207,15 +238,21 @@ class SccRoot {
      *
      * This is the case if the component only has a single entry
      * point, i.e. every basic block within the component only has
-     * predecessors within the component.
+     * predecessors within the component except for one, and that
+     * a corresponding criterion for the transitive closure holds.
      *
-     * This assumes that {@link SplitInfo#predecessors} is set.
+     * This assumes that {@link SplitInfo#predecessors} and {@link
+     * #predecessors} is set.
      *
      * @return the entry basic block if it is, null if it isn't or if
      * it's the root block
      */
     public Label splitPoint() {
         Label entry = null;
+        /*
+         * First check that there's only one entry point to this
+         * component.
+         */
         Label l = first;
         while (l != null) {
             Edge p = l.splitInfo.predecessors;
@@ -232,6 +269,22 @@ class SccRoot {
             }
             l = l.splitInfo.sccNext;
         }
-        return entry;
+        if (entry == null) {
+            return null;
+        } else {
+            /*
+             * Now check that all SCC components in the transitive
+             * closure have only predecessors within the transitive
+             * closure.
+             */
+            for (SccRoot root : transitiveClosure) {
+                for (SccRoot p : root.predecessors) {
+                    if (!transitiveClosure.contains(p)) {
+                        return null;
+                    }
+                }
+            }
+            return entry;
+        }
     }
 }

@@ -97,7 +97,9 @@ public class LabelSCCTest extends TestCase {
 
     private void assertSCC(Label labels, final Set<Set<Label>> desired) {
         labels.initializeSplitInfos();
-        assertSCC(desired, labels.stronglyConnectedComponents());
+        SccRoot scc = labels.stronglyConnectedComponents();
+        scc.computeTransitiveClosure();
+        assertSCC(desired, scc);
         labels.computePredecessors();
     }
 
