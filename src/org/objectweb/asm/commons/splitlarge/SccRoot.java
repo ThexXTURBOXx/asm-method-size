@@ -212,20 +212,6 @@ class SccRoot {
    }
 
     /**
-     * Does an edge contain a certain label?
-     *
-     * @return <code>true</code> if yes, <code>false</code> if no
-     */
-    private static boolean hasLabel(Edge e, Label l) {
-        while (e != null) {
-            if (e.successor == l)
-                return true;
-            e = e.next;
-        }
-        return false;
-    }
-
-    /**
      * Tell us if this SCC component is a possible split point.
      *
      * This is the case if the component only has a single entry
