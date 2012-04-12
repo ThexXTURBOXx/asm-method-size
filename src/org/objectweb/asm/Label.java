@@ -545,6 +545,23 @@ public class Label {
     }
 
     // ------------------------------------------------------------------------
+    // Utilities for splitting large methods
+    // ------------------------------------------------------------------------
+    /**
+     * Compute size of basic block
+     *
+     * @param total total size of code in this method
+     * @return size of basic block
+     */
+    int size(int total) {
+        if (successor != null) {
+            return successor.position - position;
+        } else {
+            return total - position;
+        }
+    }
+
+    // ------------------------------------------------------------------------
     // Strongly-connected components of control-flow graph
     // ------------------------------------------------------------------------
 

@@ -29,6 +29,8 @@
  */
 package org.objectweb.asm;
 
+import java.util.HashSet;
+
 /**
  * Root of SCC graph.
  *
@@ -54,6 +56,22 @@ class SccRoot {
      * Successors in SCC graph, i.e. their first labels.
      */
     Edge successors;
+
+    /**
+     * Transitive closure of the the successors of this node,
+     * including this one.
+     */
+    HashSet<SccRoot> transitiveClosure;
+
+    /**
+     * Size of the basic blocks in the transitive closure of this component.
+     */
+    int transitiveClosureSize;
+
+    /**
+     * Combined size of all the basic blocks in this component.
+     */
+    int size = -1;
 
     /**
      * Fills the {@link #successors} field of all roots.
@@ -89,6 +107,86 @@ class SccRoot {
         }
         
     }
+
+    /**
+     * Compute all size-relevant information, i.e. set the 
+     * {@link #transitiveClosure}, {@link #size}, and
+     * {@link * #transitiveClosureSize} fields of all SCC components.
+     */
+    void computeSizeInfo(int total) {
+        computeSizes(total);
+        computeTransitiveClosure();
+        computeTransitiveClosureSizes();
+    }
+
+    /**
+     * Compute transitive closure of successors relation,
+     * and store it in the {@link #transitiveClosure} field.
+     * Assumes that this is the root component.
+     */
+     void computeTransitiveClosure() {
+        if (transitiveClosure != null)
+            return;
+        transitiveClosure = new HashSet<SccRoot>();
+        transitiveClosure.add(this);
+        Edge e = successors;
+        while (e != null) {
+            Label first = e.successor;
+            SccRoot root = first.splitInfo.sccRoot;
+            root.computeTransitiveClosure();
+            transitiveClosure.addAll(root.transitiveClosure);
+            e = e.next;
+        }
+    }
+
+    /**
+     * Compute the sizes of the transitive closures in all SCC components.
+     */
+    void computeTransitiveClosureSizes() {
+        SccRoot root = this;
+        while (root != null) {
+            root.computeTransitiveClosureSize();
+            root = root.next;
+        }
+    }
+
+    /**
+     * Compute code size of all basic blocks in the transitive closure
+     * of this component.
+     */
+    private void computeTransitiveClosureSize() {
+        transitiveClosureSize = 0;
+        for (SccRoot root : transitiveClosure) {
+            transitiveClosureSize += root.size;
+        }
+    }
+
+    /**
+     * Compute the sizes of all SCC components, and set their
+     * {@link #size} fields.
+     */
+    void computeSizes(int total) {
+        SccRoot root = this;
+        while (root != null) {
+            root.computeSize(total);
+            root = root.next;
+        }
+    }
+
+    /**
+    * Compute size of all basic blocks in this component and set
+    * the {@link #size} field to it.
+    *
+    * @param total size of code in this method, sans the nodes in <code>seen</code>
+    */
+    private void computeSize(int total) {
+        Label l = first;
+        size = 0;
+        while (l != null) {
+            size += l.size(total);
+            l = l.splitInfo.sccNext;
+        }
+   }
 
     /**
      * Does an edge contain a certain label?
