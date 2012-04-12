@@ -28,7 +28,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.objectweb.asm;
+package org.objectweb.asm.commons.splitlarge;
+
+import static org.objectweb.asm.commons.splitlarge.Split.*;
+import org.objectweb.asm.*;
 
 import java.util.Set;
 import java.util.HashSet;
@@ -107,17 +110,17 @@ public class LabelPredecessorsTest extends TestCase {
         l6.successors = makeEdge();
         l7.successors = makeEdge(l8);
 
-        l1.initializeSplitInfos();
-        l1.computePredecessors();
+        initializeSplitInfos(l1);
+        computePredecessors(l1);
 
         HashSet<Label> empty = new HashSet<Label>();
-        assertLabels(l1.splitInfo.predecessors, empty);
-        assertLabels(l2.splitInfo.predecessors, l1);
-        assertLabels(l3.splitInfo.predecessors, l2);
-        assertLabels(l4.splitInfo.predecessors, l3);
-        assertLabels(l5.splitInfo.predecessors, l3);
-        assertLabels(l6.splitInfo.predecessors, l4, l5);
-        assertLabels(l7.splitInfo.predecessors, l5);
-        assertLabels(l8.splitInfo.predecessors, l7);
+        assertLabels(getSplitInfo(l1).predecessors, empty);
+        assertLabels(getSplitInfo(l2).predecessors, l1);
+        assertLabels(getSplitInfo(l3).predecessors, l2);
+        assertLabels(getSplitInfo(l4).predecessors, l3);
+        assertLabels(getSplitInfo(l5).predecessors, l3);
+        assertLabels(getSplitInfo(l6).predecessors, l4, l5);
+        assertLabels(getSplitInfo(l7).predecessors, l5);
+        assertLabels(getSplitInfo(l8).predecessors, l7);
     }
 }

@@ -37,7 +37,7 @@ package org.objectweb.asm;
  * @author Eric Bruneton
  * @author Eugene Kuleshov
  */
-class MethodWriter extends MethodVisitor {
+public class MethodWriter extends MethodVisitor {
 
     /**
      * Pseudo access flag used to denote constructors.
@@ -354,17 +354,12 @@ class MethodWriter extends MethodVisitor {
     private final int compute;
 
     /**
-     * Indicates whether we should split the method if the code is too large.
-     */
-    private final boolean split;
-
-    /**
      * A list of labels. This list is the list of basic blocks in the method,
      * i.e. a list of Label objects linked to each other by their
      * {@link Label#successor} field, in the order they are visited by
      * {@link MethodVisitor#visitLabel}, and starting with the first basic block.
      */
-    private Label labels;
+    public Label labels;
 
     /**
      * The previous basic block.
@@ -421,8 +416,7 @@ class MethodWriter extends MethodVisitor {
         final String signature,
         final String[] exceptions,
         final boolean computeMaxs,
-        final boolean computeFrames,
-        final boolean split)
+        final boolean computeFrames)
     {
         super(Opcodes.ASM4);
         if (cw.firstMethod == null) {
@@ -463,7 +457,6 @@ class MethodWriter extends MethodVisitor {
             labels.status |= Label.PUSHED;
             visitLabel(labels);
         }
-        this.split = split;
     }
 
     // ------------------------------------------------------------------------
@@ -2669,27 +2662,5 @@ class MethodWriter extends MethodVisitor {
             label.position = getNewOffset(indexes, sizes, 0, label.position);
             label.status |= Label.RESIZED;
         }
-    }
-
-    /**
-     * Initialize the {@link Label#splitInfo} fields of the labels.
-     */
-    void initializeSplitInfos() {
-        labels.initializeSplitInfos();
-    }
-
-    /**
-     * Initialize the {@link SplitInfo#predecessors} fields of the
-     * split infos.
-     */
-    void computePredecessors() {
-        labels.computePredecessors();
-    }
-
-    /**
-     * Computes strongly connected components of control-flow graph.
-     */
-    SccRoot stronglyConnectedComponents() {
-        return labels.stronglyConnectedComponents();
     }
 }

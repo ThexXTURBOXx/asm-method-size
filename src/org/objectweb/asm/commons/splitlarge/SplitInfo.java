@@ -27,7 +27,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.objectweb.asm;
+package org.objectweb.asm.commons.splitlarge;
+
+import org.objectweb.asm.*;
 
 /**
  * Info attached to a label needed for splitting a large method. See {@link Label Label}.

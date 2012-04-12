@@ -28,7 +28,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.objectweb.asm;
+package org.objectweb.asm.commons.splitlarge;
+
+import org.objectweb.asm.*;
 
 import junit.framework.TestCase;
 

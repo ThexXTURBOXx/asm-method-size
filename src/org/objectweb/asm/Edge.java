@@ -34,7 +34,7 @@ package org.objectweb.asm;
  *
  * @author Eric Bruneton
  */
-class Edge {
+public class Edge {
 
     /**
      * Denotes a normal control flow graph edge.
@@ -65,11 +65,11 @@ class Edge {
     /**
      * The successor block of the basic block from which this edge originates.
      */
-    Label successor;
+    public Label successor;
 
     /**
      * The next edge in the list of successors of the originating basic block.
      * See {@link Label#successors successors}.
      */
-    Edge next;
+    public Edge next;
 }

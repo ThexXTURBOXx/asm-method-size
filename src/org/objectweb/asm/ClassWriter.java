@@ -66,13 +66,6 @@ public class ClassWriter extends ClassVisitor {
     public static final int COMPUTE_FRAMES = 2;
 
     /**
-     * Flag to automatically split a method whose body code is too large.
-     *
-     * @see #ClassWriter(int)
-     */
-    public static final int SPLIT = 4;
-
-    /**
      * Pseudo access flag to distinguish between the synthetic attribute and
      * the synthetic access flag.
      */
@@ -487,11 +480,6 @@ public class ClassWriter extends ClassVisitor {
     private final boolean computeFrames;
 
     /**
-     * <tt>true</tt> if methods whose code is too large should be split
-     */
-    private final boolean split;
-
-    /**
      * <tt>true</tt> if the stack map tables of this class are invalid. The
      * {@link MethodWriter#resizeInstructions} method cannot transform existing
      * stack map tables, and so produces potentially invalid classes when it is
@@ -611,7 +599,6 @@ public class ClassWriter extends ClassVisitor {
         key4 = new Item();
         this.computeMaxs = (flags & COMPUTE_MAXS) != 0;
         this.computeFrames = (flags & COMPUTE_FRAMES) != 0;
-        this.split = (flags & SPLIT) != 0;
     }
 
     /**
@@ -769,8 +756,7 @@ public class ClassWriter extends ClassVisitor {
                 signature,
                 exceptions,
                 computeMaxs,
-                computeFrames,
-                split);
+                computeFrames);
     }
 
     @Override

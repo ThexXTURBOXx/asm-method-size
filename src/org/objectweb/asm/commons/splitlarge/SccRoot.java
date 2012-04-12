@@ -27,7 +27,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.objectweb.asm;
+package org.objectweb.asm.commons.splitlarge;
+
+import org.objectweb.asm.*;
+import static org.objectweb.asm.commons.splitlarge.Split.*;
 
 import java.util.HashSet;
 
@@ -99,7 +102,7 @@ class SccRoot {
         while (l != null) {
             Edge e = l.successors;
             while (e != null) {
-                SccRoot root = e.successor.splitInfo.sccRoot;
+                SccRoot root = getSplitInfo(e.successor).sccRoot;
                 Label rootFirst = root.first;
                 if ((root != this) && !hasLabel(successors, rootFirst)) {
                     Edge re = new Edge();
@@ -109,7 +112,7 @@ class SccRoot {
                 }
                 e = e.next;
             }
-            l = l.splitInfo.sccNext;
+            l = getSplitInfo(l).sccNext;
         }
         
     }
@@ -132,7 +135,7 @@ class SccRoot {
         Edge e = successors;
         while (e != null) {
             Label rootFirst = e.successor;
-            SccRoot root = rootFirst.splitInfo.sccRoot;
+            SccRoot root = getSplitInfo(rootFirst).sccRoot;
             root.predecessors.add(this);
             e = e.next;
         }
@@ -163,7 +166,7 @@ class SccRoot {
         Edge e = successors;
         while (e != null) {
             Label first = e.successor;
-            SccRoot root = first.splitInfo.sccRoot;
+            SccRoot root = getSplitInfo(first).sccRoot;
             root.computeTransitiveClosure();
             transitiveClosure.addAll(root.transitiveClosure);
             e = e.next;
@@ -214,8 +217,8 @@ class SccRoot {
         Label l = first;
         size = 0;
         while (l != null) {
-            size += l.size(total);
-            l = l.splitInfo.sccNext;
+            size += labelSize(l, total);
+            l = getSplitInfo(l).sccNext;
         }
    }
 
@@ -255,9 +258,9 @@ class SccRoot {
          */
         Label l = first;
         while (l != null) {
-            Edge p = l.splitInfo.predecessors;
+            Edge p = getSplitInfo(l).predecessors;
             while (p != null) {
-                if (p.successor.splitInfo.sccRoot != this) {
+                if (getSplitInfo(p.successor).sccRoot != this) {
                     if (entry == null) {
                         entry = l;
                         break;
@@ -267,7 +270,7 @@ class SccRoot {
                 }
                 p = p.next;
             }
-            l = l.splitInfo.sccNext;
+            l = getSplitInfo(l).sccNext;
         }
         if (entry == null) {
             return null;

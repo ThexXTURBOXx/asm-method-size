@@ -138,7 +138,7 @@ public class Label {
     /**
      * The position of this label in the code, if known.
      */
-    int position;
+    public int position;
 
     /**
      * Number of forward references to this label, times two.
@@ -226,14 +226,14 @@ public class Label {
      * does not contain successive labels that denote the same bytecode position
      * (in this case only the first label appears in this list).
      */
-    Label successor;
+    public Label successor;
 
     /**
      * The successors of this node in the control flow graph. These successors
      * are stored in a linked list of {@link Edge Edge} objects, linked to each
      * other by their {@link Edge#next} field.
      */
-    Edge successors;
+    public Edge successors;
 
     /**
      * The next basic block in the basic block stack. This stack is used in the
@@ -244,11 +244,6 @@ public class Label {
      * @see MethodWriter#visitMaxs
      */
     Label next;
-
-    /**
-     * Info needed when splitting a large method.
-     */
-    SplitInfo splitInfo;
 
     // ------------------------------------------------------------------------
     // Constructor
@@ -541,120 +536,6 @@ public class Label {
                 }
                 e = e.next;
             }
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    // Utilities for splitting large methods
-    // ------------------------------------------------------------------------
-    /**
-     * Compute size of basic block
-     *
-     * @param total total size of code in this method
-     * @return size of basic block
-     */
-    int size(int total) {
-        if (successor != null) {
-            return successor.position - position;
-        } else {
-            return total - position;
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    // Strongly-connected components of control-flow graph
-    // ------------------------------------------------------------------------
-
-    /**
-     * Initializes the sccIndex field.
-     */
-    void initializeSplitInfos() {
-        Label l = this;
-        while (l != null) {
-            l.splitInfo = new SplitInfo();
-            l = l.successor;
-        }
-    }
-
-    /**
-     * Computes strongly connected components of control-flow graph.
-     * Assumes that this is the first label.
-     */
-    SccRoot stronglyConnectedComponents() {
-        // Tarjan's algorithm
-        int index = 0;
-        // #### probably should not be using java.util.Stack because of backwards compatibility
-        // maybe use next field?
-        java.util.Stack<Label> stack = new java.util.Stack<Label>();
-        Label l = this;
-        SccRoot dummyRoot = new SccRoot(this); // needed so we can mutate its next field
-        while (l != null) {
-            if (l.splitInfo.sccIndex == -1) {
-                index = l.strongConnect(index, stack, dummyRoot);
-            }
-            l = l.successor;
-        }
-        dummyRoot.next.computeSuccessors();
-        return dummyRoot.next;
-    }
-
-    private int strongConnect(int index, java.util.Stack<Label> stack, SccRoot root) {
-        splitInfo.sccIndex = index;
-        splitInfo.sccLowLink = index;
-        ++index;
-        stack.push(this);
-
-        // Consider successors of this
-        Edge e = successors;
-        while (e != null) {
-            Label w = e.successor;
-            if (w.splitInfo.sccIndex == -1) {
-                // Successor w has not yet been visited; recurse on it
-                index = w.strongConnect(index, stack, root);
-                splitInfo.sccLowLink = Math.min(this.splitInfo.sccLowLink, w.splitInfo.sccLowLink);
-            } else if (stack.contains(w)) {
-                // Successor w is in stack S and hence in the current SCC
-                splitInfo.sccLowLink = Math.min(this.splitInfo.sccLowLink, w.splitInfo.sccIndex);
-            }
-            e = e.next;
-        }
-
-        // If this is a root node, pop the stack and generate an SCC
-        if (splitInfo.sccLowLink == splitInfo.sccIndex) {
-            // start a new strongly connected component
-            Label w;
-            Label previous = null;
-            SccRoot newRoot = new SccRoot(this);
-            do {
-                w = stack.pop();
-                w.splitInfo.sccRoot = newRoot;
-                w.splitInfo.sccNext = previous;
-                previous = w;
-            } while (w != this);
-
-            newRoot.next = root.next;
-            root.next = newRoot;
-        };
-        return index;
-    }
-
-    /**
-     * Computes the predecessor graph.
-     * Assumes that this is the first label.
-     */
-    public void computePredecessors() {
-        Label l = this;
-        while (l != null) {
-            Edge s = l.successors;
-            while (s != null) {
-                Edge ld = s.successor.splitInfo.predecessors;
-                Edge nw = new Edge();
-                nw.successor = l;
-                nw.next = ld;
-                s.successor.splitInfo.predecessors = nw;
-                s = s.next;
-            }
-            l = l.successor;
         }
     }
 
