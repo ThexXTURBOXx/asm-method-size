@@ -258,9 +258,8 @@ class SccRoot {
          */
         Label l = first;
         while (l != null) {
-            Edge p = getSplitInfo(l).predecessors;
-            while (p != null) {
-                if (getSplitInfo(p.successor).sccRoot != this) {
+            for (Label p : getSplitInfo(l).predecessors) {
+                if (getSplitInfo(p).sccRoot != this) {
                     if (entry == null) {
                         entry = l;
                         break;
@@ -268,7 +267,6 @@ class SccRoot {
                         return null;
                     }
                 }
-                p = p.next;
             }
             l = getSplitInfo(l).sccNext;
         }

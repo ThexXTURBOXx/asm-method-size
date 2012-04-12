@@ -31,6 +31,8 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 
+import java.util.HashSet;
+
 /**
  * Info attached to a label needed for splitting a large method. See {@link Label Label}.
  *
@@ -39,6 +41,7 @@ import org.objectweb.asm.*;
 class SplitInfo {
     public SplitInfo() {
         this.sccIndex = -1;
+        this.predecessors = new HashSet<Label>();
     }
 
     /**
@@ -68,7 +71,7 @@ class SplitInfo {
     /**
      * Predecessors, i.e. inverse to {@link Label#successors}.
      */
-    Edge predecessors;
+    HashSet<Label> predecessors;
 }
 
 

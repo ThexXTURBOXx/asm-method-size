@@ -140,11 +140,7 @@ final class Split {
         while (l != null) {
             Edge s = l.successors;
             while (s != null) {
-                Edge ld = getSplitInfo(s.successor).predecessors;
-                Edge nw = new Edge();
-                nw.successor = l;
-                nw.next = ld;
-                getSplitInfo(s.successor).predecessors = nw;
+                getSplitInfo(s.successor).predecessors.add(l);
                 s = s.next;
             }
             l = l.successor;

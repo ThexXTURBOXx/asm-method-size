@@ -45,30 +45,12 @@ import junit.framework.TestCase;
  */
 public class LabelPredecessorsTest extends TestCase {
 
-    private Set<Label> edgeSuccessors(Edge e) {
+    private void assertLabels(Set<Label> labels, Label... p) {
         Set<Label> s = new HashSet<Label>();
-        while (e != null) {
-            s.add(e.successor);
-            e = e.next;
+        for (Label l : p) {
+            s.add(l);
         }
-        return s;
-    }
-
-    private void assertLabels(Edge e, Set<Label> predecessors) {
-        assertEquals(predecessors, edgeSuccessors(e));
-    }
-
-    private void assertLabels(Edge e, Label p1) {
-        Set<Label> s = new HashSet<Label>();
-        s.add(p1);
-        assertLabels(e, s);
-    }
-
-    private void assertLabels(Edge e, Label p1, Label p2) {
-        Set<Label> s = new HashSet<Label>();
-        s.add(p1);
-        s.add(p2);
-        assertLabels(e, s);
+        assertEquals(labels, s);
     }
 
     private static Edge makeEdge(Label... label) {
@@ -114,7 +96,7 @@ public class LabelPredecessorsTest extends TestCase {
         computePredecessors(l1);
 
         HashSet<Label> empty = new HashSet<Label>();
-        assertLabels(getSplitInfo(l1).predecessors, empty);
+        assertLabels(getSplitInfo(l1).predecessors);
         assertLabels(getSplitInfo(l2).predecessors, l1);
         assertLabels(getSplitInfo(l3).predecessors, l2);
         assertLabels(getSplitInfo(l4).predecessors, l3);
