@@ -71,6 +71,14 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitCode();
     }
 
+    private <A> void assertSet(Set<A> labels, A... p) {
+        Set<A> s = new HashSet<A>();
+        for (A l : p) {
+            s.add(l);
+        }
+        assertEquals(labels, s);
+    }
+
     private SccRoot findRoot(SccRoot roots, Label l) {
         SccRoot root = roots;
         while (root != null) {
@@ -164,9 +172,8 @@ public class ClassWriterSCCTest extends TestCase {
         s.add(s1);
         s.add(s2);
         endMethod(s);
-        assertSame(getSplitInfo(l1).sccRoot.successors.successor, getSplitInfo(l2).sccRoot.first);
-        assertNull(getSplitInfo(l1).sccRoot.successors.next);
-        assertNull(getSplitInfo(l2).sccRoot.successors);
+        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
+        assertSet(getSplitInfo(l2).sccRoot.successors);
     }
 
    /**
@@ -183,7 +190,7 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         endMethod(s);
-        assertNull(getSplitInfo(l1).sccRoot.successors);
+        assertSet(getSplitInfo(l1).sccRoot.successors);
     }
 
     /**
@@ -213,9 +220,8 @@ public class ClassWriterSCCTest extends TestCase {
         s.add(s1);
         s.add(s2);
         endMethod(s);
-        assertSame(getSplitInfo(l1).sccRoot.successors.successor, getSplitInfo(l4).sccRoot.first);
-        assertNull(getSplitInfo(l1).sccRoot.successors.next);
-        assertNull(getSplitInfo(l4).sccRoot.successors);
+        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
+        assertSet(getSplitInfo(l4).sccRoot.successors);
     }
 
 
@@ -252,9 +258,8 @@ public class ClassWriterSCCTest extends TestCase {
         s.add(s1);
         s.add(s2);
         endMethod(s);
-        assertSame(getSplitInfo(l1).sccRoot.successors.successor, getSplitInfo(l5).sccRoot.first);
-        assertNull(getSplitInfo(l1).sccRoot.successors.next);
-        assertNull(getSplitInfo(l5).sccRoot.successors);
+        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l5).sccRoot);
+        assertSet(getSplitInfo(l5).sccRoot.successors);
     }
 
     /**
@@ -294,9 +299,8 @@ public class ClassWriterSCCTest extends TestCase {
         s.add(s1);
         s.add(s2);
         endMethod(s);
-        assertSame(getSplitInfo(l1).sccRoot.successors.successor, getSplitInfo(l4).sccRoot.first);
-        assertNull(getSplitInfo(l1).sccRoot.successors.next);
-        assertNull(getSplitInfo(l4).sccRoot.successors);
+        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
+        assertSet(getSplitInfo(l4).sccRoot.successors);
     }
 
 
@@ -329,9 +333,8 @@ public class ClassWriterSCCTest extends TestCase {
         s.add(s1);
         s.add(s2);
         endMethod(s);
-        assertSame(getSplitInfo(l1).sccRoot.successors.successor, getSplitInfo(l2).sccRoot.first);
-        assertNull(getSplitInfo(l1).sccRoot.successors.next);
-        assertNull(getSplitInfo(l2).sccRoot.successors);
+        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
+        assertSet(getSplitInfo(l2).sccRoot.successors);
     }
 
 

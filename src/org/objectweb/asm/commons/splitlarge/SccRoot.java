@@ -63,9 +63,9 @@ class SccRoot {
     SccRoot next;
 
     /**
-     * Successors in SCC graph, i.e. their first labels.
+     * Successors in SCC graph.
      */
-    Edge successors;
+    HashSet<SccRoot> successors;
 
     /**
      * Predecessors in SCC graph.
@@ -103,17 +103,13 @@ class SccRoot {
      * Fills the {@link #successors} field of <code>this</code>.
      */
     private void computeSuccessors1() {
-        successors = null;
+        successors = new HashSet<SccRoot>();
         for (Label l : labels) {
             Edge e = l.successors;
             while (e != null) {
                 SccRoot root = getSplitInfo(e.successor).sccRoot;
-                Label rootFirst = root.first;
-                if ((root != this) && !hasLabel(successors, rootFirst)) {
-                    Edge re = new Edge();
-                    re.successor = rootFirst;
-                    re.next = successors;
-                    successors = re;
+                if (root != this) {
+                    successors.add(root);
                 }
                 e = e.next;
             }
@@ -135,12 +131,8 @@ class SccRoot {
      * Fills the {@link #predecessors} field of <code>this</code>.
      */
     private void computePredecessors1() {
-        Edge e = successors;
-        while (e != null) {
-            Label rootFirst = e.successor;
-            SccRoot root = getSplitInfo(rootFirst).sccRoot;
+        for (SccRoot root : successors) {
             root.predecessors.add(this);
-            e = e.next;
         }
     }
      
@@ -166,13 +158,9 @@ class SccRoot {
             return;
         transitiveClosure = new HashSet<SccRoot>();
         transitiveClosure.add(this);
-        Edge e = successors;
-        while (e != null) {
-            Label first = e.successor;
-            SccRoot root = getSplitInfo(first).sccRoot;
+        for (SccRoot root : successors) {
             root.computeTransitiveClosure();
             transitiveClosure.addAll(root.transitiveClosure);
-            e = e.next;
         }
     }
 
