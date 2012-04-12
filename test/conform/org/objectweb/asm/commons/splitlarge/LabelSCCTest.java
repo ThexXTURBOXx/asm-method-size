@@ -57,13 +57,7 @@ public class LabelSCCTest extends TestCase {
     }
 
     private boolean isInRoot(SccRoot root, Label l) {
-        Label c = root.first;
-        while (c != null) {
-            if (c == l)
-                return true;
-            c = getSplitInfo(c).sccNext;
-        }
-        return false;
+        return root.labels.contains(l);
     }
 
     private void assertSCC1(final Set<Label> desired, SccRoot roots) {
@@ -84,10 +78,8 @@ public class LabelSCCTest extends TestCase {
         // check that the sccRoot fields match up
         root = roots;
         while (root != null) {
-            Label l = root.first;
-            while (l != null) {
+            for (Label l : root.labels) {
                 assertSame(root, getSplitInfo(l).sccRoot);
-                l = getSplitInfo(l).sccNext;
             }
             root = root.next;
         }

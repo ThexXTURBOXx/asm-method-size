@@ -43,6 +43,7 @@ class SccRoot {
 
     public SccRoot(Label first) {
         this.first = first;
+        this.labels = new HashSet<Label>();
         this.predecessors = new HashSet<SccRoot>();
     }
 
@@ -50,6 +51,11 @@ class SccRoot {
      * First label of root.
      */
     Label first;
+
+    /**
+     * Labels of this component.
+     */
+    HashSet<Label> labels;
 
     /**
      * Next root of an SCC component.
@@ -97,9 +103,8 @@ class SccRoot {
      * Fills the {@link #successors} field of <code>this</code>.
      */
     private void computeSuccessors1() {
-        Label l = first;
         successors = null;
-        while (l != null) {
+        for (Label l : labels) {
             Edge e = l.successors;
             while (e != null) {
                 SccRoot root = getSplitInfo(e.successor).sccRoot;
@@ -112,9 +117,7 @@ class SccRoot {
                 }
                 e = e.next;
             }
-            l = getSplitInfo(l).sccNext;
         }
-        
     }
 
     /**
@@ -214,11 +217,9 @@ class SccRoot {
     * @param total size of code in this method.
     */
     private void computeSize(int total) {
-        Label l = first;
         size = 0;
-        while (l != null) {
+        for (Label l : labels) {
             size += labelSize(l, total);
-            l = getSplitInfo(l).sccNext;
         }
    }
 
@@ -256,8 +257,7 @@ class SccRoot {
          * First check that there's only one entry point to this
          * component.
          */
-        Label l = first;
-        while (l != null) {
+        for (Label l : labels) {
             for (Label p : getSplitInfo(l).predecessors) {
                 if (getSplitInfo(p).sccRoot != this) {
                     if (entry == null) {
@@ -268,7 +268,6 @@ class SccRoot {
                     }
                 }
             }
-            l = getSplitInfo(l).sccNext;
         }
         if (entry == null) {
             return null;

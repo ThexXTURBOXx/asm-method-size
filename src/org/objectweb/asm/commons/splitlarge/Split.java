@@ -31,6 +31,8 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 
+import java.util.HashSet;
+
 final class Split {
     static SplitInfo getSplitInfo(Label label) {
         return (SplitInfo) label.info;
@@ -115,15 +117,13 @@ final class Split {
         // If l is a root node, pop the stack and generate an SCC
         if (splitInfo.sccLowLink == splitInfo.sccIndex) {
             // start a new strongly connected component
-            Label w;
-            Label previous = null;
             SccRoot newRoot = new SccRoot(l);
+            HashSet<Label> labels = newRoot.labels;
+            Label w;
             do {
                 w = stack.pop();
-                SplitInfo wSplitInfo = getSplitInfo(w);
-                wSplitInfo.sccRoot = newRoot;
-                wSplitInfo.sccNext = previous;
-                previous = w;
+                getSplitInfo(w).sccRoot = newRoot;
+                labels.add(w);
             } while (w != l);
 
             newRoot.next = root.next;

@@ -64,11 +64,6 @@ class SplitInfo {
     SccRoot sccRoot;
 
     /**
-     * Next label in this SCC component.
-     */
-    Label sccNext;
-
-    /**
      * Predecessors, i.e. inverse to {@link Label#successors}.
      */
     HashSet<Label> predecessors;

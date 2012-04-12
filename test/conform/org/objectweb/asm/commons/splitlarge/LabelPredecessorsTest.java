@@ -95,7 +95,6 @@ public class LabelPredecessorsTest extends TestCase {
         initializeSplitInfos(l1);
         computePredecessors(l1);
 
-        HashSet<Label> empty = new HashSet<Label>();
         assertLabels(getSplitInfo(l1).predecessors);
         assertLabels(getSplitInfo(l2).predecessors, l1);
         assertLabels(getSplitInfo(l3).predecessors, l2);
