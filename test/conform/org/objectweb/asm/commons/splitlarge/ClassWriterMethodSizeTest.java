@@ -46,7 +46,33 @@ public class ClassWriterMethodSizeTest extends TestCase {
     protected MethodVisitor mv;
 
     private void startMethod() {
-        this.cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        MethodWriterFactory cwf =
+            new MethodWriterFactory() {
+                public MethodWriter getMethodWriter
+                    (final ClassWriter cw,
+                     final int access,
+                     final String name,
+                     final String desc,
+                     final String signature,
+                     final String[] exceptions,
+                     final boolean computeMaxs,
+                     final boolean computeFrames) {
+                    MethodWriterDelegate cwd =
+                        new MethodWriterDelegate() {
+                            @Override
+                            public int getSize() {
+                                throw new RuntimeException("ClassWriterMethodSizeTest");
+                            }
+                            @Override
+                            public void put(ByteVector out) {
+                            }
+                        };
+                    return new MethodWriter(cw, access, name, desc, signature, exceptions, computeMaxs, computeFrames,
+                                            cwd);
+                }
+                
+            };
+        this.cw = new ClassWriter(ClassWriter.COMPUTE_MAXS, cwf);
         this.cw.visit(Opcodes.V1_1,
                       Opcodes.ACC_PUBLIC,
                       "C",
@@ -108,7 +134,12 @@ public class ClassWriterMethodSizeTest extends TestCase {
             NOP();
             ++i;
         }
-        endMethod();
+        try {
+            endMethod();
+        }
+        catch (RuntimeException e) {
+            assertEquals("ClassWriterMethodSizeTest", e.getMessage());
+        }
     }
 
     /**
@@ -137,7 +168,12 @@ public class ClassWriterMethodSizeTest extends TestCase {
             }
         }
         LABEL(l2);
-        endMethod();
+        try {
+            endMethod();
+        }
+        catch (RuntimeException e) {
+            assertEquals("ClassWriterMethodSizeTest", e.getMessage());
+        }
     }
 
 }

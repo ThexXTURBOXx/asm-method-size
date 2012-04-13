@@ -413,7 +413,7 @@ public class MethodWriter extends MethodVisitor {
      * @param computeFrames <tt>true</tt> if the stack map tables must be
      *        recomputed from scratch.
      */
-    MethodWriter(
+    public MethodWriter(
         final ClassWriter cw,
         final int access,
         final String name,
