@@ -124,12 +124,11 @@ public class ClassWriterSCCTest extends TestCase {
             assertSCC1(s, roots);
     }
 
-    private void endMethod(final Set<Set<Label>> desired) {
+    private SccRoot endMethod() {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
-        SccRoot root = initializeAll(mw.labels, 65536);
-        assertSCC(desired, root);
+        return initializeAll(mw.labels, mw.getCodeSize());
     }
 
     private void LABEL(final Label l) {
@@ -171,7 +170,9 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        endMethod(s);
+        SccRoot root = endMethod();
+
+        assertSCC(s, root);
         assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
         assertSet(getSplitInfo(l2).sccRoot.successors);
     }
@@ -189,7 +190,9 @@ public class ClassWriterSCCTest extends TestCase {
         s1.add(l1);
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
-        endMethod(s);
+        SccRoot root = endMethod();
+
+        assertSCC(s, root);
         assertSet(getSplitInfo(l1).sccRoot.successors);
     }
 
@@ -219,7 +222,9 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        endMethod(s);
+        SccRoot root = endMethod();
+
+        assertSCC(s, root);
         assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
         assertSet(getSplitInfo(l4).sccRoot.successors);
     }
@@ -257,7 +262,9 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        endMethod(s);
+        SccRoot root = endMethod();
+
+        assertSCC(s, root);
         assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l5).sccRoot);
         assertSet(getSplitInfo(l5).sccRoot.successors);
     }
@@ -298,7 +305,10 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        endMethod(s);
+
+        SccRoot root = endMethod();
+
+        assertSCC(s, root);
         assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
         assertSet(getSplitInfo(l4).sccRoot.successors);
     }
@@ -332,7 +342,9 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        endMethod(s);
+        SccRoot root = endMethod();
+
+        assertSCC(s, root);
         assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
         assertSet(getSplitInfo(l2).sccRoot.successors);
     }

@@ -2109,6 +2109,15 @@ public class MethodWriter extends MethodVisitor {
         }
     }
 
+    /**
+     * Gets the size of the code vector.
+     *
+     * @return size of the code vector
+     */
+    public final int getCodeSize() {
+        return code.length;
+    }
+
     // ------------------------------------------------------------------------
     // Utility methods: instruction resizing (used to handle GOTO_W and JSR_W)
     // ------------------------------------------------------------------------

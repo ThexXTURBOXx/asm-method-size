@@ -269,4 +269,63 @@ class SccRoot {
             return entry;
         }
     }
+
+    /**
+     * Find an appropriate split point that will diminish the size of
+     * a closure that's too big.
+     *
+     * @return split method with info about the closure
+     */
+    public SplitMethod findSplitPoint(int maxMethodLength) {
+        for (SccRoot s : successors) {
+            SplitMethod m = s.findSplitPoint(maxMethodLength);
+            if (m != null)
+                return m;
+        }
+        // none have been split
+        if (transitiveClosureSize > maxMethodLength) {
+            Label entry = lookMaxSizeSplitPointSuccessor();
+            if (entry != null) {
+                return new SplitMethod(entry, getSplitInfo(entry).sccRoot.transitiveClosure);
+            }
+        }
+        return null;
+    } 
+
+    /**
+     * Look for a successor of this component that we can split out.
+     *
+     * @return entry point of the component if found, null if not
+     */
+    public Label lookMaxSizeSplitPointSuccessor() {
+        int maxSize = 0;
+        Label maxEntry = null;
+        for (SccRoot s : successors) {
+            Label entry = s.lookForSplitPoint();
+            SccRoot root = getSplitInfo(entry).sccRoot;
+            if (root != null) {
+                if (root.transitiveClosureSize > maxSize) {
+                    maxSize = root.transitiveClosureSize;
+                    maxEntry = entry;
+                }
+            }
+        }
+        return maxEntry;
+    }
+
+    /**
+     * Look for a split point in this component or one of its successors.
+     *
+     * @return entry point of the component if found, null if not
+     */
+    public Label lookForSplitPoint() {
+        Label l = splitPoint();
+        if (l == null) {
+            return lookMaxSizeSplitPointSuccessor();
+        } else {
+            return l;
+        }
+    }
+
+        
 }
