@@ -389,6 +389,11 @@ public class MethodWriter extends MethodVisitor {
      */
     private int maxStackSize;
 
+    /**
+     * Delegate to call for code generation of methods that are too large.
+     */
+    private MethodWriterDelegate tooLargeDelegate;
+
     // ------------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------------
@@ -416,7 +421,8 @@ public class MethodWriter extends MethodVisitor {
         final String signature,
         final String[] exceptions,
         final boolean computeMaxs,
-        final boolean computeFrames)
+        final boolean computeFrames,
+        final MethodWriterDelegate tooLargeDelegate)
     {
         super(Opcodes.ASM4);
         if (cw.firstMethod == null) {
@@ -457,6 +463,7 @@ public class MethodWriter extends MethodVisitor {
             labels.status |= Label.PUSHED;
             visitLabel(labels);
         }
+        this.tooLargeDelegate = tooLargeDelegate;
     }
 
     // ------------------------------------------------------------------------
@@ -1852,7 +1859,52 @@ public class MethodWriter extends MethodVisitor {
         }
         int size = 8;
         if (code.length > 0) {
-            if (code.length > 65536) {
+            if (code.length <= 65536) 
+                tooLargeDelegate = null;
+            else if (tooLargeDelegate != null) {
+                MethodWriterDelegate d = tooLargeDelegate;
+                d.cw = cw;
+                d.access = access;
+                d.name = name;
+                d.desc = desc;
+                d.descriptor = descriptor;
+                d.signature = signature;
+                d.classReaderOffset = classReaderOffset;
+                d.classReaderLength = classReaderLength;
+                d.exceptionCount = exceptionCount;
+                d.exceptions = exceptions;
+                d.anns = anns;
+                d.ianns = ianns;
+                d.panns = panns;
+                d.ipanns = ipanns;
+                d.synthetics = synthetics;
+                d.attrs = attrs;
+                d.code = code;
+                d.maxStack = maxStack;
+                d.maxLocals = maxLocals;
+                d.currentLocals = currentLocals;
+                d.frameCount = frameCount;
+                d.stackMap = stackMap;
+                d.previousFrameOffset = previousFrameOffset;
+                d.previousFrame = previousFrame;
+                d.frameIndex = frameIndex;
+                d.frame = frame;
+                d.handlerCount = handlerCount;
+                d.firstHandler = firstHandler;
+                d.lastHandler = lastHandler;
+                d.localVarCount = localVarCount;
+                d.localVar = localVar;
+                d.localVarTypeCount = localVarTypeCount;
+                d.localVarType = localVarType;
+                d.lineNumberCount = lineNumberCount;
+                d.lineNumber = lineNumber;
+                d.cattrs = cattrs;
+                d.resize = resize;
+                d.subroutines = subroutines;
+                d.labels = labels;
+                d.maxStackSize = maxStackSize;
+                return d.getSize();
+            } else {
                 throw new RuntimeException("Method code too large!");
             }
             cw.newUTF8("Code");
@@ -1940,6 +1992,10 @@ public class MethodWriter extends MethodVisitor {
      *        copied.
      */
     final void put(final ByteVector out) {
+        if (tooLargeDelegate != null) {
+            tooLargeDelegate.put(out);
+            return;
+        }
         int mask = Opcodes.ACC_DEPRECATED
                 | ClassWriter.ACC_SYNTHETIC_ATTRIBUTE
                 | ((access & ClassWriter.ACC_SYNTHETIC_ATTRIBUTE) / (ClassWriter.ACC_SYNTHETIC_ATTRIBUTE / Opcodes.ACC_SYNTHETIC));

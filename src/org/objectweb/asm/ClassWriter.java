@@ -788,7 +788,8 @@ public class ClassWriter extends ClassVisitor {
                                     signature,
                                     exceptions,
                                     computeMaxs,
-                                    computeFrames);
+                                    computeFrames,
+                                    null);
         } else {
             return methodWriterFactory.getMethodWriter(this,
                                                        access,
