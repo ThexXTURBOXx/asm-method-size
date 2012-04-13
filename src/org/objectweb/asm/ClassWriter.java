@@ -489,6 +489,12 @@ public class ClassWriter extends ClassVisitor {
      */
     boolean invalidFrames;
 
+    /**
+     * {@link MethodWriterFactory} for use in {@link
+     * #visitMethod}. Can be null: then we use {@link MethodWriter}.
+     */
+    private MethodWriterFactory methodWriterFactory;
+
     // ------------------------------------------------------------------------
     // Static initializer
     // ------------------------------------------------------------------------
@@ -586,8 +592,10 @@ public class ClassWriter extends ClassVisitor {
      *
      * @param flags option flags that can be used to modify the default behavior
      *        of this class. See {@link #COMPUTE_MAXS}, {@link #COMPUTE_FRAMES}.
+     * @param methodWriterFactory factory for {@link MethodWriter}
+     *        object returned by {@link #visitMethod}.
      */
-    public ClassWriter(final int flags) {
+    public ClassWriter(final int flags, MethodWriterFactory methodWriterFactory) {
         super(Opcodes.ASM4);
         index = 1;
         pool = new ByteVector();
@@ -599,6 +607,18 @@ public class ClassWriter extends ClassVisitor {
         key4 = new Item();
         this.computeMaxs = (flags & COMPUTE_MAXS) != 0;
         this.computeFrames = (flags & COMPUTE_FRAMES) != 0;
+        this.methodWriterFactory = methodWriterFactory;
+    }
+
+    /**
+     * Constructs a new {@link ClassWriter} object, with a
+     * <code>null</code> {@link MethodWriterFactory}.
+     *
+     * @param flags option flags that can be used to modify the default behavior
+     *        of this class. See {@link #COMPUTE_MAXS}, {@link #COMPUTE_FRAMES}.
+     */
+    public ClassWriter(final int flags) {
+        this(flags, null);
     }
 
     /**
@@ -626,11 +646,22 @@ public class ClassWriter extends ClassVisitor {
      *        are copied as is in the new class. This means that the maximum
      *        stack size nor the stack frames will be computed for these
      *        methods</i>. See {@link #COMPUTE_MAXS}, {@link #COMPUTE_FRAMES}.
+     * @param methodWriterFactory factory for {@link MethodWriter}
+     *        object returned by {@link #visitMethod}.
      */
-    public ClassWriter(final ClassReader classReader, final int flags) {
-        this(flags);
+    public ClassWriter(final ClassReader classReader, final int flags, MethodWriterFactory methodWriterFactory) {
+        this(flags, methodWriterFactory);
         classReader.copyPool(this);
         this.cr = classReader;
+    }
+
+    /**
+     * Constructs a new {@link ClassWriter} object and enables
+     * optimizations for "mostly add" bytecode transformations, with a
+     * <code>null</code> {@link MethodWriterFactory}.
+     */
+    public ClassWriter(final ClassReader classReader, final int flags) {
+        this(classReader, flags, null);
     }
 
     // ------------------------------------------------------------------------
@@ -749,14 +780,25 @@ public class ClassWriter extends ClassVisitor {
         final String signature,
         final String[] exceptions)
     {
-        return new MethodWriter(this,
-                access,
-                name,
-                desc,
-                signature,
-                exceptions,
-                computeMaxs,
-                computeFrames);
+        if (methodWriterFactory == null) {
+            return new MethodWriter(this,
+                                    access,
+                                    name,
+                                    desc,
+                                    signature,
+                                    exceptions,
+                                    computeMaxs,
+                                    computeFrames);
+        } else {
+            return methodWriterFactory.getMethodWriter(this,
+                                                       access,
+                                                       name,
+                                                       desc,
+                                                       signature,
+                                                       exceptions,
+                                                       computeMaxs,
+                                                       computeFrames);
+        }
     }
 
     @Override
