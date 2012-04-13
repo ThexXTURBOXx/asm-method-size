@@ -88,6 +88,13 @@ class SccRoot {
      */
     int size = -1;
 
+    void initializeAll(int totalLength) {
+        computeSuccessors();
+        computeTransitiveClosure();
+        computeSizeInfo(totalLength);
+        computePredecessors();
+    }
+
     /**
      * Fills the {@link #successors} field of all roots.
      */
@@ -138,13 +145,12 @@ class SccRoot {
      
 
     /**
-     * Compute all size-relevant information, i.e. set the 
-     * {@link #transitiveClosure}, {@link #size}, and
-     * {@link * #transitiveClosureSize} fields of all SCC components.
+     * Compute all size-relevant information, i.e. set the {@link
+     * #size}, and {@link * #transitiveClosureSize} fields of all SCC
+     * components.
      */
     void computeSizeInfo(int total) {
         computeSizes(total);
-        computeTransitiveClosure();
         computeTransitiveClosureSizes();
     }
 

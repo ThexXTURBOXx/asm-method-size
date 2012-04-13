@@ -128,8 +128,8 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
-        initializeSplitInfos(mw.labels);
-        assertSCC(desired, stronglyConnectedComponents(mw.labels));
+        SccRoot root = initializeAll(mw.labels, 65536);
+        assertSCC(desired, root);
     }
 
     private void LABEL(final Label l) {

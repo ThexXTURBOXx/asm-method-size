@@ -34,12 +34,37 @@ import org.objectweb.asm.*;
 import java.util.HashSet;
 
 final class Split {
+ 
+    /**
+     * Initialize everything needed for performing the splitting.
+     *
+     * @param l first label
+     * @param totalLength total length of the method
+     */
+    static SccRoot initializeAll(Label l, int totalLength) {
+        initializeSplitInfos(l);
+        computePredecessors(l);
+        SccRoot root = stronglyConnectedComponents(l);
+        root.initializeAll(totalLength);
+        return root;
+    }
+
     static SplitInfo getSplitInfo(Label label) {
         return (SplitInfo) label.info;
     }
 
     static void setSplitInfo(Label label, SplitInfo splitInfo) {
         label.info = splitInfo;
+    }
+
+    /**
+     * Initialize the sccIndex field.
+     */
+    static void initializeSplitInfos(Label l) {
+        while (l != null) {
+            setSplitInfo(l, new SplitInfo());
+            l = l.successor;
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -64,18 +89,10 @@ final class Split {
     // ------------------------------------------------------------------------
 
     /**
-     * Initializes the sccIndex field.
-     */
-    static void initializeSplitInfos(Label l) {
-        while (l != null) {
-            setSplitInfo(l, new SplitInfo());
-            l = l.successor;
-        }
-    }
-
-    /**
      * Computes strongly connected components of control-flow graph.
-     * Assumes that this is the first label.
+     *
+     * @param l first label
+     * @return first root
      */
     static SccRoot stronglyConnectedComponents(Label l) {
         // Tarjan's algorithm

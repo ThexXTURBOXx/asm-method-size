@@ -99,11 +99,8 @@ public class LabelSCCTest extends TestCase {
     }
 
     private void assertSCC(Label labels, final Set<Set<Label>> desired) {
-        initializeSplitInfos(labels);
-        SccRoot scc = stronglyConnectedComponents(labels);
-        scc.computeTransitiveClosure();
+        SccRoot scc = initializeAll(labels, 65536);
         assertSCC(desired, scc);
-        computePredecessors(labels);
     }
 
     private static Edge makeEdge(Label... label) {
