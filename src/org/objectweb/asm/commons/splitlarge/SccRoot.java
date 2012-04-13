@@ -252,9 +252,11 @@ class SccRoot {
              * closure.
              */
             for (SccRoot root : transitiveClosure) {
-                for (SccRoot p : root.predecessors) {
-                    if (!transitiveClosure.contains(p)) {
-                        return null;
+                if (root != this) {
+                    for (SccRoot p : root.predecessors) {
+                        if (!transitiveClosure.contains(p)) {
+                            return null;
+                        }
                     }
                 }
             }
