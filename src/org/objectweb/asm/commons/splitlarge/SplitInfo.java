@@ -41,7 +41,6 @@ import java.util.HashSet;
 class SplitInfo {
     public SplitInfo() {
         this.sccIndex = -1;
-        this.predecessors = new HashSet<Label>();
     }
 
     /**
@@ -64,7 +63,15 @@ class SplitInfo {
     SccRoot sccRoot;
 
     /**
-     * Predecessors, i.e. inverse to {@link Label#successors}.
+     * Successors in flowgaph.
+     *
+     * We keep this separately, because {@link Label#successors} may
+     * point to labels not in the labels list.
+     */
+    HashSet<Label> successors;
+
+    /**
+     * Predecessors, i.e. inverse to {@link #successors}.
      */
     HashSet<Label> predecessors;
 }

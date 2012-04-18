@@ -48,7 +48,7 @@ final class Split {
      */
     static SccRoot initializeAll(Label l, int totalLength) {
         initializeSplitInfos(l);
-        computePredecessors(l);
+        computeSuccessorsPredecessors(l);
         SccRoot root = stronglyConnectedComponents(l);
         root.initializeAll(totalLength);
         return root;
@@ -158,17 +158,35 @@ final class Split {
      * Computes the predecessor graph.
      * Assumes that this is the first label.
      */
-     static void computePredecessors(Label l) {
-        while (l != null) {
-            Edge s = l.successors;
-            while (s != null) {
-                getSplitInfo(s.successor).predecessors.add(l);
-                s = s.next;
-            }
-            l = l.successor;
-        }
-    }
+     static void computeSuccessorsPredecessors(Label labels) {
+         {
+             Label l = labels;
+             while (l != null) {
+                 SplitInfo si = getSplitInfo(l);
+                 si.successors = new HashSet<Label>();
+                 si.predecessors = new HashSet<Label>();
+                 Edge s = l.successors;
+                 while (s != null) {
+                     SplitInfo ssi = getSplitInfo(s.successor);
+                     if (ssi != null) {
+                         si.successors.add(s.successor);
+                     }
+                     s = s.next;
+                 }
+                 l = l.successor;
+             }
+         }
+             
 
-
+         {
+             Label l = labels;
+             while (l != null) {
+                 for (Label s : getSplitInfo(l).successors) {
+                     getSplitInfo(s).predecessors.add(l);
+                 }
+                 l = l.successor;
+             }
+         }
+     }
 
 }

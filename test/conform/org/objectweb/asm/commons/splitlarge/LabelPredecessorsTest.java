@@ -93,7 +93,7 @@ public class LabelPredecessorsTest extends TestCase {
         l7.successors = makeEdge(l8);
 
         initializeSplitInfos(l1);
-        computePredecessors(l1);
+        computeSuccessorsPredecessors(l1);
 
         assertLabels(getSplitInfo(l1).predecessors);
         assertLabels(getSplitInfo(l2).predecessors, l1);
