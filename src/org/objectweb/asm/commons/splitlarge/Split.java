@@ -99,19 +99,21 @@ final class Split {
      * @param l first label
      * @return first root
      */
-    static SccRoot stronglyConnectedComponents(Label l) {
+    static SccRoot stronglyConnectedComponents(Label labels) {
         // Tarjan's algorithm
         int index = 0;
         java.util.Stack<Label> stack = new java.util.Stack<Label>();
-        SccRoot dummyRoot = new SccRoot(l); // needed so we can mutate its next field
+        SccRoot dummyRoot = new SccRoot(labels); // needed so we can mutate its next field
+        Label l = labels;
         while (l != null) {
             if (getSplitInfo(l).sccIndex == -1) {
                 index = strongConnect(l, index, stack, dummyRoot);
             }
             l = l.successor;
         }
-        dummyRoot.next.computeSuccessors();
-        return dummyRoot.next;
+        SccRoot realRoot = getSplitInfo(labels).sccRoot;
+        realRoot.computeSuccessors();
+        return realRoot;
     }
 
     static private int strongConnect(Label l, int index, java.util.Stack<Label> stack, SccRoot root) {
