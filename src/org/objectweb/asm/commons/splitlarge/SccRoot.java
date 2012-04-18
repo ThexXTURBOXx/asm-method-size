@@ -112,13 +112,11 @@ class SccRoot {
     private void computeSuccessors1() {
         successors = new HashSet<SccRoot>();
         for (Label l : labels) {
-            Edge e = l.successors;
-            while (e != null) {
-                SccRoot root = getSplitInfo(e.successor).sccRoot;
+            for (Label s : getSplitInfo(l).successors) {
+                SccRoot root = getSplitInfo(s).sccRoot;
                 if (root != this) {
                     successors.add(root);
                 }
-                e = e.next;
             }
         }
     }

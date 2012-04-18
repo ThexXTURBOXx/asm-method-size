@@ -122,9 +122,7 @@ final class Split {
         stack.push(l);
 
         // Consider successors of l
-        Edge e = l.successors;
-        while (e != null) {
-            Label w = e.successor;
+        for (Label w : getSplitInfo(l).successors) {
             if (getSplitInfo(w).sccIndex == -1) {
                 // Successor w has not yet been visited; recurse on it
                 index = strongConnect(w, index, stack, root);
@@ -133,7 +131,6 @@ final class Split {
                 // Successor w is in stack S and hence in the current SCC
                 splitInfo.sccLowLink = Math.min(splitInfo.sccLowLink, getSplitInfo(w).sccIndex);
             }
-            e = e.next;
         }
 
         // If l is a root node, pop the stack and generate an SCC
