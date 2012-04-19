@@ -31,7 +31,7 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 
-import java.util.HashSet;
+import java.util.TreeSet;
 
 final class Split {
 
@@ -43,17 +43,14 @@ final class Split {
     /**
      * Initialize everything needed for performing the splitting.
      *
-     * @param l first label
+     * @param labels first label
      * @param totalLength total length of the method
      */
-    static Scc initializeAll(Label l, int totalLength) {
-        BasicBlock.initializeBasicBlocks(l);
-        BasicBlock.computeSuccessorsPredecessors(l);
-        Scc root = Scc.stronglyConnectedComponents(l);
+    static TreeSet<BasicBlock> initializeAll(Label labels, int totalLength) {
+        TreeSet<BasicBlock> blocks = BasicBlock.computeBasicBlocks(labels, totalLength);
+        Scc root = Scc.stronglyConnectedComponents(blocks);
         root.initializeAll(totalLength);
-        return root;
+        return blocks;
     }
-
-
 
 }

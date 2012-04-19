@@ -90,7 +90,7 @@ public class ClassWriterSCCTest extends TestCase {
     }
 
     private boolean isInRoot(Scc root, Label l) {
-        return root.labels.contains(l);
+        return root.blocks.contains(BasicBlock.get(l));
     }
 
     private void assertSCC1(final Set<Label> desired, Scc roots) {
@@ -111,8 +111,8 @@ public class ClassWriterSCCTest extends TestCase {
         // check that the sccRoot fields match up
         root = roots;
         while (root != null) {
-            for (Label l : root.labels) {
-                assertSame(root, BasicBlock.get(l).sccRoot);
+            for (BasicBlock b : root.blocks) {
+                assertSame(root, b.sccRoot);
             }
             root = root.next;
         }
@@ -127,7 +127,7 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
-        return Split.initializeAll(mw.labels, mw.getCodeSize());
+        return Split.initializeAll(mw.labels, mw.getCodeSize()).first().sccRoot;
     }
 
     private void LABEL(final Label l) {

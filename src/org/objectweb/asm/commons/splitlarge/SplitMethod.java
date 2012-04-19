@@ -29,13 +29,11 @@
  */
 package org.objectweb.asm.commons.splitlarge;
 
-import org.objectweb.asm.*;
-
 import java.util.HashSet;
 
 class SplitMethod {
 
-    public SplitMethod(Label entry, HashSet<Scc> components) {
+    public SplitMethod(BasicBlock entry, HashSet<Scc> components) {
         this.entry = entry;
         this.components = components;
     }
@@ -43,7 +41,7 @@ class SplitMethod {
     /**
      * Entry point
      */
-    Label entry;
+    BasicBlock entry;
 
     /**
      * SCC components that are in the function.

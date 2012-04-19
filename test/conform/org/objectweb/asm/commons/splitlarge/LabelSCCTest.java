@@ -30,11 +30,11 @@
 
 package org.objectweb.asm.commons.splitlarge;
 
-import static org.objectweb.asm.commons.splitlarge.Split.*;
 import org.objectweb.asm.*;
 
 import java.util.Set;
 import java.util.HashSet;
+import java.util.TreeSet;
 
 import junit.framework.TestCase;
 
@@ -53,10 +53,10 @@ public class LabelSCCTest extends TestCase {
         assertEquals(labels, s);
     }
 
-    private Scc findRoot(Scc roots, Label l) {
+    private Scc findRoot(Scc roots, BasicBlock b) {
         Scc root = roots;
         while (root != null) {
-            if (isInRoot(root, l))
+            if (isInRoot(root, b))
                 return root;
             root = root.next;
         }
@@ -64,21 +64,21 @@ public class LabelSCCTest extends TestCase {
         return null;
     }
 
-    private boolean isInRoot(Scc root, Label l) {
-        return root.labels.contains(l);
+    private boolean isInRoot(Scc root, BasicBlock b) {
+        return root.blocks.contains(b);
     }
 
-    private void assertSCC1(final Set<Label> desired, Scc roots) {
+    private void assertSCC1(final Set<BasicBlock> desired, Scc roots) {
         // the labels of this desired root must all be in the same actual root
         Scc desiredRoot = findRoot(roots, desired.iterator().next());
-        for (Label l: desired)
-            assertTrue(isInRoot(desiredRoot, l));
+        for (BasicBlock b: desired)
+            assertTrue(isInRoot(desiredRoot, b));
         // ... and they must be in no other root
         Scc root = roots;
         while (root != null) {
             if (root != desiredRoot) {
-                for (Label l: desired)
-                    assertFalse(isInRoot(root, l));
+                for (BasicBlock b: desired)
+                    assertFalse(isInRoot(root, b));
             }
             root = root.next;
         }
@@ -86,20 +86,20 @@ public class LabelSCCTest extends TestCase {
         // check that the sccRoot fields match up
         root = roots;
         while (root != null) {
-            for (Label l : root.labels) {
-                assertSame(root, BasicBlock.get(l).sccRoot);
+            for (BasicBlock b : root.blocks) {
+                assertSame(root, b.sccRoot);
             }
             root = root.next;
         }
     }
 
-    private void assertSCC(final Set<Set<Label>> desired, Scc roots) {
-        for (Set<Label> s: desired)
+    private void assertSCC(final Set<Set<BasicBlock>> desired, Scc roots) {
+        for (Set<BasicBlock> s: desired)
             assertSCC1(s, roots);
     }
 
     private Scc initialize(Label labels, int size) {
-        return initializeAll(labels, size);
+        return Split.initializeAll(labels, size).first().sccRoot;
     }
 
     private static Edge makeEdge(Label... label) {
@@ -114,58 +114,69 @@ public class LabelSCCTest extends TestCase {
         }
         return e;
     }
+
+    public Label makeLabel(int position) {
+        Label l = new Label();
+        l.position = position;
+        return l;
+    }
+
     
     /**
      * Method with zero real SCCs
      */
     public void testZero() {
-        Label l1 = new Label();
-        l1.position = 0;
-        Label l2 = new Label();
-        l2.position = 5;
+        Label l1 = makeLabel(0);
+        Label l2 = makeLabel(2);
 
         l1.successor = l2;
 
         l1.successors = makeEdge(l2);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l2);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
         Scc scc = initialize(l1, 10);
 
+        BasicBlock b1 = BasicBlock.get(l1);
+        BasicBlock b2 = BasicBlock.get(l2);
+
+        Set<BasicBlock> s1 = new HashSet<BasicBlock>();
+        s1.add(b1);
+        Set<BasicBlock> s2 = new HashSet<BasicBlock>();
+        s2.add(b2);
+        Set<Set<BasicBlock>> s = new HashSet<Set<BasicBlock>>();
+        s.add(s1);
+        s.add(s2);
+
         assertSCC(s, scc);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
-        assertSet(BasicBlock.get(l2).sccRoot.successors);
-        assertNull(BasicBlock.get(l1).sccRoot.splitPoint());
-        assertSame(l2, BasicBlock.get(l2).sccRoot.splitPoint());
+        assertSet(b1.sccRoot.successors, b2.sccRoot);
+        assertSet(b2.sccRoot.successors);
+        assertNull(b1.sccRoot.splitPoint());
+        assertSame(b2, b2.sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(8);
         assertNotNull(m);
-        assertSame(l2, m.entry);
+        assertSame(b2, m.entry);
     }
 
    /**
      * Method with one SCC.
      */
     public void testOne1() {
-        Label l1 = new Label();
-        l1.position = 0;
+        Label l1 = makeLabel(0);
 
         l1.successors = makeEdge(l1);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
         Scc scc = initialize(l1, 10);
 
+        BasicBlock b1 = BasicBlock.get(l1);
+
+        Set<BasicBlock> s1 = new HashSet<BasicBlock>();
+        s1.add(b1);
+        Set<Set<BasicBlock>> s = new HashSet<Set<BasicBlock>>();
+        s.add(s1);
+
         assertSCC(s, scc);
-        assertSet(BasicBlock.get(l1).sccRoot.successors);
-        assertNull(BasicBlock.get(l1).sccRoot.splitPoint());
+        assertSet(b1.sccRoot.successors);
+        assertNull(b1.sccRoot.splitPoint());
 
         assertNull(scc.findSplitPoint(8));
     }
@@ -174,14 +185,10 @@ public class LabelSCCTest extends TestCase {
      * Method with one SCC.
      */
     public void testOne2() {
-        Label l1 = new Label();
-        l1.position = 0;
-        Label l2 = new Label();
-        l2.position = 5;
-        Label l3 = new Label();
-        l3.position = 10;
-        Label l4 = new Label();
-        l4.position = 15;
+        Label l1 = makeLabel(0);
+        Label l2 = makeLabel(5);
+        Label l3 = makeLabel(10);
+        Label l4 = makeLabel(15);
         
         l1.successor = l2;
         l2.successor = l3;
@@ -191,44 +198,45 @@ public class LabelSCCTest extends TestCase {
         l2.successors = makeEdge(l3);
         l3.successors = makeEdge(l1, l4);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l4);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
+        Scc scc = initialize(l1, 20);
+
+        BasicBlock b1 = BasicBlock.get(l1);
+        BasicBlock b2 = BasicBlock.get(l2);
+        BasicBlock b3 = BasicBlock.get(l3);
+        BasicBlock b4 = BasicBlock.get(l4);
+
+        Set<BasicBlock> s1 = new HashSet<BasicBlock>();
+        s1.add(b1);
+        s1.add(b2);
+        s1.add(b3);
+        Set<BasicBlock> s2 = new HashSet<BasicBlock>();
+        s2.add(b4);
+        Set<Set<BasicBlock>> s = new HashSet<Set<BasicBlock>>();
         s.add(s1);
         s.add(s2);
-        Scc scc = initialize(l1, 20);
 
         assertSCC(s, scc);
 
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
-        assertSet(BasicBlock.get(l4).sccRoot.successors);
+        assertSet(b1.sccRoot.successors, b4.sccRoot);
+        assertSet(b4.sccRoot.successors);
 
-        assertNull(BasicBlock.get(l1).sccRoot.splitPoint());
-        assertSame(l4, BasicBlock.get(l4).sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint());
+        assertSame(b4, b4.sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(8);
         assertNotNull(m);
-        assertSame(l4, m.entry);
+        assertSame(b4, m.entry);
     }
 
     /**
      * Method with one SCC.
      */
     public void testOne3() {
-        Label l1 = new Label();
-        l1.position = 0;
-        Label l2 = new Label();
-        l2.position = 5;
-        Label l3 = new Label();
-        l3.position = 10;
-        Label l4 = new Label();
-        l4.position = 15;
-        Label l5 = new Label();
-        l5.position = 20;
+        Label l1 = makeLabel(0);
+        Label l2 = makeLabel(5);
+        Label l3 = makeLabel(10);
+        Label l4 = makeLabel(15);
+        Label l5 = makeLabel(20);
 
         l1.successor = l2;
         l2.successor = l3;
@@ -241,47 +249,48 @@ public class LabelSCCTest extends TestCase {
         l4.successors = makeEdge(l1, l5);
         l5.successors = makeEdge();
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        s1.add(l4);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l5);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
+        Scc scc = initialize(l1, 25);
+
+        BasicBlock b1 = BasicBlock.get(l1);
+        BasicBlock b2 = BasicBlock.get(l2);
+        BasicBlock b3 = BasicBlock.get(l3);
+        BasicBlock b4 = BasicBlock.get(l4);
+        BasicBlock b5 = BasicBlock.get(l5);
+
+        Set<BasicBlock> s1 = new HashSet<BasicBlock>();
+        s1.add(b1);
+        s1.add(b2);
+        s1.add(b3);
+        s1.add(b4);
+        Set<BasicBlock> s2 = new HashSet<BasicBlock>();
+        s2.add(b5);
+        Set<Set<BasicBlock>> s = new HashSet<Set<BasicBlock>>();
         s.add(s1);
         s.add(s2);
-        Scc scc = initialize(l1, 25);
 
         assertSCC(s, scc);
 
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l5).sccRoot);
-        assertSet(BasicBlock.get(l5).sccRoot.successors);
+        assertSet(b1.sccRoot.successors, b5.sccRoot);
+        assertSet(b5.sccRoot.successors);
 
-        assertNull(BasicBlock.get(l1).sccRoot.splitPoint());
-        assertSame(l5, BasicBlock.get(l5).sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint());
+        assertSame(b5, b5.sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(8);
         assertNotNull(m);
-        assertSame(l5, m.entry);
+        assertSame(b5, m.entry);
     }
     
     /**
      * Method with two SCCs.
      */
     public void testTwo1() {
-        Label l1 = new Label();
-        l1.position = 0;
-        Label l2 = new Label();
-        l2.position = 5;
-        Label l3 = new Label();
-        l3.position = 10;
-        Label l4 = new Label();
-        l4.position = 15;
-        Label l5 = new Label();
-        l5.position = 20;
-        Label l6 = new Label();
-        l5.position = 25;
+        Label l1 = makeLabel(0);
+        Label l2 = makeLabel(5);
+        Label l3 = makeLabel(10);
+        Label l4 = makeLabel(15);
+        Label l5 = makeLabel(20);
+        Label l6 = makeLabel(25);
 
         l1.successor = l2;
         l2.successor = l3;
@@ -296,44 +305,48 @@ public class LabelSCCTest extends TestCase {
         l5.successors = makeEdge(l6);
         l6.successors = makeEdge(l4);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l4);
-        s2.add(l5);
-        s2.add(l6);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
+        Scc scc = initialize(l1, 30);
+
+        BasicBlock b1 = BasicBlock.get(l1);
+        BasicBlock b2 = BasicBlock.get(l2);
+        BasicBlock b3 = BasicBlock.get(l3);
+        BasicBlock b4 = BasicBlock.get(l4);
+        BasicBlock b5 = BasicBlock.get(l5);
+        BasicBlock b6 = BasicBlock.get(l6);
+
+        Set<BasicBlock> s1 = new HashSet<BasicBlock>();
+        s1.add(b1);
+        s1.add(b2);
+        s1.add(b3);
+        Set<BasicBlock> s2 = new HashSet<BasicBlock>();
+        s2.add(b4);
+        s2.add(b5);
+        s2.add(b6);
+        Set<Set<BasicBlock>> s = new HashSet<Set<BasicBlock>>();
         s.add(s1);
         s.add(s2);
-        Scc scc = initialize(l1, 30);
 
         assertSCC(s, scc);
 
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
-        assertSet(BasicBlock.get(l4).sccRoot.successors);
+        assertSet(b1.sccRoot.successors, b4.sccRoot);
+        assertSet(b4.sccRoot.successors);
 
-        assertNull(BasicBlock.get(l1).sccRoot.splitPoint());
-        assertSame(l4, BasicBlock.get(l4).sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint());
+        assertSame(b4, b4.sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(20);
         assertNotNull(m);
-        assertSame(l4, m.entry);
+        assertSame(b4, m.entry);
     }
     
     /**
      * Method with two SCCs.
      */
     public void testTwo2() {
-        Label l1 = new Label();
-        l1.position = 0;
-        Label l2 = new Label();
-        l2.position = 5;
-        Label l3 = new Label();
-        l3.position = 10;
-        Label l4 = new Label();
-        l4.position = 15;
+        Label l1 = makeLabel(0);
+        Label l2 = makeLabel(5);
+        Label l3 = makeLabel(10);
+        Label l4 = makeLabel(15);
 
         l1.successor = l2;
         l2.successor = l3;
@@ -344,28 +357,34 @@ public class LabelSCCTest extends TestCase {
         l3.successors = makeEdge(l2, l4);
         l4.successors = makeEdge(l3);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l2);
-        s2.add(l3);
-        s2.add(l4);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
+        Scc scc = initialize(l1, 20);
+
+        BasicBlock b1 = BasicBlock.get(l1);
+        BasicBlock b2 = BasicBlock.get(l2);
+        BasicBlock b3 = BasicBlock.get(l3);
+        BasicBlock b4 = BasicBlock.get(l4);
+
+        Set<BasicBlock> s1 = new HashSet<BasicBlock>();
+        s1.add(b1);
+        Set<BasicBlock> s2 = new HashSet<BasicBlock>();
+        s2.add(b2);
+        s2.add(b3);
+        s2.add(b4);
+        Set<Set<BasicBlock>> s = new HashSet<Set<BasicBlock>>();
         s.add(s1);
         s.add(s2);
-        Scc scc = initialize(l1, 20);
 
         assertSCC(s, scc);
 
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
-        assertSet(BasicBlock.get(l2).sccRoot.successors);
+        assertSet(b1.sccRoot.successors, b2.sccRoot);
+        assertSet(b2.sccRoot.successors);
 
-        assertNull(BasicBlock.get(l1).sccRoot.splitPoint());
-        assertSame(l2, BasicBlock.get(l2).sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint());
+        assertSame(b2, b2.sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(12);
         assertNotNull(m);
-        assertSame(l2, m.entry);
+        assertSame(b2, m.entry);
     }
 
 }

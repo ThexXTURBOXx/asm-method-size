@@ -30,7 +30,6 @@
 
 package org.objectweb.asm.commons.splitlarge;
 
-import static org.objectweb.asm.commons.splitlarge.Split.*;
 import org.objectweb.asm.*;
 
 import java.util.Set;
@@ -45,12 +44,12 @@ import junit.framework.TestCase;
  */
 public class LabelPredecessorsTest extends TestCase {
 
-    private void assertLabels(Set<Label> labels, Label... p) {
-        Set<Label> s = new HashSet<Label>();
-        for (Label l : p) {
+    private void assertBasicBlocks(Set<BasicBlock> blocks, BasicBlock... p) {
+        Set<BasicBlock> s = new HashSet<BasicBlock>();
+        for (BasicBlock l : p) {
             s.add(l);
         }
-        assertEquals(labels, s);
+        assertEquals(s, blocks);
     }
 
     private static Edge makeEdge(Label... label) {
@@ -66,15 +65,21 @@ public class LabelPredecessorsTest extends TestCase {
         return e;
     }
 
+    public Label makeLabel(int position) {
+        Label l = new Label();
+        l.position = position;
+        return l;
+    }
+    
     public void testDag1() {
-        Label l1 = new Label();
-        Label l2 = new Label();
-        Label l3 = new Label();
-        Label l4 = new Label();
-        Label l5 = new Label();
-        Label l6 = new Label();
-        Label l7 = new Label();
-        Label l8 = new Label();
+        Label l1 = makeLabel(1);
+        Label l2 = makeLabel(2);
+        Label l3 = makeLabel(3);
+        Label l4 = makeLabel(4);
+        Label l5 = makeLabel(5);
+        Label l6 = makeLabel(6);
+        Label l7 = makeLabel(7);
+        Label l8 = makeLabel(8);
         
         l1.successor = l2;
         l2.successor = l3;
@@ -92,16 +97,24 @@ public class LabelPredecessorsTest extends TestCase {
         l6.successors = makeEdge();
         l7.successors = makeEdge(l8);
 
-        BasicBlock.initializeBasicBlocks(l1);
-        BasicBlock.computeSuccessorsPredecessors(l1);
+        BasicBlock.computeBasicBlocks(l1, 0);
 
-        assertLabels(BasicBlock.get(l1).predecessors);
-        assertLabels(BasicBlock.get(l2).predecessors, l1);
-        assertLabels(BasicBlock.get(l3).predecessors, l2);
-        assertLabels(BasicBlock.get(l4).predecessors, l3);
-        assertLabels(BasicBlock.get(l5).predecessors, l3);
-        assertLabels(BasicBlock.get(l6).predecessors, l4, l5);
-        assertLabels(BasicBlock.get(l7).predecessors, l5);
-        assertLabels(BasicBlock.get(l8).predecessors, l7);
+        BasicBlock b1 = BasicBlock.get(l1);
+        BasicBlock b2 = BasicBlock.get(l2);
+        BasicBlock b3 = BasicBlock.get(l3);
+        BasicBlock b4 = BasicBlock.get(l4);
+        BasicBlock b5 = BasicBlock.get(l5);
+        BasicBlock b6 = BasicBlock.get(l6);
+        BasicBlock b7 = BasicBlock.get(l7);
+        BasicBlock b8 = BasicBlock.get(l8);
+
+        assertBasicBlocks(b1.predecessors);
+        assertBasicBlocks(b2.predecessors, b1);
+        assertBasicBlocks(b3.predecessors, b2);
+        assertBasicBlocks(b4.predecessors, b3);
+        assertBasicBlocks(b5.predecessors, b3);
+        assertBasicBlocks(b6.predecessors, b4, b5);
+        assertBasicBlocks(b7.predecessors, b5);
+        assertBasicBlocks(b8.predecessors, b7);
     }
 }
