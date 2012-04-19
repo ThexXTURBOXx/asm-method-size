@@ -74,6 +74,75 @@ class BasicBlock {
      * Predecessors, i.e. inverse to {@link #successors}.
      */
     HashSet<Label> predecessors;
+
+    static BasicBlock get(Label label) {
+        return (BasicBlock) label.info;
+    }
+
+    static void set(Label label, BasicBlock basicBlock) {
+        label.info = basicBlock;
+    }
+
+    /**
+     * Initialize the info field.
+     */
+    static void initializeBasicBlocks(Label l) {
+        while (l != null) {
+            set(l, new BasicBlock());
+            l = l.successor;
+        }
+    }
+
+    /**
+     * Computes the predecessor graph.
+     * Assumes that this is the first label.
+     */
+     static void computeSuccessorsPredecessors(Label labels) {
+         {
+             Label l = labels;
+             while (l != null) {
+                 BasicBlock si = get(l);
+                 si.successors = new HashSet<Label>();
+                 si.predecessors = new HashSet<Label>();
+                 Edge s = l.successors;
+                 while (s != null) {
+                     BasicBlock ssi = get(s.successor);
+                     if (ssi != null) {
+                         si.successors.add(s.successor);
+                     }
+                     s = s.next;
+                 }
+                 l = l.successor;
+             }
+         }
+             
+
+         {
+             Label l = labels;
+             while (l != null) {
+                 for (Label s : get(l).successors) {
+                     get(s).predecessors.add(l);
+                 }
+                 l = l.successor;
+             }
+         }
+     }
+
+    /**
+     * Compute size of basic block
+     *
+     * @param total total size of code in this method
+     * @return size of basic block
+     */
+    static int labelSize(Label l, int total) {
+        if (l.successor != null) {
+            return l.successor.position - l.position;
+        } else {
+            return total - l.position;
+        }
+    }
+
+
 }
 
 

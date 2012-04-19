@@ -30,7 +30,6 @@
 package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
-import static org.objectweb.asm.commons.splitlarge.Split.*;
 
 import java.util.HashSet;
 
@@ -88,6 +87,70 @@ class Scc {
      */
     int size = -1;
 
+    // ------------------------------------------------------------------------
+    // Strongly-connected components of control-flow graph
+    // ------------------------------------------------------------------------
+
+    /**
+     * Computes strongly connected components of control-flow graph.
+     *
+     * @param l first label
+     * @return first root
+     */
+    static Scc stronglyConnectedComponents(Label labels) {
+        // Tarjan's algorithm
+        int index = 0;
+        java.util.Stack<Label> stack = new java.util.Stack<Label>();
+        Scc dummyRoot = new Scc(labels); // needed so we can mutate its next field
+        Label l = labels;
+        while (l != null) {
+            if (BasicBlock.get(l).sccIndex == -1) {
+                index = strongConnect(l, index, stack, dummyRoot);
+            }
+            l = l.successor;
+        }
+        Scc realRoot = BasicBlock.get(labels).sccRoot;
+        realRoot.computeSuccessors();
+        return realRoot;
+    }
+
+    static private int strongConnect(Label l, int index, java.util.Stack<Label> stack, Scc root) {
+        BasicBlock basicBlock = BasicBlock.get(l);
+        basicBlock.sccIndex = index;
+        basicBlock.sccLowLink = index;
+        ++index;
+        stack.push(l);
+
+        // Consider successors of l
+        for (Label w : BasicBlock.get(l).successors) {
+            if (BasicBlock.get(w).sccIndex == -1) {
+                // Successor w has not yet been visited; recurse on it
+                index = strongConnect(w, index, stack, root);
+                basicBlock.sccLowLink = Math.min(basicBlock.sccLowLink, BasicBlock.get(w).sccLowLink);
+            } else if (stack.contains(w)) {
+                // Successor w is in stack S and hence in the current SCC
+                basicBlock.sccLowLink = Math.min(basicBlock.sccLowLink, BasicBlock.get(w).sccIndex);
+            }
+        }
+
+        // If l is a root node, pop the stack and generate an SCC
+        if (basicBlock.sccLowLink == basicBlock.sccIndex) {
+            // start a new strongly connected component
+            Scc newRoot = new Scc(l);
+            HashSet<Label> labels = newRoot.labels;
+            Label w;
+            do {
+                w = stack.pop();
+                BasicBlock.get(w).sccRoot = newRoot;
+                labels.add(w);
+            } while (w != l);
+
+            newRoot.next = root.next;
+            root.next = newRoot;
+        };
+        return index;
+    }
+
     void initializeAll(int totalLength) {
         computeSuccessors();
         computeTransitiveClosure();
@@ -112,8 +175,8 @@ class Scc {
     private void computeSuccessors1() {
         successors = new HashSet<Scc>();
         for (Label l : labels) {
-            for (Label s : getBasicBlock(l).successors) {
-                Scc root = getBasicBlock(s).sccRoot;
+            for (Label s : BasicBlock.get(l).successors) {
+                Scc root = BasicBlock.get(s).sccRoot;
                 if (root != this) {
                     successors.add(root);
                 }
@@ -211,7 +274,7 @@ class Scc {
     private void computeSize(int total) {
         size = 0;
         for (Label l : labels) {
-            size += labelSize(l, total);
+            size += BasicBlock.labelSize(l, total);
         }
    }
 
@@ -236,8 +299,8 @@ class Scc {
          * component.
          */
         for (Label l : labels) {
-            for (Label p : getBasicBlock(l).predecessors) {
-                if (getBasicBlock(p).sccRoot != this) {
+            for (Label p : BasicBlock.get(l).predecessors) {
+                if (BasicBlock.get(p).sccRoot != this) {
                     if (entry == null) {
                         entry = l;
                         break;
@@ -284,7 +347,7 @@ class Scc {
         if (transitiveClosureSize > maxMethodLength) {
             Label entry = lookMaxSizeSplitPointSuccessor();
             if (entry != null) {
-                return new SplitMethod(entry, getBasicBlock(entry).sccRoot.transitiveClosure);
+                return new SplitMethod(entry, BasicBlock.get(entry).sccRoot.transitiveClosure);
             }
         }
         return null;
@@ -300,7 +363,7 @@ class Scc {
         Label maxEntry = null;
         for (Scc s : successors) {
             Label entry = s.lookForSplitPoint();
-            Scc root = getBasicBlock(entry).sccRoot;
+            Scc root = BasicBlock.get(entry).sccRoot;
             if (root != null) {
                 if (root.transitiveClosureSize > maxSize) {
                     maxSize = root.transitiveClosureSize;

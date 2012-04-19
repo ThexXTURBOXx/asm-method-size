@@ -31,7 +31,6 @@
 package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
-import static org.objectweb.asm.commons.splitlarge.Split.*;
 
 import java.util.Set;
 import java.util.HashSet;
@@ -113,7 +112,7 @@ public class ClassWriterSCCTest extends TestCase {
         root = roots;
         while (root != null) {
             for (Label l : root.labels) {
-                assertSame(root, getBasicBlock(l).sccRoot);
+                assertSame(root, BasicBlock.get(l).sccRoot);
             }
             root = root.next;
         }
@@ -128,7 +127,7 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
-        return initializeAll(mw.labels, mw.getCodeSize());
+        return Split.initializeAll(mw.labels, mw.getCodeSize());
     }
 
     private void LABEL(final Label l) {
@@ -173,8 +172,8 @@ public class ClassWriterSCCTest extends TestCase {
         Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l2).sccRoot);
-        assertSet(getBasicBlock(l2).sccRoot.successors);
+        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
+        assertSet(BasicBlock.get(l2).sccRoot.successors);
     }
 
    /**
@@ -193,7 +192,7 @@ public class ClassWriterSCCTest extends TestCase {
         Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getBasicBlock(l1).sccRoot.successors);
+        assertSet(BasicBlock.get(l1).sccRoot.successors);
     }
 
     /**
@@ -225,8 +224,8 @@ public class ClassWriterSCCTest extends TestCase {
         Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l4).sccRoot);
-        assertSet(getBasicBlock(l4).sccRoot.successors);
+        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
+        assertSet(BasicBlock.get(l4).sccRoot.successors);
     }
 
 
@@ -265,8 +264,8 @@ public class ClassWriterSCCTest extends TestCase {
         Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l5).sccRoot);
-        assertSet(getBasicBlock(l5).sccRoot.successors);
+        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l5).sccRoot);
+        assertSet(BasicBlock.get(l5).sccRoot.successors);
     }
 
     /**
@@ -309,8 +308,8 @@ public class ClassWriterSCCTest extends TestCase {
         Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l4).sccRoot);
-        assertSet(getBasicBlock(l4).sccRoot.successors);
+        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
+        assertSet(BasicBlock.get(l4).sccRoot.successors);
     }
 
 
@@ -345,8 +344,8 @@ public class ClassWriterSCCTest extends TestCase {
         Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l2).sccRoot);
-        assertSet(getBasicBlock(l2).sccRoot.successors);
+        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
+        assertSet(BasicBlock.get(l2).sccRoot.successors);
     }
 
 

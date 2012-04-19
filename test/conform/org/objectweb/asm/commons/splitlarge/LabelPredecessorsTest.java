@@ -92,16 +92,16 @@ public class LabelPredecessorsTest extends TestCase {
         l6.successors = makeEdge();
         l7.successors = makeEdge(l8);
 
-        initializeBasicBlocks(l1);
-        computeSuccessorsPredecessors(l1);
+        BasicBlock.initializeBasicBlocks(l1);
+        BasicBlock.computeSuccessorsPredecessors(l1);
 
-        assertLabels(getBasicBlock(l1).predecessors);
-        assertLabels(getBasicBlock(l2).predecessors, l1);
-        assertLabels(getBasicBlock(l3).predecessors, l2);
-        assertLabels(getBasicBlock(l4).predecessors, l3);
-        assertLabels(getBasicBlock(l5).predecessors, l3);
-        assertLabels(getBasicBlock(l6).predecessors, l4, l5);
-        assertLabels(getBasicBlock(l7).predecessors, l5);
-        assertLabels(getBasicBlock(l8).predecessors, l7);
+        assertLabels(BasicBlock.get(l1).predecessors);
+        assertLabels(BasicBlock.get(l2).predecessors, l1);
+        assertLabels(BasicBlock.get(l3).predecessors, l2);
+        assertLabels(BasicBlock.get(l4).predecessors, l3);
+        assertLabels(BasicBlock.get(l5).predecessors, l3);
+        assertLabels(BasicBlock.get(l6).predecessors, l4, l5);
+        assertLabels(BasicBlock.get(l7).predecessors, l5);
+        assertLabels(BasicBlock.get(l8).predecessors, l7);
     }
 }
