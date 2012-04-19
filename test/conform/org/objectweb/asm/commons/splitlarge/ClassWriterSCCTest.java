@@ -79,8 +79,8 @@ public class ClassWriterSCCTest extends TestCase {
         assertEquals(labels, s);
     }
 
-    private SccRoot findRoot(SccRoot roots, Label l) {
-        SccRoot root = roots;
+    private Scc findRoot(Scc roots, Label l) {
+        Scc root = roots;
         while (root != null) {
             if (isInRoot(root, l))
                 return root;
@@ -90,17 +90,17 @@ public class ClassWriterSCCTest extends TestCase {
         return null;
     }
 
-    private boolean isInRoot(SccRoot root, Label l) {
+    private boolean isInRoot(Scc root, Label l) {
         return root.labels.contains(l);
     }
 
-    private void assertSCC1(final Set<Label> desired, SccRoot roots) {
+    private void assertSCC1(final Set<Label> desired, Scc roots) {
         // the labels of this desired root must all be in the same actual root
-        SccRoot desiredRoot = findRoot(roots, desired.iterator().next());
+        Scc desiredRoot = findRoot(roots, desired.iterator().next());
         for (Label l: desired)
             assertTrue(isInRoot(desiredRoot, l));
         // ... and they must be in no other root
-        SccRoot root = roots;
+        Scc root = roots;
         while (root != null) {
             if (root != desiredRoot) {
                 for (Label l: desired)
@@ -113,18 +113,18 @@ public class ClassWriterSCCTest extends TestCase {
         root = roots;
         while (root != null) {
             for (Label l : root.labels) {
-                assertSame(root, getSplitInfo(l).sccRoot);
+                assertSame(root, getBasicBlock(l).sccRoot);
             }
             root = root.next;
         }
     }
 
-    private void assertSCC(final Set<Set<Label>> desired, SccRoot roots) {
+    private void assertSCC(final Set<Set<Label>> desired, Scc roots) {
         for (Set<Label> s: desired)
             assertSCC1(s, roots);
     }
 
-    private SccRoot endMethod() {
+    private Scc endMethod() {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
@@ -170,11 +170,11 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot root = endMethod();
+        Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
-        assertSet(getSplitInfo(l2).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l2).sccRoot);
+        assertSet(getBasicBlock(l2).sccRoot.successors);
     }
 
    /**
@@ -190,10 +190,10 @@ public class ClassWriterSCCTest extends TestCase {
         s1.add(l1);
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
-        SccRoot root = endMethod();
+        Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getSplitInfo(l1).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors);
     }
 
     /**
@@ -222,11 +222,11 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot root = endMethod();
+        Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
-        assertSet(getSplitInfo(l4).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l4).sccRoot);
+        assertSet(getBasicBlock(l4).sccRoot.successors);
     }
 
 
@@ -262,11 +262,11 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot root = endMethod();
+        Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l5).sccRoot);
-        assertSet(getSplitInfo(l5).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l5).sccRoot);
+        assertSet(getBasicBlock(l5).sccRoot.successors);
     }
 
     /**
@@ -306,11 +306,11 @@ public class ClassWriterSCCTest extends TestCase {
         s.add(s1);
         s.add(s2);
 
-        SccRoot root = endMethod();
+        Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
-        assertSet(getSplitInfo(l4).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l4).sccRoot);
+        assertSet(getBasicBlock(l4).sccRoot.successors);
     }
 
 
@@ -342,11 +342,11 @@ public class ClassWriterSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot root = endMethod();
+        Scc root = endMethod();
 
         assertSCC(s, root);
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
-        assertSet(getSplitInfo(l2).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l2).sccRoot);
+        assertSet(getBasicBlock(l2).sccRoot.successors);
     }
 
 

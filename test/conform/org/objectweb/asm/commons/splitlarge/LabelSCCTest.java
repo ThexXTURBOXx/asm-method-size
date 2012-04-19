@@ -53,8 +53,8 @@ public class LabelSCCTest extends TestCase {
         assertEquals(labels, s);
     }
 
-    private SccRoot findRoot(SccRoot roots, Label l) {
-        SccRoot root = roots;
+    private Scc findRoot(Scc roots, Label l) {
+        Scc root = roots;
         while (root != null) {
             if (isInRoot(root, l))
                 return root;
@@ -64,17 +64,17 @@ public class LabelSCCTest extends TestCase {
         return null;
     }
 
-    private boolean isInRoot(SccRoot root, Label l) {
+    private boolean isInRoot(Scc root, Label l) {
         return root.labels.contains(l);
     }
 
-    private void assertSCC1(final Set<Label> desired, SccRoot roots) {
+    private void assertSCC1(final Set<Label> desired, Scc roots) {
         // the labels of this desired root must all be in the same actual root
-        SccRoot desiredRoot = findRoot(roots, desired.iterator().next());
+        Scc desiredRoot = findRoot(roots, desired.iterator().next());
         for (Label l: desired)
             assertTrue(isInRoot(desiredRoot, l));
         // ... and they must be in no other root
-        SccRoot root = roots;
+        Scc root = roots;
         while (root != null) {
             if (root != desiredRoot) {
                 for (Label l: desired)
@@ -87,18 +87,18 @@ public class LabelSCCTest extends TestCase {
         root = roots;
         while (root != null) {
             for (Label l : root.labels) {
-                assertSame(root, getSplitInfo(l).sccRoot);
+                assertSame(root, getBasicBlock(l).sccRoot);
             }
             root = root.next;
         }
     }
 
-    private void assertSCC(final Set<Set<Label>> desired, SccRoot roots) {
+    private void assertSCC(final Set<Set<Label>> desired, Scc roots) {
         for (Set<Label> s: desired)
             assertSCC1(s, roots);
     }
 
-    private SccRoot initialize(Label labels, int size) {
+    private Scc initialize(Label labels, int size) {
         return initializeAll(labels, size);
     }
 
@@ -135,13 +135,13 @@ public class LabelSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot scc = initialize(l1, 10);
+        Scc scc = initialize(l1, 10);
 
         assertSCC(s, scc);
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
-        assertSet(getSplitInfo(l2).sccRoot.successors);
-        assertNull(getSplitInfo(l1).sccRoot.splitPoint());
-        assertSame(l2, getSplitInfo(l2).sccRoot.splitPoint());
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l2).sccRoot);
+        assertSet(getBasicBlock(l2).sccRoot.successors);
+        assertNull(getBasicBlock(l1).sccRoot.splitPoint());
+        assertSame(l2, getBasicBlock(l2).sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(8);
         assertNotNull(m);
@@ -161,11 +161,11 @@ public class LabelSCCTest extends TestCase {
         s1.add(l1);
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
-        SccRoot scc = initialize(l1, 10);
+        Scc scc = initialize(l1, 10);
 
         assertSCC(s, scc);
-        assertSet(getSplitInfo(l1).sccRoot.successors);
-        assertNull(getSplitInfo(l1).sccRoot.splitPoint());
+        assertSet(getBasicBlock(l1).sccRoot.successors);
+        assertNull(getBasicBlock(l1).sccRoot.splitPoint());
 
         assertNull(scc.findSplitPoint(8));
     }
@@ -200,15 +200,15 @@ public class LabelSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot scc = initialize(l1, 20);
+        Scc scc = initialize(l1, 20);
 
         assertSCC(s, scc);
 
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
-        assertSet(getSplitInfo(l4).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l4).sccRoot);
+        assertSet(getBasicBlock(l4).sccRoot.successors);
 
-        assertNull(getSplitInfo(l1).sccRoot.splitPoint());
-        assertSame(l4, getSplitInfo(l4).sccRoot.splitPoint());
+        assertNull(getBasicBlock(l1).sccRoot.splitPoint());
+        assertSame(l4, getBasicBlock(l4).sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(8);
         assertNotNull(m);
@@ -251,15 +251,15 @@ public class LabelSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot scc = initialize(l1, 25);
+        Scc scc = initialize(l1, 25);
 
         assertSCC(s, scc);
 
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l5).sccRoot);
-        assertSet(getSplitInfo(l5).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l5).sccRoot);
+        assertSet(getBasicBlock(l5).sccRoot.successors);
 
-        assertNull(getSplitInfo(l1).sccRoot.splitPoint());
-        assertSame(l5, getSplitInfo(l5).sccRoot.splitPoint());
+        assertNull(getBasicBlock(l1).sccRoot.splitPoint());
+        assertSame(l5, getBasicBlock(l5).sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(8);
         assertNotNull(m);
@@ -307,15 +307,15 @@ public class LabelSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot scc = initialize(l1, 30);
+        Scc scc = initialize(l1, 30);
 
         assertSCC(s, scc);
 
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l4).sccRoot);
-        assertSet(getSplitInfo(l4).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l4).sccRoot);
+        assertSet(getBasicBlock(l4).sccRoot.successors);
 
-        assertNull(getSplitInfo(l1).sccRoot.splitPoint());
-        assertSame(l4, getSplitInfo(l4).sccRoot.splitPoint());
+        assertNull(getBasicBlock(l1).sccRoot.splitPoint());
+        assertSame(l4, getBasicBlock(l4).sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(20);
         assertNotNull(m);
@@ -353,15 +353,15 @@ public class LabelSCCTest extends TestCase {
         Set<Set<Label>> s = new HashSet<Set<Label>>();
         s.add(s1);
         s.add(s2);
-        SccRoot scc = initialize(l1, 20);
+        Scc scc = initialize(l1, 20);
 
         assertSCC(s, scc);
 
-        assertSet(getSplitInfo(l1).sccRoot.successors, getSplitInfo(l2).sccRoot);
-        assertSet(getSplitInfo(l2).sccRoot.successors);
+        assertSet(getBasicBlock(l1).sccRoot.successors, getBasicBlock(l2).sccRoot);
+        assertSet(getBasicBlock(l2).sccRoot.successors);
 
-        assertNull(getSplitInfo(l1).sccRoot.splitPoint());
-        assertSame(l2, getSplitInfo(l2).sccRoot.splitPoint());
+        assertNull(getBasicBlock(l1).sccRoot.splitPoint());
+        assertSame(l2, getBasicBlock(l2).sccRoot.splitPoint());
 
         SplitMethod m = scc.findSplitPoint(12);
         assertNotNull(m);

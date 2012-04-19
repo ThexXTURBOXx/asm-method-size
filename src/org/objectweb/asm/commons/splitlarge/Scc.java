@@ -35,16 +35,16 @@ import static org.objectweb.asm.commons.splitlarge.Split.*;
 import java.util.HashSet;
 
 /**
- * Root of SCC graph.
+ * Component of SCC graph.
  *
  * @author Mike Sperber
  */
-class SccRoot {
+class Scc {
 
-    public SccRoot(Label first) {
+    public Scc(Label first) {
         this.first = first;
         this.labels = new HashSet<Label>();
-        this.predecessors = new HashSet<SccRoot>();
+        this.predecessors = new HashSet<Scc>();
     }
 
     /**
@@ -60,23 +60,23 @@ class SccRoot {
     /**
      * Next root of an SCC component.
      */
-    SccRoot next;
+    Scc next;
 
     /**
      * Successors in SCC graph.
      */
-    HashSet<SccRoot> successors;
+    HashSet<Scc> successors;
 
     /**
      * Predecessors in SCC graph.
      */
-    HashSet<SccRoot> predecessors;
+    HashSet<Scc> predecessors;
 
     /**
      * Transitive closure of the the successors of this node,
      * including this one.
      */
-    HashSet<SccRoot> transitiveClosure;
+    HashSet<Scc> transitiveClosure;
 
     /**
      * Size of the basic blocks in the transitive closure of this component.
@@ -99,7 +99,7 @@ class SccRoot {
      * Fills the {@link #successors} field of all roots.
      */
     void computeSuccessors() {
-        SccRoot r = this;
+        Scc r = this;
         while (r != null) {
             r.computeSuccessors1();
             r = r.next;
@@ -110,10 +110,10 @@ class SccRoot {
      * Fills the {@link #successors} field of <code>this</code>.
      */
     private void computeSuccessors1() {
-        successors = new HashSet<SccRoot>();
+        successors = new HashSet<Scc>();
         for (Label l : labels) {
-            for (Label s : getSplitInfo(l).successors) {
-                SccRoot root = getSplitInfo(s).sccRoot;
+            for (Label s : getBasicBlock(l).successors) {
+                Scc root = getBasicBlock(s).sccRoot;
                 if (root != this) {
                     successors.add(root);
                 }
@@ -125,7 +125,7 @@ class SccRoot {
      * Fills the {@link #predecessors} field of all roots.
      */
     void computePredecessors() {
-        SccRoot r = this;
+        Scc r = this;
         while (r != null) {
             r.computePredecessors1();
             r = r.next;
@@ -136,7 +136,7 @@ class SccRoot {
      * Fills the {@link #predecessors} field of <code>this</code>.
      */
     private void computePredecessors1() {
-        for (SccRoot root : successors) {
+        for (Scc root : successors) {
             root.predecessors.add(this);
         }
     }
@@ -160,9 +160,9 @@ class SccRoot {
      void computeTransitiveClosure() {
         if (transitiveClosure != null)
             return;
-        transitiveClosure = new HashSet<SccRoot>();
+        transitiveClosure = new HashSet<Scc>();
         transitiveClosure.add(this);
-        for (SccRoot root : successors) {
+        for (Scc root : successors) {
             root.computeTransitiveClosure();
             transitiveClosure.addAll(root.transitiveClosure);
         }
@@ -172,7 +172,7 @@ class SccRoot {
      * Compute the sizes of the transitive closures in all SCC components.
      */
     void computeTransitiveClosureSizes() {
-        SccRoot root = this;
+        Scc root = this;
         while (root != null) {
             root.computeTransitiveClosureSize();
             root = root.next;
@@ -185,7 +185,7 @@ class SccRoot {
      */
     private void computeTransitiveClosureSize() {
         transitiveClosureSize = 0;
-        for (SccRoot root : transitiveClosure) {
+        for (Scc root : transitiveClosure) {
             transitiveClosureSize += root.size;
         }
     }
@@ -195,7 +195,7 @@ class SccRoot {
      * {@link #size} fields.
      */
     void computeSizes(int total) {
-        SccRoot root = this;
+        Scc root = this;
         while (root != null) {
             root.computeSize(total);
             root = root.next;
@@ -223,7 +223,7 @@ class SccRoot {
      * predecessors within the component except for one, and that
      * a corresponding criterion for the transitive closure holds.
      *
-     * This assumes that {@link SplitInfo#predecessors} and {@link
+     * This assumes that {@link BasicBlock#predecessors} and {@link
      * #predecessors} is set.
      *
      * @return the entry basic block if it is, null if it isn't or if
@@ -236,8 +236,8 @@ class SccRoot {
          * component.
          */
         for (Label l : labels) {
-            for (Label p : getSplitInfo(l).predecessors) {
-                if (getSplitInfo(p).sccRoot != this) {
+            for (Label p : getBasicBlock(l).predecessors) {
+                if (getBasicBlock(p).sccRoot != this) {
                     if (entry == null) {
                         entry = l;
                         break;
@@ -255,9 +255,9 @@ class SccRoot {
              * closure have only predecessors within the transitive
              * closure.
              */
-            for (SccRoot root : transitiveClosure) {
+            for (Scc root : transitiveClosure) {
                 if (root != this) {
-                    for (SccRoot p : root.predecessors) {
+                    for (Scc p : root.predecessors) {
                         if (!transitiveClosure.contains(p)) {
                             return null;
                         }
@@ -275,7 +275,7 @@ class SccRoot {
      * @return split method with info about the closure
      */
     public SplitMethod findSplitPoint(int maxMethodLength) {
-        for (SccRoot s : successors) {
+        for (Scc s : successors) {
             SplitMethod m = s.findSplitPoint(maxMethodLength);
             if (m != null)
                 return m;
@@ -284,7 +284,7 @@ class SccRoot {
         if (transitiveClosureSize > maxMethodLength) {
             Label entry = lookMaxSizeSplitPointSuccessor();
             if (entry != null) {
-                return new SplitMethod(entry, getSplitInfo(entry).sccRoot.transitiveClosure);
+                return new SplitMethod(entry, getBasicBlock(entry).sccRoot.transitiveClosure);
             }
         }
         return null;
@@ -298,9 +298,9 @@ class SccRoot {
     public Label lookMaxSizeSplitPointSuccessor() {
         int maxSize = 0;
         Label maxEntry = null;
-        for (SccRoot s : successors) {
+        for (Scc s : successors) {
             Label entry = s.lookForSplitPoint();
-            SccRoot root = getSplitInfo(entry).sccRoot;
+            Scc root = getBasicBlock(entry).sccRoot;
             if (root != null) {
                 if (root.transitiveClosureSize > maxSize) {
                     maxSize = root.transitiveClosureSize;

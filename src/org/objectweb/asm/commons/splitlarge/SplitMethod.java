@@ -35,7 +35,7 @@ import java.util.HashSet;
 
 class SplitMethod {
 
-    public SplitMethod(Label entry, HashSet<SccRoot> components) {
+    public SplitMethod(Label entry, HashSet<Scc> components) {
         this.entry = entry;
         this.components = components;
     }
@@ -48,5 +48,5 @@ class SplitMethod {
     /**
      * SCC components that are in the function.
      */
-    HashSet<SccRoot> components;
+    HashSet<Scc> components;
 }

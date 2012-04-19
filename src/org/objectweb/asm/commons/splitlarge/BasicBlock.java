@@ -38,8 +38,8 @@ import java.util.HashSet;
  *
  * @author Mike Sperber
  */
-class SplitInfo {
-    public SplitInfo() {
+class BasicBlock {
+    public BasicBlock() {
         this.sccIndex = -1;
     }
 
@@ -60,7 +60,7 @@ class SplitInfo {
     /**
      * Root of this SCC component.
      */
-    SccRoot sccRoot;
+    Scc sccRoot;
 
     /**
      * Successors in flowgaph.

@@ -46,28 +46,28 @@ final class Split {
      * @param l first label
      * @param totalLength total length of the method
      */
-    static SccRoot initializeAll(Label l, int totalLength) {
-        initializeSplitInfos(l);
+    static Scc initializeAll(Label l, int totalLength) {
+        initializeBasicBlocks(l);
         computeSuccessorsPredecessors(l);
-        SccRoot root = stronglyConnectedComponents(l);
+        Scc root = stronglyConnectedComponents(l);
         root.initializeAll(totalLength);
         return root;
     }
 
-    static SplitInfo getSplitInfo(Label label) {
-        return (SplitInfo) label.info;
+    static BasicBlock getBasicBlock(Label label) {
+        return (BasicBlock) label.info;
     }
 
-    static void setSplitInfo(Label label, SplitInfo splitInfo) {
-        label.info = splitInfo;
+    static void setBasicBlock(Label label, BasicBlock basicBlock) {
+        label.info = basicBlock;
     }
 
     /**
-     * Initialize the sccIndex field.
+     * Initialize the info field.
      */
-    static void initializeSplitInfos(Label l) {
+    static void initializeBasicBlocks(Label l) {
         while (l != null) {
-            setSplitInfo(l, new SplitInfo());
+            setBasicBlock(l, new BasicBlock());
             l = l.successor;
         }
     }
@@ -99,51 +99,51 @@ final class Split {
      * @param l first label
      * @return first root
      */
-    static SccRoot stronglyConnectedComponents(Label labels) {
+    static Scc stronglyConnectedComponents(Label labels) {
         // Tarjan's algorithm
         int index = 0;
         java.util.Stack<Label> stack = new java.util.Stack<Label>();
-        SccRoot dummyRoot = new SccRoot(labels); // needed so we can mutate its next field
+        Scc dummyRoot = new Scc(labels); // needed so we can mutate its next field
         Label l = labels;
         while (l != null) {
-            if (getSplitInfo(l).sccIndex == -1) {
+            if (getBasicBlock(l).sccIndex == -1) {
                 index = strongConnect(l, index, stack, dummyRoot);
             }
             l = l.successor;
         }
-        SccRoot realRoot = getSplitInfo(labels).sccRoot;
+        Scc realRoot = getBasicBlock(labels).sccRoot;
         realRoot.computeSuccessors();
         return realRoot;
     }
 
-    static private int strongConnect(Label l, int index, java.util.Stack<Label> stack, SccRoot root) {
-        SplitInfo splitInfo = getSplitInfo(l);
-        splitInfo.sccIndex = index;
-        splitInfo.sccLowLink = index;
+    static private int strongConnect(Label l, int index, java.util.Stack<Label> stack, Scc root) {
+        BasicBlock basicBlock = getBasicBlock(l);
+        basicBlock.sccIndex = index;
+        basicBlock.sccLowLink = index;
         ++index;
         stack.push(l);
 
         // Consider successors of l
-        for (Label w : getSplitInfo(l).successors) {
-            if (getSplitInfo(w).sccIndex == -1) {
+        for (Label w : getBasicBlock(l).successors) {
+            if (getBasicBlock(w).sccIndex == -1) {
                 // Successor w has not yet been visited; recurse on it
                 index = strongConnect(w, index, stack, root);
-                splitInfo.sccLowLink = Math.min(splitInfo.sccLowLink, getSplitInfo(w).sccLowLink);
+                basicBlock.sccLowLink = Math.min(basicBlock.sccLowLink, getBasicBlock(w).sccLowLink);
             } else if (stack.contains(w)) {
                 // Successor w is in stack S and hence in the current SCC
-                splitInfo.sccLowLink = Math.min(splitInfo.sccLowLink, getSplitInfo(w).sccIndex);
+                basicBlock.sccLowLink = Math.min(basicBlock.sccLowLink, getBasicBlock(w).sccIndex);
             }
         }
 
         // If l is a root node, pop the stack and generate an SCC
-        if (splitInfo.sccLowLink == splitInfo.sccIndex) {
+        if (basicBlock.sccLowLink == basicBlock.sccIndex) {
             // start a new strongly connected component
-            SccRoot newRoot = new SccRoot(l);
+            Scc newRoot = new Scc(l);
             HashSet<Label> labels = newRoot.labels;
             Label w;
             do {
                 w = stack.pop();
-                getSplitInfo(w).sccRoot = newRoot;
+                getBasicBlock(w).sccRoot = newRoot;
                 labels.add(w);
             } while (w != l);
 
@@ -161,12 +161,12 @@ final class Split {
          {
              Label l = labels;
              while (l != null) {
-                 SplitInfo si = getSplitInfo(l);
+                 BasicBlock si = getBasicBlock(l);
                  si.successors = new HashSet<Label>();
                  si.predecessors = new HashSet<Label>();
                  Edge s = l.successors;
                  while (s != null) {
-                     SplitInfo ssi = getSplitInfo(s.successor);
+                     BasicBlock ssi = getBasicBlock(s.successor);
                      if (ssi != null) {
                          si.successors.add(s.successor);
                      }
@@ -180,8 +180,8 @@ final class Split {
          {
              Label l = labels;
              while (l != null) {
-                 for (Label s : getSplitInfo(l).successors) {
-                     getSplitInfo(s).predecessors.add(l);
+                 for (Label s : getBasicBlock(l).successors) {
+                     getBasicBlock(s).predecessors.add(l);
                  }
                  l = l.successor;
              }
