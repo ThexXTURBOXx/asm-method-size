@@ -149,10 +149,10 @@ class Scc {
         return index;
     }
 
-    void initializeAll(int totalLength) {
+    void initializeAll() {
         computeSuccessors();
         computeTransitiveClosure();
-        computeSizeInfo(totalLength);
+        computeSizeInfo();
         computePredecessors();
     }
 
@@ -208,8 +208,8 @@ class Scc {
      * #size}, and {@link * #transitiveClosureSize} fields of all SCC
      * components.
      */
-    void computeSizeInfo(int total) {
-        computeSizes(total);
+    void computeSizeInfo() {
+        computeSizes();
         computeTransitiveClosureSizes();
     }
 
@@ -255,10 +255,10 @@ class Scc {
      * Compute the sizes of all SCC components, and set their
      * {@link #size} fields.
      */
-    void computeSizes(int total) {
+    void computeSizes() {
         Scc root = this;
         while (root != null) {
-            root.computeSize(total);
+            root.computeSize();
             root = root.next;
         }
     }
@@ -269,7 +269,7 @@ class Scc {
     *
     * @param total size of code in this method.
     */
-    private void computeSize(int total) {
+    private void computeSize() {
         size = 0;
         for (BasicBlock b : blocks) {
             size += b.size;
