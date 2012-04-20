@@ -37,34 +37,34 @@ public abstract class MethodWriterDelegate {
     /**
      * The class writer to which this method must be added.
      */
-    ClassWriter cw;
+    protected ClassWriter cw;
 
     /**
      * Access flags of this method.
      */
-    int access;
+    protected int access;
 
     /**
      * The index of the constant pool item that contains the name of this
      * method.
      */
-    int name;
+    protected int name;
 
     /**
      * The index of the constant pool item that contains the descriptor of this
      * method.
      */
-    int desc;
+    protected int desc;
 
     /**
      * The descriptor of this method.
      */
-    String descriptor;
+    protected String descriptor;
 
     /**
      * The signature of this method.
      */
-    String signature;
+    protected String signature;
 
     /**
      * If not zero, indicates that the code of this method must be copied from
@@ -72,7 +72,7 @@ public abstract class MethodWriterDelegate {
      * precisely, this field gives the index of the first byte to copied from
      * <code>cw.cr.b</code>.
      */
-    int classReaderOffset;
+    protected int classReaderOffset;
 
     /**
      * If not zero, indicates that the code of this method must be copied from
@@ -80,104 +80,104 @@ public abstract class MethodWriterDelegate {
      * precisely, this field gives the number of bytes to copied from
      * <code>cw.cr.b</code>.
      */
-    int classReaderLength;
+    protected int classReaderLength;
 
     /**
      * Number of exceptions that can be thrown by this method.
      */
-    int exceptionCount;
+    protected int exceptionCount;
 
     /**
      * The exceptions that can be thrown by this method. More precisely, this
      * array contains the indexes of the constant pool items that contain the
      * internal names of these exception classes.
      */
-    int[] exceptions;
+    protected int[] exceptions;
 
     /**
      * The annotation default attribute of this method. May be <tt>null</tt>.
      */
-    ByteVector annd;
+    protected ByteVector annd;
 
     /**
      * The runtime visible annotations of this method. May be <tt>null</tt>.
      */
-    AnnotationWriter anns;
+    protected AnnotationWriter anns;
 
     /**
      * The runtime invisible annotations of this method. May be <tt>null</tt>.
      */
-    AnnotationWriter ianns;
+    protected AnnotationWriter ianns;
 
     /**
      * The runtime visible parameter annotations of this method. May be
      * <tt>null</tt>.
      */
-    AnnotationWriter[] panns;
+    protected AnnotationWriter[] panns;
 
     /**
      * The runtime invisible parameter annotations of this method. May be
      * <tt>null</tt>.
      */
-    AnnotationWriter[] ipanns;
+    protected AnnotationWriter[] ipanns;
 
     /**
      * The number of synthetic parameters of this method.
      */
-    int synthetics;
+    protected int synthetics;
 
     /**
      * The non standard attributes of the method.
      */
-    Attribute attrs;
+    protected Attribute attrs;
 
     /**
      * The bytecode of this method.
      */
-    ByteVector code = new ByteVector();
+    protected ByteVector code;
 
     /**
      * Maximum stack size of this method.
      */
-    int maxStack;
+    protected int maxStack;
 
     /**
      * Maximum number of local variables for this method.
      */
-    int maxLocals;
+    protected int maxLocals;
 
     /**
      *  Number of local variables in the current stack map frame.
      */
-    int currentLocals;
+    protected int currentLocals;
 
     /**
      * Number of stack map frames in the StackMapTable attribute.
      */
-    int frameCount;
+    protected int frameCount;
 
     /**
      * The StackMapTable attribute.
      */
-    ByteVector stackMap;
+    protected ByteVector stackMap;
 
     /**
      * The offset of the last frame that was written in the StackMapTable
      * attribute.
      */
-    int previousFrameOffset;
+    protected int previousFrameOffset;
 
     /**
      * The last frame that was written in the StackMapTable attribute.
      *
      * @see #frame
      */
-    int[] previousFrame;
+    protected int[] previousFrame;
 
     /**
      * Index of the next element to be added in {@link #frame}.
      */
-    int frameIndex;
+    protected int frameIndex;
 
     /**
      * The current stack map frame. The first element contains the offset of the
@@ -188,67 +188,67 @@ public abstract class MethodWriterDelegate {
      * nStack, frame[3] = nLocal. All types are encoded as integers, with the
      * same format as the one used in {@link Label}, but limited to BASE types.
      */
-    int[] frame;
+    protected int[] frame;
 
     /**
      * Number of elements in the exception handler list.
      */
-    int handlerCount;
+    protected int handlerCount;
 
     /**
      * The first element in the exception handler list.
      */
-    Handler firstHandler;
+    protected Handler firstHandler;
 
     /**
      * The last element in the exception handler list.
      */
-    Handler lastHandler;
+    protected Handler lastHandler;
 
     /**
      * Number of entries in the LocalVariableTable attribute.
      */
-    int localVarCount;
+    protected int localVarCount;
 
     /**
      * The LocalVariableTable attribute.
      */
-    ByteVector localVar;
+    protected ByteVector localVar;
 
     /**
      * Number of entries in the LocalVariableTypeTable attribute.
      */
-    int localVarTypeCount;
+    protected int localVarTypeCount;
 
     /**
      * The LocalVariableTypeTable attribute.
      */
-    ByteVector localVarType;
+    protected ByteVector localVarType;
 
     /**
      * Number of entries in the LineNumberTable attribute.
      */
-    int lineNumberCount;
+    protected int lineNumberCount;
 
     /**
      * The LineNumberTable attribute.
      */
-    ByteVector lineNumber;
+    protected ByteVector lineNumber;
 
     /**
      * The non standard attributes of the method's code.
      */
-    Attribute cattrs;
+    protected Attribute cattrs;
 
     /**
      * Indicates if some jump instructions are too small and need to be resized.
      */
-    boolean resize;
+    protected boolean resize;
 
     /**
      * The number of subroutines in this method.
      */
-    int subroutines;
+    protected int subroutines;
 
     /**
      * A list of labels. This list is the list of basic blocks in the method,
@@ -256,7 +256,7 @@ public abstract class MethodWriterDelegate {
      * {@link Label#successor} field, in the order they are visited by
      * {@link MethodVisitor#visitLabel}, and starting with the first basic block.
      */
-    Label labels;
+    protected Label labels;
 
     /**
      * The (relative) maximum stack size after the last visited instruction.
@@ -265,7 +265,18 @@ public abstract class MethodWriterDelegate {
      * to the {@link Label#inputStackTop beginStackSize} of the current basic
      * block plus <tt>stackSize</tt>.
      */
-    int maxStackSize;
+    protected int maxStackSize;
+
+    /**
+     * The constant pool of this class.
+     */
+    protected ByteVector pool;
+    protected int poolSize;
+
+    /**
+     * Minor and major version numbers of the class to be generated.
+     */
+    protected int version;
 
     /**
      * Returns the size of the bytecode of this method.

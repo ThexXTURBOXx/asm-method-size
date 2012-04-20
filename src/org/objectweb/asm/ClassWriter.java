@@ -174,52 +174,52 @@ public class ClassWriter extends ClassVisitor {
     /**
      * The type of CONSTANT_Fieldref constant pool items.
      */
-    static final int FIELD = 9;
+    public static final int FIELD = 9;
 
     /**
      * The type of CONSTANT_Methodref constant pool items.
      */
-    static final int METH = 10;
+    public static final int METH = 10;
 
     /**
      * The type of CONSTANT_InterfaceMethodref constant pool items.
      */
-    static final int IMETH = 11;
+    public static final int IMETH = 11;
 
     /**
      * The type of CONSTANT_String constant pool items.
      */
-    static final int STR = 8;
+    public static final int STR = 8;
 
     /**
      * The type of CONSTANT_Integer constant pool items.
      */
-    static final int INT = 3;
+    public static final int INT = 3;
 
     /**
      * The type of CONSTANT_Float constant pool items.
      */
-    static final int FLOAT = 4;
+    public static final int FLOAT = 4;
 
     /**
      * The type of CONSTANT_Long constant pool items.
      */
-    static final int LONG = 5;
+    public static final int LONG = 5;
 
     /**
      * The type of CONSTANT_Double constant pool items.
      */
-    static final int DOUBLE = 6;
+    public static final int DOUBLE = 6;
 
     /**
      * The type of CONSTANT_NameAndType constant pool items.
      */
-    static final int NAME_TYPE = 12;
+    public static final int NAME_TYPE = 12;
 
     /**
      * The type of CONSTANT_Utf8 constant pool items.
      */
-    static final int UTF8 = 1;
+    public static final int UTF8 = 1;
 
     /**
      * The type of CONSTANT_MethodType constant pool items.
@@ -229,12 +229,12 @@ public class ClassWriter extends ClassVisitor {
     /**
      * The type of CONSTANT_MethodHandle constant pool items.
      */
-    static final int HANDLE = 15;
+    public static final int HANDLE = 15;
 
     /**
      * The type of CONSTANT_InvokeDynamic constant pool items.
      */
-    static final int INDY = 18;
+    public static final int INDY = 18;
 
     /**
      * The base value for all CONSTANT_MethodHandle constant pool items.
@@ -353,7 +353,7 @@ public class ClassWriter extends ClassVisitor {
     /**
      * The internal name of this class.
      */
-    String thisName;
+    public String thisName;
 
     /**
      * The constant pool item that contains the signature of this class.

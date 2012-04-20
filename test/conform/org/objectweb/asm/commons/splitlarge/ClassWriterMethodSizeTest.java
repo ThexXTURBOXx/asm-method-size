@@ -58,22 +58,14 @@ public class ClassWriterMethodSizeTest extends TestCase {
                      final boolean computeMaxs,
                      final boolean computeFrames) {
                     MethodWriterDelegate cwd =
-                        new MethodWriterDelegate() {
-                            @Override
-                            public int getSize() {
-                                throw new RuntimeException("ClassWriterMethodSizeTest");
-                            }
-                            @Override
-                            public void put(ByteVector out) {
-                            }
-                        };
+                                new SplitMethodWriterDelegate(Split.MAX_METHOD_LENGTH);
                     return new MethodWriter(cw, access, name, desc, signature, exceptions, computeMaxs, computeFrames,
                                             cwd);
                 }
                 
             };
-        this.cw = new ClassWriter(ClassWriter.COMPUTE_MAXS, cwf);
-        this.cw.visit(Opcodes.V1_1,
+        this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
+        this.cw.visit(Opcodes.V1_6,
                       Opcodes.ACC_PUBLIC,
                       "C",
                       null,
@@ -112,10 +104,6 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitInsn(Opcodes.ICONST_0);
     }
 
-    private void ICONST_0() {
-        this.mv.visitInsn(Opcodes.ICONST_0);
-    }
-
     private void GOTO(final Label l) {
         this.mv.visitJumpInsn(Opcodes.GOTO, l);
     }
@@ -124,6 +112,10 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitJumpInsn(Opcodes.IFNE, l);
     }
 
+    private void RETURN() {
+        this.mv.visitInsn(Opcodes.RETURN);
+    }
+    
     /**
      * Method with one huge basic block of NOPs
      */
@@ -138,7 +130,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
             endMethod();
         }
         catch (RuntimeException e) {
-            assertEquals("ClassWriterMethodSizeTest", e.getMessage());
+            assertEquals("no split point found", e.getMessage());
         }
     }
 
@@ -147,18 +139,19 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo() {
         Label l1 = new Label();
-        Label l2 = new Label();
         startMethod();
         PUSH();
-        IFNE(l1);
+        IFNE(l1); // gets expanded into IFEQ, GOTO
+        // @9
         {
             int i = 0;
             while (i < 40000) {
                 NOP();
                 ++i;
             }
+            RETURN();
         }
-        GOTO(l2);
+        // @40010
         LABEL(l1);
         {
             int i = 0;
@@ -166,8 +159,9 @@ public class ClassWriterMethodSizeTest extends TestCase {
                 NOP();
                 ++i;
             }
+            // @80010
+            RETURN();
         }
-        LABEL(l2);
         try {
             endMethod();
         }

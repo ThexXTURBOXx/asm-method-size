@@ -171,7 +171,7 @@ public class ClassReader {
         int n = items.length;
         strings = new String[n];
         int max = 0;
-        int index = off + 10;
+        int index = 0;
         for (int i = 1; i < n; ++i) {
             items[i] = index + 1;
             int size;

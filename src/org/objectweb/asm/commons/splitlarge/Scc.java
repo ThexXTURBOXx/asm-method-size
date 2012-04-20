@@ -87,6 +87,13 @@ class Scc {
      */
     int size = -1;
 
+    /**
+     * If this component is split out, this field references the
+     * corresponding {@link SplitMethod} object.
+     */
+    SplitMethod splitMethod;
+
+
     // ------------------------------------------------------------------------
     // Strongly-connected components of control-flow graph
     // ------------------------------------------------------------------------
@@ -345,7 +352,11 @@ class Scc {
         if (transitiveClosureSize > maxMethodLength) {
             BasicBlock entry = lookMaxSizeSplitPointSuccessor();
             if (entry != null) {
-                return new SplitMethod(entry, entry.sccRoot.transitiveClosure);
+                HashSet<Scc> transitiveClosure = entry.sccRoot.transitiveClosure;
+                SplitMethod m = new SplitMethod(entry, transitiveClosure);
+                for (Scc root : transitiveClosure)
+                    root.splitMethod = m;
+                return m;
             }
         }
         return null;
@@ -385,6 +396,19 @@ class Scc {
             return b;
         }
     }
+
+
+    public HashSet<SplitMethod> split(final int maxMethodLength) {
+        // #### very provisional
+        HashSet<SplitMethod> set = new HashSet<SplitMethod>();
+        SplitMethod m = findSplitPoint(maxMethodLength);
+        if (m == null)
+            throw new RuntimeException("no split point found");
+        set.add(m);
+        return set;
+    }
+
+
 
     @Override
     public String toString() {

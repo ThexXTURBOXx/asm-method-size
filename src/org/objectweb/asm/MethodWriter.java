@@ -54,31 +54,31 @@ public class MethodWriter extends MethodVisitor {
      * Frame has exactly the same locals as the previous stack map frame and
      * number of stack items is 1
      */
-    static final int SAME_LOCALS_1_STACK_ITEM_FRAME = 64; // to 127 (40-7f)
+    public static final int SAME_LOCALS_1_STACK_ITEM_FRAME = 64; // to 127 (40-7f)
 
     /**
      * Reserved for future use
      */
-    static final int RESERVED = 128;
+    public static final int RESERVED = 128;
 
     /**
      * Frame has exactly the same locals as the previous stack map frame and
      * number of stack items is 1. Offset is bigger then 63;
      */
-    static final int SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED = 247; // f7
+    public static final int SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED = 247; // f7
 
     /**
      * Frame where current locals are the same as the locals in the previous
      * frame, except that the k last locals are absent. The value of k is given
      * by the formula 251-frame_type.
      */
-    static final int CHOP_FRAME = 248; // to 250 (f8-fA)
+    public static final int CHOP_FRAME = 248; // to 250 (f8-fA)
 
     /**
      * Frame has exactly the same locals as the previous stack map frame and
      * number of stack items is zero. Offset is bigger then 63;
      */
-    static final int SAME_FRAME_EXTENDED = 251; // fb
+    public static final int SAME_FRAME_EXTENDED = 251; // fb
 
     /**
      * Frame where current locals are the same as the locals in the previous
@@ -90,7 +90,7 @@ public class MethodWriter extends MethodVisitor {
     /**
      * Full frame
      */
-    static final int FULL_FRAME = 255; // ff
+    public static final int FULL_FRAME = 255; // ff
 
     /**
      * Indicates that the stack map frames must be recomputed from scratch. In
@@ -125,7 +125,7 @@ public class MethodWriter extends MethodVisitor {
      * Access flags of this method.
      */
     private int access;
-
+     
     /**
      * The index of the constant pool item that contains the name of this
      * method.
@@ -424,6 +424,38 @@ public class MethodWriter extends MethodVisitor {
         final boolean computeFrames,
         final MethodWriterDelegate tooLargeDelegate)
     {
+        this(cw, access, 
+             cw.newUTF8(name), desc, cw.newUTF8(desc), 
+             signature,
+             makePoolExceptions(cw, exceptions),
+             computeMaxs, computeFrames, 
+             tooLargeDelegate);
+    }
+
+    private static int[] makePoolExceptions(ClassWriter cw, String[] exceptions) {
+        int[] poolExceptions = null;
+        if (exceptions != null && exceptions.length > 0) {
+            int exceptionCount = exceptions.length;
+            poolExceptions = new int[exceptionCount];
+            for (int i = 0; i < exceptionCount; ++i) {
+                poolExceptions[i] = cw.newClass(exceptions[i]);
+            }
+        }
+        return poolExceptions;
+    }
+
+    public MethodWriter(
+        final ClassWriter cw,
+        final int access,
+        final int name,
+        final String descriptor,
+        final int desc,
+        final String signature,
+        final int[] exceptions,
+        final boolean computeMaxs,
+        final boolean computeFrames,
+        final MethodWriterDelegate tooLargeDelegate)
+    {
         super(Opcodes.ASM4);
         if (cw.firstMethod == null) {
             cw.firstMethod = this;
@@ -433,19 +465,13 @@ public class MethodWriter extends MethodVisitor {
         cw.lastMethod = this;
         this.cw = cw;
         this.access = access;
-        this.name = cw.newUTF8(name);
-        this.desc = cw.newUTF8(desc);
-        this.descriptor = desc;
+        this.name = name;
+        this.desc = desc;
+        this.descriptor = descriptor;
         if (ClassReader.SIGNATURES) {
             this.signature = signature;
         }
-        if (exceptions != null && exceptions.length > 0) {
-            exceptionCount = exceptions.length;
-            this.exceptions = new int[exceptionCount];
-            for (int i = 0; i < exceptionCount; ++i) {
-                this.exceptions[i] = cw.newClass(exceptions[i]);
-            }
-        }
+        this.exceptions = exceptions;
         this.compute = computeFrames ? FRAMES : (computeMaxs ? MAXS : NOTHING);
         if (computeMaxs || computeFrames) {
             if (computeFrames && "<init>".equals(name)) {
@@ -1903,6 +1929,9 @@ public class MethodWriter extends MethodVisitor {
                 d.subroutines = subroutines;
                 d.labels = labels;
                 d.maxStackSize = maxStackSize;
+                d.pool = cw.pool;
+                d.poolSize = cw.index;
+                d.version = cw.version;
                 return d.getSize();
             } else {
                 throw new RuntimeException("Method code too large!");
