@@ -2166,12 +2166,12 @@ public class MethodWriter extends MethodVisitor {
     }
 
     /**
-     * Gets the size of the code vector.
+     * Gets the size of the code vector; for testing.
      *
      * @return size of the code vector
      */
-    public final int getCodeSize() {
-        return code.length;
+    public final ByteVector getCode() {
+        return code;
     }
 
     // ------------------------------------------------------------------------

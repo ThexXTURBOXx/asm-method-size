@@ -38,11 +38,11 @@ import java.util.HashSet;
 import junit.framework.TestCase;
 
 /**
- * ClassWriter unit tests for the SCC computation for the flow graph.
+ * Unit tests for the computation of the flow graph.
  *
  * @author Mike Sperber
  */
-public class ClassWriterSCCTest extends TestCase {
+public class FlowgraphTest extends TestCase {
 
     protected ClassWriter cw;
 
@@ -70,64 +70,20 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitCode();
     }
 
-    private <A> void assertSet(Set<A> labels, A... p) {
+    private <A> void assertSet(Set<A> set, A... p) {
         Set<A> s = new HashSet<A>();
         for (A l : p) {
             s.add(l);
         }
-        assertEquals(labels, s);
+        assertEquals(s, set);
     }
 
-    private Scc findRoot(Scc roots, Label l) {
-        Scc root = roots;
-        while (root != null) {
-            if (isInRoot(root, l))
-                return root;
-            root = root.next;
-        }
-        fail("root not found at all");
-        return null;
-    }
-
-    private boolean isInRoot(Scc root, Label l) {
-        return root.blocks.contains(BasicBlock.get(l));
-    }
-
-    private void assertSCC1(final Set<Label> desired, Scc roots) {
-        // the labels of this desired root must all be in the same actual root
-        Scc desiredRoot = findRoot(roots, desired.iterator().next());
-        for (Label l: desired)
-            assertTrue(isInRoot(desiredRoot, l));
-        // ... and they must be in no other root
-        Scc root = roots;
-        while (root != null) {
-            if (root != desiredRoot) {
-                for (Label l: desired)
-                    assertFalse(isInRoot(root, l));
-            }
-            root = root.next;
-        }
-
-        // check that the sccRoot fields match up
-        root = roots;
-        while (root != null) {
-            for (BasicBlock b : root.blocks) {
-                assertSame(root, b.sccRoot);
-            }
-            root = root.next;
-        }
-    }
-
-    private void assertSCC(final Set<Set<Label>> desired, Scc roots) {
-        for (Set<Label> s: desired)
-            assertSCC1(s, roots);
-    }
-
-    private Scc endMethod() {
+    private BasicBlock[] endMethod() {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
-        return Split.initializeAll(mw.labels, mw.getCode().length).first().sccRoot;
+        ByteVector code = mw.getCode();
+        return BasicBlock.computeFlowgraph(code.data, 0, code.length).toArray(new BasicBlock[0]);
     }
 
     private void LABEL(final Label l) {
@@ -152,28 +108,13 @@ public class ClassWriterSCCTest extends TestCase {
 
  
     /**
-     * Method with zero real SCCs
+     * Very simple method.
      */
     public void testZero() {
-        Label l1 = new Label();
-        Label l2 = new Label();
         startMethod();
-        LABEL(l1);
         NOP();
-        LABEL(l2);
-
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l2);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
-
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
-        assertSet(BasicBlock.get(l2).sccRoot.successors);
+        BasicBlock[] blocks = endMethod();
+        assertEquals(1, blocks.length);
     }
 
    /**
@@ -184,15 +125,8 @@ public class ClassWriterSCCTest extends TestCase {
         startMethod();
         LABEL(l1);
         GOTO(l1);
-
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        Scc root = endMethod();
-
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors);
+        BasicBlock[] blocks = endMethod();
+        assertEquals(1, blocks.length);
     }
 
     /**
@@ -204,28 +138,21 @@ public class ClassWriterSCCTest extends TestCase {
         Label l3 = new Label();
         Label l4 = new Label();
         startMethod();
-        LABEL(l1);
+        LABEL(l1); // 0
         PUSH();
         LABEL(l2);
         NOP();
         LABEL(l3);
         IFNE(l1);
-        LABEL(l4);
+        LABEL(l4); // 1
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l4);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
-
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
-        assertSet(BasicBlock.get(l4).sccRoot.successors);
+        BasicBlock[] blocks = endMethod();
+        assertEquals(2, blocks.length);
+        
+        BasicBlock b0 = blocks[0];
+        BasicBlock b1 = blocks[1];
+        assertSet(b0.successors, b0, b1);
+        assertSet(b1.successors);
     }
 
 
@@ -239,33 +166,29 @@ public class ClassWriterSCCTest extends TestCase {
         Label l4 = new Label();
         Label l5 = new Label();
         startMethod();
-        LABEL(l1);
+        LABEL(l1); // 0
         PUSH();
-        LABEL(l2);
+        LABEL(l2); // 1
         NOP();
         LABEL(l3);
         IFNE(l2);
-        NOP();
+        NOP(); // 2
         LABEL(l4);
         PUSH();
         IFNE(l1);
-        LABEL(l5);
+        LABEL(l5); // 3
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        s1.add(l4);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l5);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
-
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l5).sccRoot);
-        assertSet(BasicBlock.get(l5).sccRoot.successors);
+        BasicBlock[] blocks = endMethod();
+        assertEquals(4, blocks.length);
+        
+        BasicBlock b0 = blocks[0];
+        BasicBlock b1 = blocks[1];
+        BasicBlock b2 = blocks[2];
+        BasicBlock b3 = blocks[3];
+        assertSet(b0.successors, b1);
+        assertSet(b1.successors, b1, b2);
+        assertSet(b2.successors, b0, b3);
+        assertSet(b3.successors);
     }
 
     /**
@@ -279,37 +202,30 @@ public class ClassWriterSCCTest extends TestCase {
         Label l5 = new Label();
         Label l6 = new Label();
         startMethod();
-        LABEL(l1);
+        LABEL(l1); // 0
         PUSH();
         LABEL(l2);
         NOP();
         LABEL(l3);
         IFNE(l1);
 
-        LABEL(l4);
+        LABEL(l4); // 1
         PUSH();
         LABEL(l5);
         NOP();
         LABEL(l6);
         IFNE(l4);
+        // 2
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l4);
-        s2.add(l5);
-        s2.add(l6);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-
-        Scc root = endMethod();
-
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
-        assertSet(BasicBlock.get(l4).sccRoot.successors);
+        BasicBlock[] blocks = endMethod();
+        assertEquals(3, blocks.length);
+        
+        BasicBlock b0 = blocks[0];
+        BasicBlock b1 = blocks[1];
+        BasicBlock b2 = blocks[2];
+        assertSet(b0.successors, b0, b1);
+        assertSet(b1.successors, b1, b2);
+        assertSet(b2.successors);
     }
 
 
@@ -322,31 +238,31 @@ public class ClassWriterSCCTest extends TestCase {
         Label l3 = new Label();
         Label l4 = new Label();
         startMethod();
-        LABEL(l1);
+        LABEL(l1); // 0
         NOP();
-        LABEL(l2);
+        LABEL(l2); // 1
         PUSH();
-        LABEL(l3);
+        LABEL(l3); // 2
         IFNE(l2);
-        PUSH();
+        PUSH(); // 3
         LABEL(l4);
         IFNE(l3);
+        // 4
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l2);
-        s2.add(l3);
-        s2.add(l4);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
-
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
-        assertSet(BasicBlock.get(l2).sccRoot.successors);
-    }
+        BasicBlock[] blocks = endMethod();
+        assertEquals(5, blocks.length);
+        
+        BasicBlock b0 = blocks[0];
+        BasicBlock b1 = blocks[1];
+        BasicBlock b2 = blocks[2];
+        BasicBlock b3 = blocks[3];
+        BasicBlock b4 = blocks[4];
+        assertSet(b0.successors, b1);
+        assertSet(b1.successors, b2);
+        assertSet(b2.successors, b1, b3);
+        assertSet(b3.successors, b2, b4);
+        assertSet(b4.successors);
+   }
 
 
 }

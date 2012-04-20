@@ -45,7 +45,7 @@ class BasicBlock implements Comparable<BasicBlock> {
 
     final int position;
 
-    final int size;
+    int size = -1;
 
     final HashSet<Label> labels;
 
@@ -87,6 +87,14 @@ class BasicBlock implements Comparable<BasicBlock> {
         addLabel(l);
         this.size = size;
         this.position = l.position;
+        this.successors = new HashSet<BasicBlock>();
+        this.predecessors = new HashSet<BasicBlock>();
+ }
+
+    public BasicBlock(int position) {
+        this.sccIndex = -1;
+        this.labels = null;
+        this.position = position;
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
     }
@@ -150,6 +158,241 @@ class BasicBlock implements Comparable<BasicBlock> {
     }
 
     /**
+     * Add an edge from <code>this</code> to another basic block.
+     */
+    public void addEdge(BasicBlock other) {
+        successors.add(other);
+        other.predecessors.add(this);
+    }
+
+    /**
+     * Compute flowgraph from code.
+     */
+    public static TreeSet<BasicBlock> computeFlowgraph(byte[] b, int codeStart, int codeSize) {
+        TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
+        BasicBlock[] blockArray = new BasicBlock[codeSize + 2];
+        int codeEnd = codeStart + codeSize;
+        // first, collect all the blocks
+        {
+            getBasicBlock(0, blockArray, blocks);
+            int v = codeStart;
+            while (v < codeEnd) {
+                int w = v - codeStart;
+                int opcode = b[v] & 0xFF;
+                switch (ClassWriter.TYPE[opcode]) {
+                case ClassWriter.NOARG_INSN:
+                case ClassWriter.IMPLVAR_INSN:
+                    v += 1;
+                    break;
+                case ClassWriter.LABEL_INSN: {
+                    if (opcode == Opcodes.JSR)
+                        throw new UnsupportedOperationException("JSR instruction not supported yet");
+                    getBasicBlock(w + ByteArray.readShort(b, v + 1), blockArray, blocks);
+                    v += 3;
+                    if (opcode != Opcodes.GOTO) // the rest are conditional branches
+                        getBasicBlock(v - codeStart, blockArray, blocks);
+                    break;
+                }
+                case ClassWriter.LABELW_INSN: {
+                    if (opcode == 201) // JSR_W
+                        throw new UnsupportedOperationException("JSR_W instruction not supported yet");
+                    getBasicBlock(w + ByteArray.readInt(b, v + 1), blockArray, blocks);
+                    v += 5;
+                    if (opcode != 200) // GOTO_W; the rest are conditional branches
+                        getBasicBlock(v - codeStart, blockArray, blocks);
+                    break;
+                }
+                case ClassWriter.WIDE_INSN:
+                    opcode = b[v + 1] & 0xFF;
+                    if (opcode == Opcodes.IINC) {
+                        v += 6;
+                    } else {
+                        v += 4;
+                    }
+                    break;
+                case ClassWriter.TABL_INSN: {
+                    // skips 0 to 3 padding bytes*
+                    v = v + 4 - (w & 3);
+                    // reads instruction
+                    getBasicBlock(w + ByteArray.readInt(b, v), blockArray, blocks);
+                    int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
+                    v += 12;
+                    for (; j > 0; --j) {
+                        getBasicBlock(w + ByteArray.readInt(b, v), blockArray, blocks);
+                        v += 4;
+                    }
+                    break;
+                }
+                case ClassWriter.LOOK_INSN: {
+                    // skips 0 to 3 padding bytes*
+                    v = v + 4 - (w & 3);
+                    // reads instruction
+                    getBasicBlock(w + ByteArray.readInt(b, v), blockArray, blocks);
+                    int j = ByteArray.readInt(b, v + 4);
+                    v += 8;
+                    for (; j > 0; --j) {
+                        getBasicBlock(w + ByteArray.readInt(b, v + 4), blockArray, blocks);
+                        v += 8;
+                    }
+                    break;
+                }
+                case ClassWriter.VAR_INSN:
+                    if (opcode == Opcodes.RET)
+                        throw new UnsupportedOperationException("RET instruction not supported yet");
+                case ClassWriter.SBYTE_INSN:
+                case ClassWriter.LDC_INSN:
+                    v += 2;
+                    break;
+                case ClassWriter.SHORT_INSN:
+                case ClassWriter.LDCW_INSN:
+                case ClassWriter.FIELDORMETH_INSN:
+                case ClassWriter.TYPE_INSN:
+                case ClassWriter.IINC_INSN:
+                    v += 3;
+                    break;
+                case ClassWriter.ITFMETH_INSN:
+                case ClassWriter.INDYMETH_INSN:
+                    v += 5;
+                    break;
+                    // case MANA_INSN:
+                default:
+                    v += 4;
+                    break;
+                }
+            }
+            
+            // parse the try catch entries
+            int j = ByteArray.readUnsignedShort(b, v);
+            v += 2;
+            for (; j > 0; --j) {
+                getBasicBlock(ByteArray.readUnsignedShort(b, v), blockArray, blocks);
+                getBasicBlock(ByteArray.readUnsignedShort(b, v + 2), blockArray, blocks);
+                getBasicBlock(ByteArray.readUnsignedShort(b, v + 4), blockArray, blocks);
+                v += 8;
+            }
+        }
+
+        // now insert edges
+        int v = codeStart;
+        BasicBlock currentBlock = null;
+        while (v < codeEnd) {
+            int w = v - codeStart;
+            if (blockArray[w] != null) {
+                currentBlock = blockArray[w];
+            }
+            int opcode = b[v] & 0xFF;
+            switch (ClassWriter.TYPE[opcode]) {
+            case ClassWriter.NOARG_INSN:
+            case ClassWriter.IMPLVAR_INSN:
+                v += 1;
+                break;
+            case ClassWriter.LABEL_INSN:
+                currentBlock.addEdge(blockArray[w + ByteArray.readShort(b, v + 1)]);
+                v += 3;
+                break;
+            case ClassWriter.LABELW_INSN:
+                currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v + 1)]);
+                v += 5;
+                break;
+            case ClassWriter.WIDE_INSN:
+                opcode = b[v + 1] & 0xFF;
+                if (opcode == Opcodes.IINC) {
+                    v += 6;
+                } else {
+                    v += 4;
+                }
+                break;
+            case ClassWriter.TABL_INSN: {
+                // skips 0 to 3 padding bytes*
+                v = v + 4 - (w & 3);
+                // reads instruction
+                currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v)]);
+                int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
+                v += 12;
+                for (; j > 0; --j) {
+                    currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v)]);
+                    v += 4;
+                }
+                break;
+            }
+            case ClassWriter.LOOK_INSN: {
+                // skips 0 to 3 padding bytes*
+                v = v + 4 - (w & 3);
+                // reads instruction
+                int j = ByteArray.readInt(b, v + 4);
+                v += 8;
+                for (; j > 0; --j) {
+                    currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v + 4)]);
+                    v += 8;
+                }
+                break;
+            }
+            case ClassWriter.VAR_INSN:
+            case ClassWriter.SBYTE_INSN:
+            case ClassWriter.LDC_INSN:
+                v += 2;
+                break;
+            case ClassWriter.SHORT_INSN:
+            case ClassWriter.LDCW_INSN:
+            case ClassWriter.FIELDORMETH_INSN:
+            case ClassWriter.TYPE_INSN:
+            case ClassWriter.IINC_INSN:
+                v += 3;
+                break;
+            case ClassWriter.ITFMETH_INSN:
+            case ClassWriter.INDYMETH_INSN:
+                v += 5;
+                break;
+                // case MANA_INSN:
+            default:
+                v += 4;
+                break;
+            }
+            if ((opcode != Opcodes.GOTO) && (opcode != 200) // GOTO_W
+                && (opcode != Opcodes.TABLESWITCH)
+                && (opcode != Opcodes.LOOKUPSWITCH)) {
+                BasicBlock next = blockArray[v - codeStart];
+                if (next != null) {
+                    currentBlock.addEdge(next);
+                }
+            }
+        }
+        // parses the try catch entries
+        int j = ByteArray.readUnsignedShort(b, v);
+        v += 2;
+        for (; j > 0; --j) {
+            BasicBlock start = blockArray[ByteArray.readUnsignedShort(b, v)];
+            BasicBlock end = blockArray[ByteArray.readUnsignedShort(b, v + 2)];
+            BasicBlock handler = blockArray[ByteArray.readUnsignedShort(b, v + 4)];
+            for (BasicBlock src : blocks.subSet(start, end))
+                src.addEdge(handler);
+            v += 8;
+        }
+        
+        BasicBlock previous = null;
+        for (BasicBlock block : blocks) {
+            if (previous != null) {
+                previous.size = block.position - previous.position;
+            }
+            previous = block;
+        }
+        BasicBlock last = blocks.last();
+        last.size = codeEnd - last.position;
+        
+        return blocks;
+    }
+    
+    private static BasicBlock getBasicBlock(int offset, BasicBlock[] array, TreeSet<BasicBlock> blocks) {
+        BasicBlock block = array[offset];
+        if (block == null) {
+            block = new BasicBlock(offset);
+            array[offset] = block;
+            blocks.add(block);
+        }
+        return block;
+    }
+
+    /**
      * Computes the predecessor graph.
      * Assumes that this is the first label.
      */
@@ -158,15 +401,9 @@ class BasicBlock implements Comparable<BasicBlock> {
             for (Label l : b.labels) {
                 Edge s = l.successors;
                 while (s != null) {
-                    b.successors.add(get(s.successor));
+                    b.addEdge(get(s.successor));
                     s = s.next;
                 }
-            }
-        }
-
-        for (BasicBlock b : blocks) {
-            for (BasicBlock s : b.successors) {
-                s.predecessors.add(b);
             }
         }
     }
