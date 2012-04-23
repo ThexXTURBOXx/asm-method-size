@@ -44,6 +44,8 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     HashSet<SplitMethod> splitMethods;
     
     BasicBlock[] blocksByOffset;
+    /* labels not associated with a basic block - NEW instructions */
+    Label[] labelsByOffset;
 
     /**
      * Maximum length of the strings contained in the constant pool of the
@@ -66,6 +68,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.scc = blocks.first().sccRoot;
         this.splitMethods = scc.split(maxMethodLength);
         this.blocksByOffset = computeBlocksByOffset(blocks);
+        this.labelsByOffset = new Label[code.length];
         parseConstantPool();
         thisName = readUTF8Item(name, buffer);
         parseStackMap();
@@ -289,13 +292,19 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             frame[index] = readClass(v, buf);
             v += 2;
             break;
-        default: // Uninitialized
-            frame[index] = blocksByOffset[ByteArray.readUnsignedShort(b, v)];
+        default: { // Uninitialized
+            int offset = ByteArray.readUnsignedShort(b, v);
+            Label label = labelsByOffset[offset];
+            if (label == null) {
+                label = new Label();
+                labelsByOffset[offset] = label;
+            }
+            frame[index] = label;
             v += 2;
+        }
         }
         return v;
     }
-
 
     private void writeCode() {
         byte[] b = code.data; // bytecode of the method
