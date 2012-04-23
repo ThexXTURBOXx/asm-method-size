@@ -35,16 +35,12 @@ import java.util.HashSet;
 
 class SplitMethod {
 
-    public SplitMethod() {
-        this.entry = null;
-    }
-
     public SplitMethod(BasicBlock entry) {
         this.entry = entry;
     }
 
     /**
-     * Entry point of a split method; <code>null</code> if it's the main method.
+     * Entry point of a split method.
      */
     BasicBlock entry;
 
@@ -68,22 +64,4 @@ class SplitMethod {
                                   false,  // computeFrames
                                   null);
     }
-
-    public void setMainMethodWriter(final ClassWriter cw,
-                                    final int access,
-                                    final int name,
-                                    final String hostDescriptor, int descriptor,
-                                    final String signature,
-                                    final int[] exceptions) {
-        writer = new MethodWriter(cw, 
-                                  access,
-                                  name,
-                                  hostDescriptor, descriptor,
-                                  signature,  // #### this is all provisional
-                                  exceptions, 
-                                  true, // computeMaxs
-                                  false,  // computeFrames
-                                  null);
-    }
-
 }

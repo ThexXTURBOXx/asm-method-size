@@ -456,13 +456,37 @@ public class MethodWriter extends MethodVisitor {
         final boolean computeFrames,
         final MethodWriterDelegate tooLargeDelegate)
     {
+        this(cw, 
+             access, name,
+             descriptor, desc, 
+             signature, 
+             exceptions, 
+             computeMaxs, computeFrames, 
+             true, tooLargeDelegate);
+    }
+
+    public MethodWriter(
+        final ClassWriter cw,
+        final int access,
+        final int name,
+        final String descriptor,
+        final int desc,
+        final String signature,
+        final int[] exceptions,
+        final boolean computeMaxs,
+        final boolean computeFrames,
+        final boolean register,
+        final MethodWriterDelegate tooLargeDelegate)
+    {
         super(Opcodes.ASM4);
-        if (cw.firstMethod == null) {
-            cw.firstMethod = this;
-        } else {
-            cw.lastMethod.mv = this;
+        if (register) {
+            if (cw.firstMethod == null) {
+                cw.firstMethod = this;
+            } else {
+                cw.lastMethod.mv = this;
+            }
+            cw.lastMethod = this;
         }
-        cw.lastMethod = this;
         this.cw = cw;
         this.access = access;
         this.name = name;
