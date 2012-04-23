@@ -35,28 +35,44 @@ import java.util.HashSet;
 
 class SplitMethod {
 
-    public SplitMethod(BasicBlock entry) {
-        this.entry = entry;
-    }
-
     /**
      * Entry point of a split method.
      */
     BasicBlock entry;
 
+    /**
+     * Name of the main method.
+     */
+    String mainMethodName;
+
+    /**
+     * Name of this method.
+     */
+    String name;
+    /**
+     * Uid number among the split methods of a single main method.
+     */
+    int id;
+
     MethodWriter writer;
+
+    public SplitMethod(String mainMethodName, int id, BasicBlock entry) {
+        this.mainMethodName = mainMethodName;
+        this.name = mainMethodName + "#split#" + id;
+        this.id = id;
+        this.entry = entry;
+    }
 
     public void setSplitMethodWriter(final ClassWriter cw,
                                      final int access,
-                                     final int name,
-                                     final String hostDescriptor,
+                                     final String mainDescriptor,
                                      final String signature,
                                      final int[] exceptions) {
-        String descriptor = entry.frameData.getDescriptor(hostDescriptor, access);
+        String descriptor = entry.frameData.getDescriptor(mainDescriptor, access);
         int desc = cw.newUTF8(descriptor);
         writer = new MethodWriter(cw, 
                                   access,
-                                  name,
+                                  cw.newUTF8(name),
                                   descriptor, desc,
                                   signature,  // #### this is all provisional
                                   exceptions, 

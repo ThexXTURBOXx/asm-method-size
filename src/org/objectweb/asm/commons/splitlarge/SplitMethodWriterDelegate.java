@@ -70,7 +70,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     void split() {
         TreeSet<BasicBlock> blocks = Split.initializeAll(code);
         this.scc = blocks.first().sccRoot;
-        this.splitMethods = scc.split(maxMethodLength);
+        this.splitMethods = scc.split(thisName, maxMethodLength);
         this.blocksByOffset = computeBlocksByOffset(blocks);
         this.labelsByOffset = new Label[code.length];
         parseConstantPool();
@@ -542,15 +542,12 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      * Create all method writers.
      */
     private void  makeMethodWriters() {
-        int id = 0;
         for (SplitMethod m : splitMethods) {
             m.setSplitMethodWriter(cw,
                                    access,
-                                   cw.newUTF8(thisName + "#split#" + id),
                                    descriptor,
                                    signature,
                                    exceptions);
-            ++id;
         }
         mainMethodWriter = new MethodWriter(cw, 
                                             access,

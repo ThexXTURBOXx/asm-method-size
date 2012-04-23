@@ -342,23 +342,18 @@ class Scc {
      *
      * @return split method with info about the closure
      */
-    public SplitMethod findSplitPoint(int maxMethodLength) {
+    public BasicBlock findSplitPoint(int maxMethodLength) {
         for (Scc s : successors) {
-            SplitMethod m = s.findSplitPoint(maxMethodLength);
+            BasicBlock m = s.findSplitPoint(maxMethodLength);
             if (m != null)
                 return m;
         }
         // none have been split
         if (transitiveClosureSize > maxMethodLength) {
-            BasicBlock entry = lookMaxSizeSplitPointSuccessor();
-            if (entry != null) {
-                SplitMethod m = new SplitMethod(entry);
-                for (Scc root : entry.sccRoot.transitiveClosure)
-                    root.splitMethod = m;
-                return m;
-            }
+            return lookMaxSizeSplitPointSuccessor();
+        } else {
+            return null;
         }
-        return null;
     } 
 
     /**
@@ -397,12 +392,17 @@ class Scc {
     }
 
 
-    public HashSet<SplitMethod> split(final int maxMethodLength) {
+    public HashSet<SplitMethod> split(String mainMethodName, final int maxMethodLength) {
         // #### very provisional
         HashSet<SplitMethod> set = new HashSet<SplitMethod>();
-        SplitMethod m = findSplitPoint(maxMethodLength);
-        if (m == null)
+        BasicBlock entry = findSplitPoint(maxMethodLength);
+        if (entry == null)
             throw new RuntimeException("no split point found");
+
+        int id = 0;
+        SplitMethod m = new SplitMethod(mainMethodName, id++, entry);
+        for (Scc root : entry.sccRoot.transitiveClosure)
+            root.splitMethod = m;
         set.add(m);
         return set;
     }

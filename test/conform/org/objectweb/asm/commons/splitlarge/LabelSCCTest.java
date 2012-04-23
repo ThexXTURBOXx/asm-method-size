@@ -152,9 +152,9 @@ public class LabelSCCTest extends TestCase {
         assertNull(b1.sccRoot.splitPoint());
         assertSame(b2, b2.sccRoot.splitPoint());
 
-        SplitMethod m = scc.findSplitPoint(8);
+        BasicBlock m = scc.findSplitPoint(8);
         assertNotNull(m);
-        assertSame(b2, m.entry);
+        assertSame(b2, m);
     }
 
    /**
@@ -223,9 +223,9 @@ public class LabelSCCTest extends TestCase {
         assertNull(b1.sccRoot.splitPoint());
         assertSame(b4, b4.sccRoot.splitPoint());
 
-        SplitMethod m = scc.findSplitPoint(8);
+        BasicBlock m = scc.findSplitPoint(8);
         assertNotNull(m);
-        assertSame(b4, m.entry);
+        assertSame(b4, m);
     }
 
     /**
@@ -276,9 +276,9 @@ public class LabelSCCTest extends TestCase {
         assertNull(b1.sccRoot.splitPoint());
         assertSame(b5, b5.sccRoot.splitPoint());
 
-        SplitMethod m = scc.findSplitPoint(8);
+        BasicBlock m = scc.findSplitPoint(8);
         assertNotNull(m);
-        assertSame(b5, m.entry);
+        assertSame(b5, m);
     }
     
     /**
@@ -334,9 +334,9 @@ public class LabelSCCTest extends TestCase {
         assertNull(b1.sccRoot.splitPoint());
         assertSame(b4, b4.sccRoot.splitPoint());
 
-        SplitMethod m = scc.findSplitPoint(20);
+        BasicBlock m = scc.findSplitPoint(20);
         assertNotNull(m);
-        assertSame(b4, m.entry);
+        assertSame(b4, m);
     }
     
     /**
@@ -382,9 +382,9 @@ public class LabelSCCTest extends TestCase {
         assertNull(b1.sccRoot.splitPoint());
         assertSame(b2, b2.sccRoot.splitPoint());
 
-        SplitMethod m = scc.findSplitPoint(12);
+        BasicBlock m = scc.findSplitPoint(12);
         assertNotNull(m);
-        assertSame(b2, m.entry);
+        assertSame(b2, m);
     }
 
 }
