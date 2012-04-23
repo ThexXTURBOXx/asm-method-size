@@ -249,11 +249,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             // the first frame can't be a reasonable split point
             BasicBlock block = blocksByOffset[frameOffset];
             if (block != null) {
-                SplitMethod m = block.sccRoot.splitMethod;
-                if ((m != null) && (m.entry == block)) {
-                    m.frameLocal = Arrays.copyOf(frameLocal, frameLocalCount);
-                    m.frameStack = Arrays.copyOf(frameStack, frameStackCount);
-                }
+                block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
             }
 
             ++count;

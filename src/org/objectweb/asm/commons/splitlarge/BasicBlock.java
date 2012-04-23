@@ -81,6 +81,11 @@ class BasicBlock implements Comparable<BasicBlock> {
      */
     final HashSet<BasicBlock> predecessors;
 
+    /**
+     * Frame data needed to call {@link MethodWriter#visitFrame} on this block.
+     */
+    FrameData frameData;
+
     public BasicBlock(Label l, int size) {
         this.sccIndex = -1;
         this.labels = new HashSet<Label>();
