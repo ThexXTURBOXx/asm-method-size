@@ -31,6 +31,7 @@
 package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
+import org.objectweb.asm.util.CheckClassAdapter;
 
 import junit.framework.TestCase;
 
@@ -41,6 +42,7 @@ import junit.framework.TestCase;
  */
 public class ClassWriterMethodSizeTest extends TestCase {
 
+    protected ClassVisitor cv;
     protected ClassWriter cw;
 
     protected MethodVisitor mv;
@@ -65,13 +67,14 @@ public class ClassWriterMethodSizeTest extends TestCase {
                 
             };
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
-        this.cw.visit(Opcodes.V1_6,
+        this.cv = cw; // new CheckClassAdapter(cv);
+        this.cv.visit(Opcodes.V1_6,
                       Opcodes.ACC_PUBLIC,
                       "C",
                       null,
                       "java/lang/Object",
                       null);
-        this.mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        this.mv = cv.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         this.mv.visitCode();
         this.mv.visitVarInsn(Opcodes.ALOAD, 0);
         this.mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
@@ -81,15 +84,15 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitInsn(Opcodes.RETURN);
         this.mv.visitMaxs(1, 1);
         this.mv.visitEnd();
-        this.mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "m", "()V", null, null);
+        this.mv = cv.visitMethod(Opcodes.ACC_PUBLIC, "m", "()V", null, null);
         this.mv.visitCode();
     }
 
     private void endMethod() {
         this.mv.visitMaxs(0, 0);
         this.mv.visitEnd();
-        this.cw.visitEnd();
-        byte[] b = cw.toByteArray();
+        this.cv.visitEnd();
+        cw.toByteArray();
     }
 
     private void LABEL(final Label l) {
@@ -162,12 +165,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
             // @80010
             RETURN();
         }
-        try {
-            endMethod();
-        }
-        catch (RuntimeException e) {
-            assertEquals("ClassWriterMethodSizeTest", e.getMessage());
-        }
+        endMethod();
     }
 
 }

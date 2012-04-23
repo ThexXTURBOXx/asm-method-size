@@ -169,7 +169,7 @@ public class ClassWriter extends ClassVisitor {
     /**
      * The type of CONSTANT_Class constant pool items.
      */
-    static final int CLASS = 7;
+    public static final int CLASS = 7;
 
     /**
      * The type of CONSTANT_Fieldref constant pool items.
@@ -224,7 +224,7 @@ public class ClassWriter extends ClassVisitor {
     /**
      * The type of CONSTANT_MethodType constant pool items.
      */
-    static final int MTYPE = 16;
+    public static final int MTYPE = 16;
 
     /**
      * The type of CONSTANT_MethodHandle constant pool items.
@@ -429,12 +429,12 @@ public class ClassWriter extends ClassVisitor {
     /**
      * The number of entries in the BootstrapMethods attribute.
      */
-    int bootstrapMethodsCount;
+    public int bootstrapMethodsCount;
 
     /**
      * The BootstrapMethods attribute.
      */
-    ByteVector bootstrapMethods;
+    public ByteVector bootstrapMethods;
 
     /**
      * The fields of this class. These fields are stored in a linked list of

@@ -96,4 +96,40 @@ public final class FrameData {
     }
 
 
+    /**
+     * In a split method, reconstruct the stack from the parameters.
+     */
+    public void reconstructStack(MethodWriter mw) {
+        int localSize = frameLocal.length;
+        int i = 0, size = frameStack.length;
+        while (i < size) {
+            reconstructFrameElement(mw, i + localSize, frameStack[i]);
+            ++i;
+        }
+    }
+
+    private void reconstructFrameElement(MethodWriter mw, int index, Object el) {
+        if (el == Opcodes.TOP) {
+            ; // nothing
+        } else if (el == Opcodes.INTEGER) {
+            mw.visitVarInsn(Opcodes.ILOAD, index);
+        } else if (el == Opcodes.FLOAT) {
+            mw.visitVarInsn(Opcodes.FLOAD, index);
+        } else if (el == Opcodes.DOUBLE) {
+            mw.visitVarInsn(Opcodes.DLOAD, index);
+        } else if (el == Opcodes.LONG) {
+            mw.visitVarInsn(Opcodes.LLOAD, index);
+        } else if (el == Opcodes.NULL) {
+            mw.visitInsn(Opcodes.ACONST_NULL);
+        } else if (el == Opcodes.UNINITIALIZED_THIS) {
+            mw.visitInsn(Opcodes.ACONST_NULL);
+        } else if (el instanceof String) {
+            mw.visitVarInsn(Opcodes.ALOAD, index);
+        } else if (el instanceof Label) {
+            mw.visitInsn(Opcodes.ACONST_NULL);
+        } else {
+            throw new RuntimeException("unknown frame element");
+        }
+    }
+
 }

@@ -52,12 +52,12 @@ class SplitMethod {
 
     MethodWriter writer;
 
-    public void setMethodWriter(final ClassWriter cw,
-                                final int access,
-                                final String hostName, final int id,
-                                final String hostDescriptor,
-                                final String signature,
-                                final int[] exceptions) {
+    public MethodWriter setMethodWriter(final ClassWriter cw,
+                                        final int access,
+                                        final String hostName, final int id,
+                                        final String hostDescriptor,
+                                        final String signature,
+                                        final int[] exceptions) {
         String descriptor = entry.frameData.getDescriptor(hostDescriptor, access);
         int desc = cw.newUTF8(descriptor);
         writer = new MethodWriter(cw, 
@@ -66,7 +66,10 @@ class SplitMethod {
                                   descriptor, desc,
                                   signature,  // #### this is all provisional
                                   exceptions, 
-                                  false, false, null);
+                                  true, // computeMaxs
+                                  false,  // computeFrames
+                                  null);
+        return writer;
                                       
     }
 
