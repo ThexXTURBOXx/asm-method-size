@@ -35,42 +35,55 @@ import java.util.HashSet;
 
 class SplitMethod {
 
-    public SplitMethod(BasicBlock entry, HashSet<Scc> components) {
+    public SplitMethod() {
+        this.entry = null;
+    }
+
+    public SplitMethod(BasicBlock entry) {
         this.entry = entry;
-        this.components = components;
     }
 
     /**
-     * Entry point
+     * Entry point of a split method; <code>null</code> if it's the main method.
      */
     BasicBlock entry;
 
-    /**
-     * SCC components that are in the function.
-     */
-    HashSet<Scc> components;
-
     MethodWriter writer;
 
-    public MethodWriter setMethodWriter(final ClassWriter cw,
-                                        final int access,
-                                        final String hostName, final int id,
-                                        final String hostDescriptor,
-                                        final String signature,
-                                        final int[] exceptions) {
+    public void setSplitMethodWriter(final ClassWriter cw,
+                                     final int access,
+                                     final int name,
+                                     final String hostDescriptor,
+                                     final String signature,
+                                     final int[] exceptions) {
         String descriptor = entry.frameData.getDescriptor(hostDescriptor, access);
         int desc = cw.newUTF8(descriptor);
         writer = new MethodWriter(cw, 
                                   access,
-                                  cw.newUTF8(hostName + "#split#" + id),
+                                  name,
                                   descriptor, desc,
                                   signature,  // #### this is all provisional
                                   exceptions, 
                                   true, // computeMaxs
                                   false,  // computeFrames
                                   null);
-        return writer;
-                                      
+    }
+
+    public void setMainMethodWriter(final ClassWriter cw,
+                                    final int access,
+                                    final int name,
+                                    final String hostDescriptor, int descriptor,
+                                    final String signature,
+                                    final int[] exceptions) {
+        writer = new MethodWriter(cw, 
+                                  access,
+                                  name,
+                                  hostDescriptor, descriptor,
+                                  signature,  // #### this is all provisional
+                                  exceptions, 
+                                  true, // computeMaxs
+                                  false,  // computeFrames
+                                  null);
     }
 
 }

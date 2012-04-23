@@ -352,9 +352,8 @@ class Scc {
         if (transitiveClosureSize > maxMethodLength) {
             BasicBlock entry = lookMaxSizeSplitPointSuccessor();
             if (entry != null) {
-                HashSet<Scc> transitiveClosure = entry.sccRoot.transitiveClosure;
-                SplitMethod m = new SplitMethod(entry, transitiveClosure);
-                for (Scc root : transitiveClosure)
+                SplitMethod m = new SplitMethod(entry);
+                for (Scc root : entry.sccRoot.transitiveClosure)
                     root.splitMethod = m;
                 return m;
             }

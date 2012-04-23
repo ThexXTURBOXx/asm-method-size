@@ -1871,7 +1871,7 @@ public class MethodWriter extends MethodVisitor {
      *
      * @return the size of the bytecode of this method.
      */
-    final int getSize() {
+    public final int getSize() {
         if (classReaderOffset != 0) {
             return 6 + classReaderLength;
         }
@@ -2020,7 +2020,7 @@ public class MethodWriter extends MethodVisitor {
      * @param out the byte vector into which the bytecode of this method must be
      *        copied.
      */
-    final void put(final ByteVector out) {
+    public final void put(final ByteVector out) {
         if (tooLargeDelegate != null) {
             tooLargeDelegate.put(out);
             return;

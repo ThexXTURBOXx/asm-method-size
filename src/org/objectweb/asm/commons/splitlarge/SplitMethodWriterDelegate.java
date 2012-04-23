@@ -42,7 +42,9 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     Scc scc;
 
     HashSet<SplitMethod> splitMethods;
-    
+
+    SplitMethod mainMethod;
+
     BasicBlock[] blocksByOffset;
     /* labels not associated with a basic block - NEW instructions */
     Label[] labelsByOffset;
@@ -75,6 +77,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         thisName = readUTF8Item(name, utfDecodeBuffer);
         parseStackMap();
         parseBootstrapMethods();
+        mainMethod = new SplitMethod();
         makeSplitMethodWriters();
         writeMethods();
     }
@@ -524,11 +527,15 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         }
     }
 
+    /**
+     * @return main split method
+     */
     private void startSplitMethods() {
         for (SplitMethod m : splitMethods) {
             m.writer.visitCode();
             m.entry.frameData.reconstructStack(m.writer);
         }
+        mainMethod.writer.visitCode();
     }
     
     private void endSplitMethods() {
@@ -551,19 +558,25 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     /**
-     * Get array, indexed by code pointer, of all method writers.
+     * Create all split-method writers.
      */
     private void makeSplitMethodWriters() {
         int id = 0;
         for (SplitMethod m : splitMethods) {
-            m.setMethodWriter(cw,
-                              access,
-                              thisName, id,
-                              descriptor,
-                              signature,
-                              exceptions);
+            m.setSplitMethodWriter(cw,
+                                   access,
+                                   cw.newUTF8(thisName + "#split#" + id),
+                                   descriptor,
+                                   signature,
+                                   exceptions);
             ++id;
         }
+        mainMethod.setMainMethodWriter(cw,
+                                       access,
+                                       name,
+                                       descriptor, desc,
+                                       signature,
+                                       exceptions);
     }
 
     /**
@@ -574,7 +587,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     @Override
     public int getSize() {
         split();
-        return 0; // ####
+        return mainMethod.writer.getSize();
     }
     
 
@@ -589,6 +602,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      */
     @Override
     public void put(ByteVector out) {
+        mainMethod.writer.put(out);
     }
 
     //
