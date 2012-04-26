@@ -48,24 +48,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
     protected MethodVisitor mv;
 
     private void startMethod() {
-        MethodWriterFactory cwf =
-            new MethodWriterFactory() {
-                public MethodWriter getMethodWriter
-                    (final ClassWriter cw,
-                     final int access,
-                     final String name,
-                     final String desc,
-                     final String signature,
-                     final String[] exceptions,
-                     final boolean computeMaxs,
-                     final boolean computeFrames) {
-                    MethodWriterDelegate cwd =
-                                new SplitMethodWriterDelegate(Split.MAX_METHOD_LENGTH);
-                    return new MethodWriter(cw, access, name, desc, signature, exceptions, computeMaxs, computeFrames,
-                                            cwd);
-                }
-                
-            };
+        MethodWriterFactory cwf = new SplitMethodWriterFactory();
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
         this.cv = cw; // new CheckClassAdapter(cv);
         this.cv.visit(Opcodes.V1_6,
