@@ -53,6 +53,12 @@ public abstract class ClassVisitor {
     protected ClassVisitor cv;
 
     /**
+     * The class visitor from which this visitor gets delegated method
+     * calls.  May be null.
+     */
+    protected ClassVisitor previousCv;
+
+    /**
      * Constructs a new {@link ClassVisitor}.
      *
      * @param api the ASM API version implemented by this visitor. Must be one
@@ -76,6 +82,11 @@ public abstract class ClassVisitor {
         }*/
         this.api = api;
         this.cv = cv;
+        if (cv != null) {
+            if (cv.previousCv != null)
+                throw new RuntimeException("class visitor participates in several delegation chains");
+            cv.previousCv = this;
+        }
     }
 
     /**
@@ -274,4 +285,13 @@ public abstract class ClassVisitor {
             cv.visitEnd();
         }
     }
+
+    public ClassVisitor getFirstVisitor() {
+        ClassVisitor cv = this;
+        while (cv.previousCv != null) {
+            cv = cv.previousCv;
+        }
+        return cv;
+    }
+
 }
