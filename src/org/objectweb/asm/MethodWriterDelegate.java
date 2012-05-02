@@ -279,6 +279,11 @@ public abstract class MethodWriterDelegate {
     protected int version;
 
     /**
+     * Method called off the {@link MethodWriter}'s {MethodWriter#visitEnd} method.
+     */
+    public abstract void visitEnd();
+
+    /**
      * Returns the size of the bytecode of this method.
      *
      * @return the size of the bytecode of this method.

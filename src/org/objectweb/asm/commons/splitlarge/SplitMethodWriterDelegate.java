@@ -67,7 +67,8 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.maxMethodLength = maxMethodLength;
     }
 
-    void split() {
+    @Override
+    public void visitEnd() {
         TreeSet<BasicBlock> blocks = Split.initializeAll(code);
         this.scc = blocks.first().sccRoot;
         this.splitMethods = scc.split(thisName, maxMethodLength);
@@ -568,7 +569,6 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      */
     @Override
     public int getSize() {
-        split();
         return mainMethodWriter.getSize();
     }
     

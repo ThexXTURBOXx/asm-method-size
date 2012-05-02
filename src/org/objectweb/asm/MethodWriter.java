@@ -1583,6 +1583,68 @@ public class MethodWriter extends MethodVisitor {
 
     @Override
     public void visitEnd() {
+        if (classReaderOffset != 0) {
+            return;
+        }
+        if (resize) {
+            // replaces the temporary jump opcodes introduced by Label.resolve.
+            if (ClassReader.RESIZE) {
+                resizeInstructions();
+            } else {
+                throw new RuntimeException("Method code too large!");
+            }
+        }
+        if (code.length <= 65536) 
+            tooLargeDelegate = null;
+        else if (tooLargeDelegate != null) {
+            MethodWriterDelegate d = tooLargeDelegate;
+            d.cw = cw;
+            d.access = access;
+            d.name = name;
+            d.desc = desc;
+            d.descriptor = descriptor;
+            d.signature = signature;
+            d.classReaderOffset = classReaderOffset;
+            d.classReaderLength = classReaderLength;
+            d.exceptionCount = exceptionCount;
+            d.exceptions = exceptions;
+            d.anns = anns;
+            d.ianns = ianns;
+            d.panns = panns;
+            d.ipanns = ipanns;
+            d.synthetics = synthetics;
+            d.attrs = attrs;
+            d.code = code;
+            d.maxStack = maxStack;
+            d.maxLocals = maxLocals;
+            d.currentLocals = currentLocals;
+            d.frameCount = frameCount;
+            d.stackMap = stackMap;
+            d.previousFrameOffset = previousFrameOffset;
+            d.previousFrame = previousFrame;
+            d.frameIndex = frameIndex;
+            d.frame = frame;
+            d.handlerCount = handlerCount;
+            d.firstHandler = firstHandler;
+            d.lastHandler = lastHandler;
+            d.localVarCount = localVarCount;
+            d.localVar = localVar;
+            d.localVarTypeCount = localVarTypeCount;
+            d.localVarType = localVarType;
+            d.lineNumberCount = lineNumberCount;
+            d.lineNumber = lineNumber;
+            d.cattrs = cattrs;
+            d.resize = resize;
+            d.subroutines = subroutines;
+            d.labels = labels;
+            d.maxStackSize = maxStackSize;
+            d.pool = cw.pool;
+            d.poolSize = cw.index;
+            d.version = cw.version;
+            d.visitEnd();
+        } else {
+            throw new RuntimeException("Method code too large!");
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -1899,67 +1961,11 @@ public class MethodWriter extends MethodVisitor {
         if (classReaderOffset != 0) {
             return 6 + classReaderLength;
         }
-        if (resize) {
-            // replaces the temporary jump opcodes introduced by Label.resolve.
-            if (ClassReader.RESIZE) {
-                resizeInstructions();
-            } else {
-                throw new RuntimeException("Method code too large!");
-            }
+        if (tooLargeDelegate != null) {
+            return tooLargeDelegate.getSize();
         }
         int size = 8;
         if (code.length > 0) {
-            if (code.length <= 65536) 
-                tooLargeDelegate = null;
-            else if (tooLargeDelegate != null) {
-                MethodWriterDelegate d = tooLargeDelegate;
-                d.cw = cw;
-                d.access = access;
-                d.name = name;
-                d.desc = desc;
-                d.descriptor = descriptor;
-                d.signature = signature;
-                d.classReaderOffset = classReaderOffset;
-                d.classReaderLength = classReaderLength;
-                d.exceptionCount = exceptionCount;
-                d.exceptions = exceptions;
-                d.anns = anns;
-                d.ianns = ianns;
-                d.panns = panns;
-                d.ipanns = ipanns;
-                d.synthetics = synthetics;
-                d.attrs = attrs;
-                d.code = code;
-                d.maxStack = maxStack;
-                d.maxLocals = maxLocals;
-                d.currentLocals = currentLocals;
-                d.frameCount = frameCount;
-                d.stackMap = stackMap;
-                d.previousFrameOffset = previousFrameOffset;
-                d.previousFrame = previousFrame;
-                d.frameIndex = frameIndex;
-                d.frame = frame;
-                d.handlerCount = handlerCount;
-                d.firstHandler = firstHandler;
-                d.lastHandler = lastHandler;
-                d.localVarCount = localVarCount;
-                d.localVar = localVar;
-                d.localVarTypeCount = localVarTypeCount;
-                d.localVarType = localVarType;
-                d.lineNumberCount = lineNumberCount;
-                d.lineNumber = lineNumber;
-                d.cattrs = cattrs;
-                d.resize = resize;
-                d.subroutines = subroutines;
-                d.labels = labels;
-                d.maxStackSize = maxStackSize;
-                d.pool = cw.pool;
-                d.poolSize = cw.index;
-                d.version = cw.version;
-                return d.getSize();
-            } else {
-                throw new RuntimeException("Method code too large!");
-            }
             cw.newUTF8("Code");
             size += 18 + code.length + 8 * handlerCount;
             if (localVar != null) {
