@@ -397,63 +397,9 @@ public class Textifier extends Printer {
         final String signature,
         final String[] exceptions)
     {
-        buf.setLength(0);
-        buf.append('\n');
-        if ((access & Opcodes.ACC_DEPRECATED) != 0) {
-            buf.append(tab).append("// DEPRECATED\n");
-        }
-        buf.append(tab).append("// access flags 0x").append(Integer.toHexString(access).toUpperCase()).append('\n');
-
-        if (signature != null) {
-            buf.append(tab);
-            appendDescriptor(METHOD_SIGNATURE, signature);
-
-            TraceSignatureVisitor v = new TraceSignatureVisitor(0);
-            SignatureReader r = new SignatureReader(signature);
-            r.accept(v);
-            String genericDecl = v.getDeclaration();
-            String genericReturn = v.getReturnType();
-            String genericExceptions = v.getExceptions();
-
-            buf.append(tab)
-                    .append("// declaration: ")
-                    .append(genericReturn)
-                    .append(' ')
-                    .append(name)
-                    .append(genericDecl);
-            if (genericExceptions != null) {
-                buf.append(" throws ").append(genericExceptions);
-            }
-            buf.append('\n');
-        }
-
-        buf.append(tab);
-        appendAccess(access);
-        if ((access & Opcodes.ACC_NATIVE) != 0) {
-            buf.append("native ");
-        }
-        if ((access & Opcodes.ACC_VARARGS) != 0) {
-            buf.append("varargs ");
-        }
-        if ((access & Opcodes.ACC_BRIDGE) != 0) {
-            buf.append("bridge ");
-        }
-
-        buf.append(name);
-        appendDescriptor(METHOD_DESCRIPTOR, desc);
-        if (exceptions != null && exceptions.length > 0) {
-            buf.append(" throws ");
-            for (int i = 0; i < exceptions.length; ++i) {
-                appendDescriptor(INTERNAL_NAME, exceptions[i]);
-                buf.append(' ');
-            }
-        }
-
-        buf.append('\n');
-        text.add(buf.toString());
-
         Textifier t = createTextifier();
         text.add(t.getText());
+        t.reallyVisitMethod(access, name, desc, signature, exceptions);
         return t;
     }
 
@@ -1282,5 +1228,67 @@ public class Textifier extends Printer {
                 appendLabel((Label) o[i]);
             }
         }
+    }
+
+    private void reallyVisitMethod(final int access,
+        final String name,
+        final String desc,
+        final String signature,
+        final String[] exceptions)
+    {
+        buf.setLength(0);
+        buf.append('\n');
+        if ((access & Opcodes.ACC_DEPRECATED) != 0) {
+            buf.append(tab).append("// DEPRECATED\n");
+        }
+        buf.append(tab).append("// access flags 0x").append(Integer.toHexString(access).toUpperCase()).append('\n');
+
+        if (signature != null) {
+            buf.append(tab);
+            appendDescriptor(METHOD_SIGNATURE, signature);
+
+            TraceSignatureVisitor v = new TraceSignatureVisitor(0);
+            SignatureReader r = new SignatureReader(signature);
+            r.accept(v);
+            String genericDecl = v.getDeclaration();
+            String genericReturn = v.getReturnType();
+            String genericExceptions = v.getExceptions();
+
+            buf.append(tab)
+                    .append("// declaration: ")
+                    .append(genericReturn)
+                    .append(' ')
+                    .append(name)
+                    .append(genericDecl);
+            if (genericExceptions != null) {
+                buf.append(" throws ").append(genericExceptions);
+            }
+            buf.append('\n');
+        }
+
+        buf.append(tab);
+        appendAccess(access);
+        if ((access & Opcodes.ACC_NATIVE) != 0) {
+            buf.append("native ");
+        }
+        if ((access & Opcodes.ACC_VARARGS) != 0) {
+            buf.append("varargs ");
+        }
+        if ((access & Opcodes.ACC_BRIDGE) != 0) {
+            buf.append("bridge ");
+        }
+
+        buf.append(name);
+        appendDescriptor(METHOD_DESCRIPTOR, desc);
+        if (exceptions != null && exceptions.length > 0) {
+            buf.append(" throws ");
+            for (int i = 0; i < exceptions.length; ++i) {
+                appendDescriptor(INTERNAL_NAME, exceptions[i]);
+                buf.append(' ');
+            }
+        }
+
+        buf.append('\n');
+        text.add(buf.toString());
     }
 }
