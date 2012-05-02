@@ -392,7 +392,7 @@ class Scc {
     }
 
 
-    public HashSet<SplitMethod> split(String mainMethodName, final int maxMethodLength) {
+    public HashSet<SplitMethod> split(String mainMethodName, int access, final int maxMethodLength) {
         // #### very provisional
         HashSet<SplitMethod> set = new HashSet<SplitMethod>();
         BasicBlock entry = findSplitPoint(maxMethodLength);
@@ -400,7 +400,7 @@ class Scc {
             throw new RuntimeException("no split point found");
 
         int id = 0;
-        SplitMethod m = new SplitMethod(mainMethodName, id++, entry);
+        SplitMethod m = new SplitMethod(mainMethodName, access, id++, entry);
         for (Scc root : entry.sccRoot.transitiveClosure)
             root.splitMethod = m;
         set.add(m);

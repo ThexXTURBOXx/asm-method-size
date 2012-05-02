@@ -50,7 +50,7 @@ public final class FrameData {
         mv.visitFrame(Opcodes.F_NEW, frameLocal.length, frameLocal, frameStack.length, frameLocal);
     }
 
-    /*
+    /**
      * @param methodDescriptor method descriptor of host method
      * @param access access flags of host method
      */
@@ -78,6 +78,67 @@ public final class FrameData {
         return b.toString();
     }
 
+    /**
+     * Generate a jump to this method.
+     */
+    public void visitPushFrameArguments(ClassWriter cw, MethodVisitor mv) {
+        /*
+         * We'll want the locals first, so they get the same indices
+         * in the target block.  Then we'll want the operands.
+         * Unfortunately, there's no way to push the locals below the
+         * operands (or whatever), so we'll need to copy the operands
+         * into new local variables, and from there push them on top.
+         */
+        // FIXME: need to adjust frameLocal
+        {
+            int i = 0;
+            while (i < frameStack.length) {
+                // the last index is pushed first
+                storeStackElement(mv, frameStack.length - i -1 + frameLocal.length, frameStack[i]);
+                ++i;
+            }
+        }
+        {
+            int i = 0;
+            while (i < frameLocal.length) {
+                loadFrameElement(mv, i, frameLocal[i]);
+                ++i;
+            }
+        }
+        {
+            int i = 0;
+            // the first index is popped first
+            while (i < frameStack.length) {
+                loadFrameElement(mv, i + frameLocal.length, frameStack[i]);
+                ++i;
+            }
+        }
+    }
+
+    private void storeStackElement(MethodVisitor mv, int index, Object el) {
+        if (el == Opcodes.TOP) {
+            ; // nothing
+        } else if (el == Opcodes.INTEGER) {
+            mv.visitVarInsn(Opcodes.ISTORE, index);
+        } else if (el == Opcodes.FLOAT) {
+            mv.visitVarInsn(Opcodes.FSTORE, index);
+        } else if (el == Opcodes.DOUBLE) {
+            mv.visitVarInsn(Opcodes.DSTORE, index);
+        } else if (el == Opcodes.LONG) {
+            mv.visitVarInsn(Opcodes.LSTORE, index);
+        } else if (el == Opcodes.NULL) {
+            mv.visitInsn(Opcodes.ASTORE);
+        } else if (el == Opcodes.UNINITIALIZED_THIS) {
+            mv.visitInsn(Opcodes.ASTORE);
+        } else if (el instanceof String) {
+            mv.visitVarInsn(Opcodes.ASTORE, index);
+        } else if (el instanceof Label) {
+            mv.visitInsn(Opcodes.ASTORE);
+        } else {
+            throw new RuntimeException("unknown frame element");
+        }
+    }
+
     private void appendFrameTypeDescriptor(StringBuilder b, Object d) {
         if (d == Opcodes.INTEGER)
             b.append("I");
@@ -99,34 +160,34 @@ public final class FrameData {
     /**
      * In a split method, reconstruct the stack from the parameters.
      */
-    public void reconstructStack(MethodWriter mw) {
+    public void reconstructStack(MethodVisitor mw) {
         int localSize = frameLocal.length;
         int i = 0, size = frameStack.length;
         while (i < size) {
-            reconstructFrameElement(mw, i + localSize, frameStack[i]);
+            loadFrameElement(mw, i + localSize, frameStack[i]);
             ++i;
         }
     }
 
-    private void reconstructFrameElement(MethodWriter mw, int index, Object el) {
+    private void loadFrameElement(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
         } else if (el == Opcodes.INTEGER) {
-            mw.visitVarInsn(Opcodes.ILOAD, index);
+            mv.visitVarInsn(Opcodes.ILOAD, index);
         } else if (el == Opcodes.FLOAT) {
-            mw.visitVarInsn(Opcodes.FLOAD, index);
+            mv.visitVarInsn(Opcodes.FLOAD, index);
         } else if (el == Opcodes.DOUBLE) {
-            mw.visitVarInsn(Opcodes.DLOAD, index);
+            mv.visitVarInsn(Opcodes.DLOAD, index);
         } else if (el == Opcodes.LONG) {
-            mw.visitVarInsn(Opcodes.LLOAD, index);
+            mv.visitVarInsn(Opcodes.LLOAD, index);
         } else if (el == Opcodes.NULL) {
-            mw.visitInsn(Opcodes.ACONST_NULL);
+            mv.visitInsn(Opcodes.ACONST_NULL);
         } else if (el == Opcodes.UNINITIALIZED_THIS) {
-            mw.visitInsn(Opcodes.ACONST_NULL);
+            mv.visitInsn(Opcodes.ACONST_NULL);
         } else if (el instanceof String) {
-            mw.visitVarInsn(Opcodes.ALOAD, index);
+            mv.visitVarInsn(Opcodes.ALOAD, index);
         } else if (el instanceof Label) {
-            mw.visitInsn(Opcodes.ACONST_NULL);
+            mv.visitInsn(Opcodes.ACONST_NULL);
         } else {
             throw new RuntimeException("unknown frame element");
         }

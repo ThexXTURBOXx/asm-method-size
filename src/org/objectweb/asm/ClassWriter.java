@@ -664,6 +664,10 @@ public class ClassWriter extends ClassVisitor {
         this(classReader, flags, null);
     }
 
+    public MethodWriterFactory getMethodWriterFactory() {
+        return methodWriterFactory;
+    }
+
     // ------------------------------------------------------------------------
     // Implementation of the ClassVisitor abstract class
     // ------------------------------------------------------------------------

@@ -31,8 +31,6 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 
-import java.util.HashSet;
-
 class SplitMethod {
 
     /**
@@ -45,6 +43,8 @@ class SplitMethod {
      */
     String mainMethodName;
 
+    int access;
+
     /**
      * Name of this method.
      */
@@ -54,30 +54,58 @@ class SplitMethod {
      */
     int id;
 
-    MethodWriter writer;
+    String descriptor;
+    int descriptorIndex;
 
-    public SplitMethod(String mainMethodName, int id, BasicBlock entry) {
+    MethodVisitor writer;
+
+    public SplitMethod(String mainMethodName, int access, int id, BasicBlock entry) {
         this.mainMethodName = mainMethodName;
+        this.access = access;
         this.name = mainMethodName + "#split#" + id;
         this.id = id;
         this.entry = entry;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public String getDescriptor() {
+        return descriptor;
+    }
+
+    public int getDescriptorIndex() {
+        return descriptorIndex;
+    }
+
     public void setSplitMethodWriter(final ClassWriter cw,
-                                     final int access,
+                                     final ClassVisitor cv,
                                      final String mainDescriptor,
                                      final String signature,
-                                     final int[] exceptions) {
-        String descriptor = entry.frameData.getDescriptor(mainDescriptor, access);
-        int desc = cw.newUTF8(descriptor);
-        writer = new MethodWriter(cw, 
-                                  access,
-                                  cw.newUTF8(name),
-                                  descriptor, desc,
-                                  signature,  // #### this is all provisional
-                                  exceptions, 
-                                  true, // computeMaxs
-                                  false,  // computeFrames
-                                  null);
+                                     final String[] exceptions) {
+        descriptor = entry.frameData.getDescriptor(mainDescriptor, access);
+        SplitMethodWriterFactory smwf = (SplitMethodWriterFactory) cw.getMethodWriterFactory();
+        smwf.computeMaxsOverride = true;
+        smwf.computeFramesOverride = false;
+        smwf.split = false;
+        writer = cv.visitMethod(access,
+                                name,
+                                descriptor,
+                                signature,  // #### this is all provisional
+                                exceptions);
+        smwf.setDefaults();
     }
+
+    public void visitJumpTo(ClassWriter cw, MethodVisitor mv) {
+        entry.frameData.visitPushFrameArguments(cw, mv); // FIXME: intermediate method
+        mv.visitMethodInsn(((access & Opcodes.ACC_STATIC) != 0) ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL,
+                           cw.thisName,
+                           name,
+                           descriptor);
+        mv.visitInsn(Type.getReturnType(descriptor).getOpcode(Opcodes.IRETURN));
+    }
+
+    
+            
 }

@@ -38,6 +38,25 @@ import org.objectweb.asm.*;
  */
 
 class SplitMethodWriterFactory implements MethodWriterFactory {
+    // hack, hack, hack ...
+    boolean split;
+    Boolean computeMaxsOverride;
+    Boolean computeFramesOverride;
+    boolean register;
+    // the horror
+    static MethodWriter lastInstance;
+
+    public SplitMethodWriterFactory() {
+        setDefaults();
+    }
+
+    public void setDefaults() {
+        split = true;
+        computeMaxsOverride = null;
+        computeFramesOverride = null;
+        register = true;
+    }
+
     public MethodWriter getMethodWriter(final ClassWriter cw,
                                         final int access,
                                         final String name,
@@ -46,9 +65,11 @@ class SplitMethodWriterFactory implements MethodWriterFactory {
                                         final String[] exceptions,
                                         final boolean computeMaxs,
                                         final boolean computeFrames) {
-        MethodWriterDelegate cwd =
-            new SplitMethodWriterDelegate(Split.MAX_METHOD_LENGTH);
-        return new MethodWriter(cw, access, name, desc, signature, exceptions, computeMaxs, computeFrames,
-                                cwd);
+        MethodWriterDelegate cwd = split ? new SplitMethodWriterDelegate(Split.MAX_METHOD_LENGTH) : null;
+        boolean cm = (computeMaxsOverride != null) ? computeMaxsOverride.booleanValue() : computeMaxs;
+        boolean cf = (computeFramesOverride != null) ? computeFramesOverride.booleanValue() : computeFrames;
+        lastInstance = new MethodWriter(cw, access, name, desc, signature, exceptions, cm, cf, register,
+                                        cwd);
+        return lastInstance;
     }
 }

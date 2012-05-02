@@ -37,6 +37,13 @@ import java.util.TreeSet;
 
 final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
+    /**
+     * We'll want to call the same {@link ClassVisitor} methods
+     * (specifically {@link ClassVisitor#visitMethod} as the original
+     * caller.  So we unravel the delegation chain to that point.
+     */
+    ClassVisitor cv;
+
     final int maxMethodLength;
 
     Scc scc;
@@ -44,6 +51,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     HashSet<SplitMethod> splitMethods;
 
     MethodWriter mainMethodWriter;
+    MethodVisitor mainMethodVisitor;
 
     BasicBlock[] blocksByOffset;
     /* labels not associated with a basic block - NEW instructions */
@@ -69,13 +77,14 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     @Override
     public void visitEnd() {
-        TreeSet<BasicBlock> blocks = Split.initializeAll(code);
-        this.scc = blocks.first().sccRoot;
-        this.splitMethods = scc.split(thisName, maxMethodLength);
-        this.blocksByOffset = computeBlocksByOffset(blocks);
-        this.labelsByOffset = new Label[code.length];
         parseConstantPool();
         thisName = readUTF8Item(name, utfDecodeBuffer);
+        cv = cw.getFirstVisitor();
+        TreeSet<BasicBlock> blocks = Split.initializeAll(code);
+        this.scc = blocks.first().sccRoot;
+        this.splitMethods = scc.split(thisName, access, maxMethodLength);
+        this.blocksByOffset = computeBlocksByOffset(blocks);
+        this.labelsByOffset = new Label[code.length];
         parseStackMap();
         parseBootstrapMethods();
         makeMethodWriters();
@@ -321,7 +330,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     private void writeMethods() {
-        // FIXME: calls to split methods
+        // FIXME: calls to split with 
 
         // FIXME: visitTryCatchBlock
         // FIXME: visitLocalVariable
@@ -334,59 +343,63 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     private void writeBodyCode() {
         byte[] b = code.data; // bytecode of the method
         int v = 0;
-        MethodWriter mw = null;
+        MethodVisitor mv = null;
+        BasicBlock currentBlock = null;
         while (v < code.length) {
-            BasicBlock block = blocksByOffset[v];
-            if (block != null) {
-                SplitMethod m = block.sccRoot.splitMethod;
-                if (m != null) {
-                    mw = m.writer;
-                    block.frameData.visitFrame(mw);
-                } else {
-                    mw = mainMethodWriter;
+            {
+                BasicBlock block = blocksByOffset[v];
+                if (block != null) {
+                    currentBlock = block;
+                    SplitMethod m = block.sccRoot.splitMethod;
+                    if (m != null) {
+                        mv = m.writer;
+                        block.frameData.visitFrame(mv);
+                    } else {
+                        mv = mainMethodVisitor;
+                    }
+                    mv.visitLabel(block.getOutputLabel());
                 }
-                mw.visitLabel(block.getOutputLabel());
             }
             {
                 Label l = labelsByOffset[v];
                 if (l != null) {
-                    mw.visitLabel(l);
+                    mv.visitLabel(l);
                 }
             }
 
             int opcode = b[v] & 0xFF;
             switch (ClassWriter.TYPE[opcode]) {
             case ClassWriter.NOARG_INSN:
-                mw.visitInsn(opcode);
+                mv.visitInsn(opcode);
                 v += 1;
                 break;
             case ClassWriter.IMPLVAR_INSN:
                 if (opcode > Opcodes.ISTORE) {
                     opcode -= 59; // ISTORE_0
-                    mw.visitVarInsn(Opcodes.ISTORE + (opcode >> 2),
+                    mv.visitVarInsn(Opcodes.ISTORE + (opcode >> 2),
                                     opcode & 0x3);
                 } else {
                     opcode -= 26; // ILOAD_0
-                    mw.visitVarInsn(Opcodes.ILOAD + (opcode >> 2),
+                    mv.visitVarInsn(Opcodes.ILOAD + (opcode >> 2),
                                     opcode & 0x3);
                 }
                 v += 1;
                 break;
             case ClassWriter.LABEL_INSN:
-                mw.visitJumpInsn(opcode, blocksByOffset[v + readShort(v + 1)].getOutputLabel());
+                handleJump(mv, opcode, currentBlock, blocksByOffset[v + readShort(v + 1)]);
                 v += 3;
                 break;
             case ClassWriter.LABELW_INSN:
-                mw.visitJumpInsn(opcode - 33, blocksByOffset[v + readInt(v + 1)].getOutputLabel());
+                handleJump(mv, opcode - 33, currentBlock, blocksByOffset[v + readInt(v + 1)]);
                 v += 5;
                 break;
             case ClassWriter.WIDE_INSN:
                 opcode = b[v + 1] & 0xFF;
                 if (opcode == Opcodes.IINC) {
-                    mw.visitIincInsn(readUnsignedShort(v + 2), readShort(v + 4));
+                    mv.visitIincInsn(readUnsignedShort(v + 2), readShort(v + 4));
                     v += 6;
                 } else {
-                    mw.visitVarInsn(opcode, readUnsignedShort(v + 2));
+                    mv.visitVarInsn(opcode, readUnsignedShort(v + 2));
                     v += 4;
                 }
                 break;
@@ -404,7 +417,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     table[j] = blocksByOffset[v + readInt(v)].getOutputLabel();
                     v += 4;
                 }
-                mw.visitTableSwitchInsn(min,
+                mv.visitTableSwitchInsn(min,
                                         max,
                                         blocksByOffset[label].getOutputLabel(),
                                         table);
@@ -420,46 +433,46 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 int[] keys = new int[size];
                 Label[] values = new Label[size];
                 for (int j = 0; j < size; ++j) {
-                     keys[j] = readInt(v);
-                     values[j] = blocksByOffset[v + readInt(v + 4)].getOutputLabel();
+                    keys[j] = readInt(v);
+                    values[j] = blocksByOffset[v + readInt(v + 4)].getOutputLabel();
                     v += 8;
                 }
-                mw.visitLookupSwitchInsn(blocksByOffset[label].getOutputLabel(),
+                mv.visitLookupSwitchInsn(blocksByOffset[label].getOutputLabel(),
                                          keys,
                                          values);
                 break;
             }
             case ClassWriter.VAR_INSN:
-                mw.visitVarInsn(opcode, b[v + 1] & 0xFF);
+                mv.visitVarInsn(opcode, b[v + 1] & 0xFF);
                 v += 2;
                 break;
             case ClassWriter.SBYTE_INSN:
-                mw.visitIntInsn(opcode, b[v + 1]);
+                mv.visitIntInsn(opcode, b[v + 1]);
                 v += 2;
                 break;
             case ClassWriter.SHORT_INSN:
-                mw.visitIntInsn(opcode, readShort(v + 1));
+                mv.visitIntInsn(opcode, readShort(v + 1));
                 v += 3;
                 break;
             case ClassWriter.LDC_INSN:
-                mw.visitLdcInsn(readConst(b[v + 1] & 0xFF, utfDecodeBuffer));
+                mv.visitLdcInsn(readConst(b[v + 1] & 0xFF, utfDecodeBuffer));
                 v += 2;
                 break;
             case ClassWriter.LDCW_INSN:
-                mw.visitLdcInsn(readConst(readUnsignedShort(v + 1), utfDecodeBuffer));
+                mv.visitLdcInsn(readConst(readUnsignedShort(v + 1), utfDecodeBuffer));
                 v += 3;
                 break;
             case ClassWriter.FIELDORMETH_INSN:
             case ClassWriter.ITFMETH_INSN: {
-                 int cpIndex = items[readUnsignedShort(v + 1)];
-                 String iowner = readClass(cpIndex, utfDecodeBuffer);
-                 cpIndex = items[readUnsignedShort(cpIndex + 2)];
-                 String iname = readUTF8(cpIndex, utfDecodeBuffer);
-                 String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
+                int cpIndex = items[readUnsignedShort(v + 1)];
+                String iowner = readClass(cpIndex, utfDecodeBuffer);
+                cpIndex = items[readUnsignedShort(cpIndex + 2)];
+                String iname = readUTF8(cpIndex, utfDecodeBuffer);
+                String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
                 if (opcode < Opcodes.INVOKEVIRTUAL) {
-                    mw.visitFieldInsn(opcode, iowner, iname, idesc);
+                    mv.visitFieldInsn(opcode, iowner, iname, idesc);
                 } else {
-                    mw.visitMethodInsn(opcode, iowner, iname, idesc);
+                    mv.visitMethodInsn(opcode, iowner, iname, idesc);
                 }
                 if (opcode == Opcodes.INVOKEINTERFACE) {
                     v += 5;
@@ -487,27 +500,102 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     bsmArgs[a] = readConst(argIndex, utfDecodeBuffer);
                     bsmIndex += 2;
                 }
-                mw.visitInvokeDynamicInsn(iname, idesc, bsm, bsmArgs);
+                mv.visitInvokeDynamicInsn(iname, idesc, bsm, bsmArgs);
                 
                 v += 5;
                 break;
             }
             case ClassWriter.TYPE_INSN:
-                mw.visitTypeInsn(opcode, readClass(v + 1, utfDecodeBuffer));
+                mv.visitTypeInsn(opcode, readClass(v + 1, utfDecodeBuffer));
                 v += 3;
                 break;
             case ClassWriter.IINC_INSN:
-                    mw.visitIincInsn(b[v + 1] & 0xFF, b[v + 2]);
+                mv.visitIincInsn(b[v + 1] & 0xFF, b[v + 2]);
                 v += 3;
                 break;
                 // case MANA_INSN:
             default:
-                mw.visitMultiANewArrayInsn(readClass(v + 1, utfDecodeBuffer), b[v + 3] & 0xFF);
+                mv.visitMultiANewArrayInsn(readClass(v + 1, utfDecodeBuffer), b[v + 3] & 0xFF);
                 v += 4;
                 break;
             }
         }
     }
+
+    private void handleJump(MethodVisitor mv, int opcode, BasicBlock currentBlock, BasicBlock target) {
+        SplitMethod m = target.sccRoot.splitMethod;
+        if (m != currentBlock.sccRoot.splitMethod) {
+            int reverse = reverseBranch(opcode);
+            if (reverse != -1) {
+                // ##### JSR
+                Label over = new Label();
+                mv.visitJumpInsn(reverse, over);
+                jumpToMethod(mv, target);
+                mv.visitLabel(over);
+            } else {
+                jumpToMethod(mv, target);
+            }
+        } else {
+            mv.visitJumpInsn(opcode, target.getOutputLabel());
+        }
+    }
+
+    private void jumpToMethod(MethodVisitor mv, BasicBlock target) {
+        target.sccRoot.splitMethod.visitJumpTo(cw, mv);
+    }
+                                           
+
+
+    private int reverseBranch(int opcode) {
+        int reverse = -1;
+        switch (opcode) {
+        case Opcodes.IFEQ: 
+            reverse = Opcodes.IFNE;
+            break;
+        case Opcodes.IFNE:
+            reverse = Opcodes.IFEQ;
+            break;
+        case Opcodes.IFLT:
+            reverse = Opcodes.IFGE;
+            break;
+        case Opcodes.IFGE:
+            reverse = Opcodes.IFLT;
+            break;
+        case Opcodes.IFGT:
+            reverse = Opcodes.IFLE;
+            break;
+        case Opcodes. IFLE:
+            reverse = Opcodes.IFGT;
+            break;
+        case Opcodes.IF_ICMPEQ:
+            reverse = Opcodes.IF_ICMPNE;
+            break;
+        case Opcodes.IF_ICMPNE:
+            reverse = Opcodes.IF_ICMPEQ;
+            break;
+        case Opcodes.IF_ICMPLT:
+            reverse = Opcodes.IF_ICMPGE;
+            break;
+        case Opcodes.IF_ICMPGE:
+            reverse = Opcodes.IF_ICMPLT;
+            break;
+        case Opcodes.IF_ICMPGT:
+            reverse = Opcodes.IF_ICMPLE;
+            break;
+        case Opcodes.IF_ICMPLE:
+            reverse = Opcodes.IF_ICMPGT;
+            break;
+        case Opcodes.IF_ACMPEQ:
+            reverse = Opcodes.IF_ACMPNE;
+            break;
+        case Opcodes.IF_ACMPNE:
+            reverse = Opcodes.IF_ACMPEQ;
+            break;
+        }
+        return reverse;
+    }
+
+
 
     /**
      * @return main split method
@@ -515,9 +603,9 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     private void startSplitMethods() {
         for (SplitMethod m : splitMethods) {
             m.writer.visitCode();
-            m.entry.frameData.reconstructStack(m.writer);
+            m.entry.frameData.reconstructStack(m.writer); // FIXME: intermediate methods, maybe 2
         }
-        mainMethodWriter.visitCode();
+        mainMethodVisitor.visitCode();
     }
     
     private void endSplitMethods() {
@@ -525,6 +613,8 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             m.writer.visitMaxs(0, 0);
             m.writer.visitEnd();
         }
+        mainMethodVisitor.visitMaxs(0, 0);
+        mainMethodVisitor.visitEnd();
     }
         
 
@@ -543,23 +633,42 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      * Create all method writers.
      */
     private void  makeMethodWriters() {
+        String[] exceptionNames = null;
+        if (exceptions != null) {
+            exceptionNames = new String[exceptions.length];
+            int i = 0;
+            while (i < exceptions.length) {
+                exceptionNames[i] = readUTF8Item(name, utfDecodeBuffer);
+                ++i;
+            }
+        }
         for (SplitMethod m : splitMethods) {
-            m.setSplitMethodWriter(cw,
-                                   access,
+            m.setSplitMethodWriter(cw, cv,
                                    descriptor,
                                    signature,
-                                   exceptions);
+                                   exceptionNames);
         }
-        mainMethodWriter = new MethodWriter(cw, 
-                                            access,
-                                            name,
-                                            descriptor, desc,
-                                            signature,  // #### this is all provisional
-                                            exceptions, 
-                                            true, // computeMaxs
-                                            false,  // computeFrames
-                                            false, // register
-                                            null);
+        SplitMethodWriterFactory smwf = (SplitMethodWriterFactory) cw.getMethodWriterFactory();
+        smwf.computeMaxsOverride = true;
+        smwf.computeFramesOverride = false;
+        smwf.split = false;
+        smwf.register = false;
+        mainMethodVisitor =
+            cv.visitMethod(access,
+                           thisName,
+                           descriptor,
+                           signature,  // #### this is all provisional
+                           exceptionNames);
+        /*
+         * Major kludge:
+         * We really need the MethodWriter, as we're calling its
+         * getSize and put methods.  But visitMethod may give us a
+         * visitor wrapped around a MethodWriter.  Instead,
+         * SplitMethodWriterFactory records the instance that must be
+         * sitting insite the visitor.
+         */
+        mainMethodWriter = SplitMethodWriterFactory.lastInstance;
+        smwf.setDefaults();
     }
 
     /**

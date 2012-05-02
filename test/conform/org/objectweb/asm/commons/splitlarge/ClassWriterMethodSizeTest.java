@@ -31,7 +31,7 @@
 package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
-import org.objectweb.asm.util.CheckClassAdapter;
+import org.objectweb.asm.util.TraceClassVisitor;
 
 import junit.framework.TestCase;
 
@@ -50,7 +50,8 @@ public class ClassWriterMethodSizeTest extends TestCase {
     private void startMethod() {
         MethodWriterFactory cwf = new SplitMethodWriterFactory();
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
-        this.cv = cw; // new CheckClassAdapter(cv);
+        TraceClassVisitor tcv = new TraceClassVisitor(cw, new java.io.PrintWriter(System.out));
+        this.cv = tcv; // new CheckClassAdapter(cv);
         this.cv.visit(Opcodes.V1_6,
                       Opcodes.ACC_PUBLIC,
                       "C",
@@ -105,21 +106,21 @@ public class ClassWriterMethodSizeTest extends TestCase {
     /**
      * Method with one huge basic block of NOPs
      */
-    public void testBasic() {
-        startMethod();
-        int i = 0;
-        while (i < 100000) {
-            NOP();
-            ++i;
-        }
-        try {
-            endMethod();
-        }
-        catch (RuntimeException e) {
-            assertEquals("no split point found", e.getMessage());
-        }
-    }
-
+//     public void testBasic() {
+//         startMethod();
+//         int i = 0;
+//         while (i < 100000) {
+//             NOP();
+//             ++i;
+//         }
+//         try {
+//             endMethod();
+//         }
+//         catch (RuntimeException e) {
+//             assertEquals("no split point found", e.getMessage());
+//         }
+//     }
+    
     /**
      * Method with essentially two large basic blocks.
      */

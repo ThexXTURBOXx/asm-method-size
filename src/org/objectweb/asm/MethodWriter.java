@@ -429,6 +429,28 @@ public class MethodWriter extends MethodVisitor {
              signature,
              makePoolExceptions(cw, exceptions),
              computeMaxs, computeFrames, 
+             true,
+             tooLargeDelegate);
+    }
+
+    public MethodWriter(
+        final ClassWriter cw,
+        final int access,
+        final String name,
+        final String desc,
+        final String signature,
+        final String[] exceptions,
+        final boolean computeMaxs,
+        final boolean computeFrames,
+        final boolean register,
+        final MethodWriterDelegate tooLargeDelegate)
+    {
+        this(cw, access, 
+             cw.newUTF8(name), desc, cw.newUTF8(desc), 
+             signature,
+             makePoolExceptions(cw, exceptions),
+             computeMaxs, computeFrames, 
+             register,
              tooLargeDelegate);
     }
 
