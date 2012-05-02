@@ -341,11 +341,11 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 SplitMethod m = block.sccRoot.splitMethod;
                 if (m != null) {
                     mw = m.writer;
-                    mw.visitLabel(block.getOutputLabel());
                     block.frameData.visitFrame(mw);
                 } else {
                     mw = mainMethodWriter;
                 }
+                mw.visitLabel(block.getOutputLabel());
             }
             {
                 Label l = labelsByOffset[v];
