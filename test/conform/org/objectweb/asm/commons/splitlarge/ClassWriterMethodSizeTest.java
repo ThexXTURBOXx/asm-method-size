@@ -103,6 +103,15 @@ public class ClassWriterMethodSizeTest extends TestCase {
     private void RETURN() {
         this.mv.visitInsn(Opcodes.RETURN);
     }
+
+    private void ILOAD(int var) {
+        this.mv.visitVarInsn(Opcodes.ILOAD, var);
+    }
+
+    private void ISTORE(int var) {
+        this.mv.visitVarInsn(Opcodes.ISTORE, var);
+    }
+
     
     /**
      * Method with one huge basic block of NOPs
@@ -125,7 +134,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
     /**
      * Method with essentially two large basic blocks.
      */
-    public void testTwo() {
+    public void testTwo1() {
         Label l1 = new Label();
         startMethod();
         PUSH();
@@ -149,5 +158,41 @@ public class ClassWriterMethodSizeTest extends TestCase {
         }
         endMethod();
     }
+
+    /**
+     * Method with essentially two large basic blocks, with stuff in
+     * the frame.
+     */
+    public void testTwo2() {
+        Label l1 = new Label();
+        startMethod();
+        PUSH();
+        ISTORE(1);
+        PUSH();
+        ISTORE(2);
+        PUSH();
+        ILOAD(1);
+        // at this point we have this, two variables, and one operand
+        IFNE(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
+        LABEL(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
+        endMethod();
+    }
+
 
 }

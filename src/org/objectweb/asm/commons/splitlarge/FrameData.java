@@ -54,13 +54,13 @@ public final class FrameData {
      * @param methodDescriptor method descriptor of host method
      * @param access access flags of host method
      */
-    public String getDescriptor(final String methodDescriptor, final int access) {
+    public String getDescriptor(final String methodDescriptor) {
         StringBuilder b = new StringBuilder();
 
         b.append("(");
         {
             // for non-static methods, this is the first local, and implicit
-            int i = ((access & Opcodes.ACC_STATIC) != 0) ? 0 : 1;
+            int i = 0;
             while (i < frameLocal.length) {
                 appendFrameTypeDescriptor(b, frameLocal[i]);
                 ++i;
