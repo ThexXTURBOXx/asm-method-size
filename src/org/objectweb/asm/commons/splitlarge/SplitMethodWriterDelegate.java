@@ -263,7 +263,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                         }
                     }
                     {
-                        int n = frameStackCount = readUnsignedShort(v);
+                        int n = frameStackCount = ByteArray.readUnsignedShort(b, v);
                         v += 2;
                         for (int j = 0; n > 0; n--) {
                             v = readFrameType(frameStack, j++, v, utfDecodeBuffer);
