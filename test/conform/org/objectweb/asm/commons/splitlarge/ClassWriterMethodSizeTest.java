@@ -48,6 +48,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
     protected MethodVisitor mv;
 
     private void startMethod() {
+        ClassWriter.MAX_CODE_LENGTH = 100;
         MethodWriterFactory cwf = new SplitMethodWriterFactory();
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
         TraceClassVisitor tcv = new TraceClassVisitor(cw, new java.io.PrintWriter(System.out));
@@ -128,25 +129,22 @@ public class ClassWriterMethodSizeTest extends TestCase {
         Label l1 = new Label();
         startMethod();
         PUSH();
-        IFNE(l1); // gets expanded into IFEQ, GOTO
-        // @9
+        IFNE(l1);
         {
             int i = 0;
-            while (i < 40000) {
+            while (i < 60) {
                 NOP();
                 ++i;
             }
             RETURN();
         }
-        // @40010
         LABEL(l1);
         {
             int i = 0;
-            while (i < 40000) {
+            while (i < 60) {
                 NOP();
                 ++i;
             }
-            // @80010
             RETURN();
         }
         endMethod();

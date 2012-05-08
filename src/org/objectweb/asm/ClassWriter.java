@@ -273,6 +273,12 @@ public class ClassWriter extends ClassVisitor {
     static final int BSM = 33;
 
     /**
+     * Maximum method-code length; this is a JVM limit, but can be set
+     * to a different value for testing and debugging.
+     */
+    public static int MAX_CODE_LENGTH = 65536;
+
+    /**
      * The class reader from which this class writer was constructed, if any.
      */
     ClassReader cr;

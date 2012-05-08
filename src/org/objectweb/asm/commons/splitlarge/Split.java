@@ -34,12 +34,6 @@ import org.objectweb.asm.*;
 import java.util.TreeSet;
 
 final class Split {
-
-    /**
-     * JVM limit for maximum method size.
-     */
-    static final int MAX_METHOD_LENGTH = 65536;
- 
     /**
      * Initialize everything needed for performing the splitting.
      *

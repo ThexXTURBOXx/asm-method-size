@@ -65,7 +65,7 @@ class SplitMethodWriterFactory implements MethodWriterFactory {
                                         final String[] exceptions,
                                         final boolean computeMaxs,
                                         final boolean computeFrames) {
-        MethodWriterDelegate cwd = split ? new SplitMethodWriterDelegate(Split.MAX_METHOD_LENGTH) : null;
+        MethodWriterDelegate cwd = split ? new SplitMethodWriterDelegate(ClassWriter.MAX_CODE_LENGTH) : null;
         boolean cm = (computeMaxsOverride != null) ? computeMaxsOverride.booleanValue() : computeMaxs;
         boolean cf = (computeFramesOverride != null) ? computeFramesOverride.booleanValue() : computeFrames;
         lastInstance = new MethodWriter(cw, access, name, desc, signature, exceptions, cm, cf, register,

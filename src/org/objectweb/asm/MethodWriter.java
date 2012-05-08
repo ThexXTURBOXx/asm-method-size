@@ -1616,7 +1616,7 @@ public class MethodWriter extends MethodVisitor {
                 throw new RuntimeException("Method code too large!");
             }
         }
-        if (code.length <= 65536) 
+        if (code.length <= ClassWriter.MAX_CODE_LENGTH) 
             tooLargeDelegate = null;
         else if (tooLargeDelegate != null) {
             MethodWriterDelegate d = tooLargeDelegate;
