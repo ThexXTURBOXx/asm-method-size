@@ -703,7 +703,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         // computes the start index of the CONSTANT_Class item in b
         // and reads the CONSTANT_Utf8 item designated by
         // the first two bytes of this CONSTANT_Class item
-        return readUTF8(items[ByteArray.readUnsignedShort(stackMap.data, index)], buf);
+        return readUTF8Item(ByteArray.readUnsignedShort(stackMap.data, index), buf);
     }
 
 
