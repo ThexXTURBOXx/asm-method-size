@@ -65,6 +65,11 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     private char[] utfDecodeBuffer;
 
+    /**
+     * Offsets of the CONSTANT_Class_info structures in the pools;
+     * more precisely the offsets of the meat of those structures
+     * after the tag.
+     */
     int[] items;
 
     String thisName;
@@ -312,7 +317,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             frame[index] = Opcodes.UNINITIALIZED_THIS;
             break;
         case 7: // Object
-            frame[index] = readClass(v, buf);
+            frame[index] = readClass(ByteArray.readUnsignedShort(b, v), buf);
             v += 2;
             break;
         default: { // Uninitialized
@@ -464,8 +469,9 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             case ClassWriter.FIELDORMETH_INSN:
             case ClassWriter.ITFMETH_INSN: {
+                // offset of the {Fieldref, MethodRef, InterfaceMethodRef}_Info structure
                 int cpIndex = items[readUnsignedShort(v + 1)];
-                String iowner = readClass(cpIndex, utfDecodeBuffer);
+                String iowner = readClass(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
                 cpIndex = items[readUnsignedShort(cpIndex + 2)];
                 String iname = readUTF8(cpIndex, utfDecodeBuffer);
                 String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
@@ -506,7 +512,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.TYPE_INSN:
-                mv.visitTypeInsn(opcode, readClass(v + 1, utfDecodeBuffer));
+                mv.visitTypeInsn(opcode, readClass(readUnsignedShort(v + 1), utfDecodeBuffer));
                 v += 3;
                 break;
             case ClassWriter.IINC_INSN:
@@ -515,7 +521,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
                 // case MANA_INSN:
             default:
-                mv.visitMultiANewArrayInsn(readClass(v + 1, utfDecodeBuffer), b[v + 3] & 0xFF);
+                mv.visitMultiANewArrayInsn(readClass(readUnsignedShort(v + 1), utfDecodeBuffer), b[v + 3] & 0xFF);
                 v += 4;
                 break;
             }
@@ -699,11 +705,22 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     //
     // Constant pool
     //
-    public String readClass(final int index, final char[] buf) {
+    /**
+     * Reads a class constant pool item in {@link #b b}. <i>This method is
+     * intended for {@link Attribute} sub classes, and is normally not needed by
+     * class generators or adapters.</i>
+     *
+     * @param index the index of a constant pool class item.
+     * @param buf buffer to be used to read the item. This buffer must be
+     *        sufficiently large. It is not automatically resized.
+     * @return the String corresponding to the specified class item.
+     */
+    public String readClass(final int itemIndex, final char[] buf) {
         // computes the start index of the CONSTANT_Class item in b
         // and reads the CONSTANT_Utf8 item designated by
         // the first two bytes of this CONSTANT_Class item
-        return readUTF8Item(ByteArray.readUnsignedShort(stackMap.data, index), buf);
+        int classOffset = items[itemIndex];
+        return readUTF8Item(ByteArray.readUnsignedShort(pool.data, classOffset), buf);
     }
 
 
