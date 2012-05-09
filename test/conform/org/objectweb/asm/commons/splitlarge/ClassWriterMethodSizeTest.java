@@ -32,6 +32,7 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 import org.objectweb.asm.util.TraceClassVisitor;
+import org.objectweb.asm.util.CheckClassAdapter;
 
 import junit.framework.TestCase;
 
@@ -52,7 +53,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         MethodWriterFactory cwf = new SplitMethodWriterFactory();
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
         TraceClassVisitor tcv = new TraceClassVisitor(cw, new java.io.PrintWriter(System.out));
-        this.cv = tcv; // new CheckClassAdapter(cv);
+        this.cv = tcv;
         this.cv.visit(Opcodes.V1_6,
                       Opcodes.ACC_PUBLIC,
                       "C",
@@ -77,7 +78,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitMaxs(0, 0);
         this.mv.visitEnd();
         this.cv.visitEnd();
-        cw.toByteArray();
+        CheckClassAdapter.verify(new ClassReader(cw.toByteArray()), true, new java.io.PrintWriter(System.out));
     }
 
     private void LABEL(final Label l) {
