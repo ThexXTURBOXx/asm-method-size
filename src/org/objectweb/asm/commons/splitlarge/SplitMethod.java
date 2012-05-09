@@ -84,7 +84,7 @@ class SplitMethod {
                                      final String mainDescriptor,
                                      final String signature,
                                      final String[] exceptions) {
-        descriptor = entry.frameData.getDescriptor(mainDescriptor);
+        descriptor = entry.frameData.getDescriptor(mainDescriptor, (access & Opcodes.ACC_STATIC) != 0);
         SplitMethodWriterFactory smwf = (SplitMethodWriterFactory) cw.getMethodWriterFactory();
         smwf.computeMaxsOverride = true;
         smwf.computeFramesOverride = false;
