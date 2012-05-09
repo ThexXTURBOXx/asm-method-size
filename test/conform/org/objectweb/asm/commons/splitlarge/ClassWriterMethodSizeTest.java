@@ -78,7 +78,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitMaxs(0, 0);
         this.mv.visitEnd();
         this.cv.visitEnd();
-        CheckClassAdapter.verify(new ClassReader(cw.toByteArray()), true, new java.io.PrintWriter(System.out));
+        CheckClassAdapter.verify(new ClassReader(cw.toByteArray()), false, new java.io.PrintWriter(System.out));
     }
 
     private void LABEL(final Label l) {
