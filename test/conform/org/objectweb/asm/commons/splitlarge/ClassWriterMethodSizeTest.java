@@ -48,7 +48,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
 
     protected MethodVisitor mv;
 
-    private void startMethod() {
+    private void startMethod(String className) {
         ClassWriter.MAX_CODE_LENGTH = 100;
         MethodWriterFactory cwf = new SplitMethodWriterFactory();
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
@@ -56,7 +56,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.cv = tcv;
         this.cv.visit(Opcodes.V1_6,
                       Opcodes.ACC_PUBLIC,
-                      "C",
+                      className,
                       null,
                       "java/lang/Object",
                       null);
@@ -137,7 +137,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo1() {
         Label l1 = new Label();
-        startMethod();
+        startMethod("Two1");
         PUSH();
         IFNE(l1);
         {
@@ -166,7 +166,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo2() {
         Label l1 = new Label();
-        startMethod();
+        startMethod("Two2");
         PUSH();
         ISTORE(1);
         PUSH();
@@ -187,6 +187,41 @@ public class ClassWriterMethodSizeTest extends TestCase {
         {
             int i = 0;
             while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
+        endMethod();
+    }
+
+    /**
+     * Method with essentially two large basic blocks.
+     */
+    public void testTwo3() {
+        Label l1 = new Label();
+        startMethod("Two3");
+        {
+            int i = 0;
+            while (i < 40) {
+                NOP();
+                ++i;
+            }
+        }
+        PUSH();
+        IFNE(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
+        LABEL(l1);
+        {
+            int i = 0;
+            while (i < 20) {
                 NOP();
                 ++i;
             }
