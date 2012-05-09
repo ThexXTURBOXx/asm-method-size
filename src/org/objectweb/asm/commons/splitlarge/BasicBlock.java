@@ -280,16 +280,17 @@ class BasicBlock implements Comparable<BasicBlock> {
                     break;
                 }
             }
-            
-            // parse the try catch entries
-            int j = ByteArray.readUnsignedShort(b, v);
-            v += 2;
-            for (; j > 0; --j) {
-                getBasicBlock(ByteArray.readUnsignedShort(b, v), blockArray, blocks);
-                getBasicBlock(ByteArray.readUnsignedShort(b, v + 2), blockArray, blocks);
-                getBasicBlock(ByteArray.readUnsignedShort(b, v + 4), blockArray, blocks);
-                v += 8;
-            }
+
+// FIXME: This does not work: The exception handlers have not been copied into the code array yet.
+//             // parse the try catch entries
+//             int j = ByteArray.readUnsignedShort(b, v);
+//             v += 2;
+//             for (; j > 0; --j) {
+//                 getBasicBlock(ByteArray.readUnsignedShort(b, v), blockArray, blocks);
+//                 getBasicBlock(ByteArray.readUnsignedShort(b, v + 2), blockArray, blocks);
+//                 getBasicBlock(ByteArray.readUnsignedShort(b, v + 4), blockArray, blocks);
+//                 v += 8;
+//             }
         }
 
         // now insert edges
@@ -377,17 +378,18 @@ class BasicBlock implements Comparable<BasicBlock> {
                 }
             }
         }
-        // parses the try catch entries
-        int j = ByteArray.readUnsignedShort(b, v);
-        v += 2;
-        for (; j > 0; --j) {
-            BasicBlock start = blockArray[ByteArray.readUnsignedShort(b, v)];
-            BasicBlock end = blockArray[ByteArray.readUnsignedShort(b, v + 2)];
-            BasicBlock handler = blockArray[ByteArray.readUnsignedShort(b, v + 4)];
-            for (BasicBlock src : blocks.subSet(start, end))
-                src.addEdge(handler);
-            v += 8;
-        }
+// FIXME: This does not work: The exception handlers have not been copied into the code array yet.
+//         // parses the try catch entries
+//         int j = ByteArray.readUnsignedShort(b, v);
+//         v += 2;
+//         for (; j > 0; --j) {
+//             BasicBlock start = blockArray[ByteArray.readUnsignedShort(b, v)];
+//             BasicBlock end = blockArray[ByteArray.readUnsignedShort(b, v + 2)];
+//             BasicBlock handler = blockArray[ByteArray.readUnsignedShort(b, v + 4)];
+//             for (BasicBlock src : blocks.subSet(start, end))
+//                 src.addEdge(handler);
+//             v += 8;
+//         }
         
         BasicBlock previous = null;
         for (BasicBlock block : blocks) {
