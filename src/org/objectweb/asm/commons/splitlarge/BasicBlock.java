@@ -371,7 +371,8 @@ class BasicBlock implements Comparable<BasicBlock> {
             }
             if ((opcode != Opcodes.GOTO) && (opcode != 200) // GOTO_W
                 && (opcode != Opcodes.TABLESWITCH)
-                && (opcode != Opcodes.LOOKUPSWITCH)) {
+                && (opcode != Opcodes.LOOKUPSWITCH)
+                && !((opcode >= Opcodes.IRETURN) && (opcode <= Opcodes.RETURN))) {
                 BasicBlock next = blockArray[v - codeStart];
                 if (next != null) {
                     currentBlock.addEdge(next);
