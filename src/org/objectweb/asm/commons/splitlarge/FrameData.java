@@ -149,6 +149,7 @@ public final class FrameData {
         else if (d == Opcodes.DOUBLE)
             b.append("D");
         else if (d instanceof String) {
+            b.append("L");
             b.append((String) d);
             b.append(";");
         } else
