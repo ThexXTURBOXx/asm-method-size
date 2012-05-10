@@ -230,5 +230,32 @@ public class ClassWriterMethodSizeTest extends TestCase {
         endMethod();
     }
 
+    /**
+     * Method with two basic blocks & a loop.
+     */
+    public void testTwo4() {
+        Label l1 = new Label();
+        startMethod("Two4");
+        {
+            int i = 0;
+            while (i < 40) {
+                NOP();
+                ++i;
+            }
+        }
+        LABEL(l1);
+        {
+            int i = 0;
+            while (i < 80) {
+                NOP();
+                ++i;
+            }
+        }
+        PUSH();
+        IFNE(l1);
+        RETURN();
+        endMethod();
+    }
+
 
 }

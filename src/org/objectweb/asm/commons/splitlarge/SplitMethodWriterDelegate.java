@@ -1185,12 +1185,16 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         int v = 0;
         MethodVisitor mv = null;
         BasicBlock currentBlock = null;
+        // whether the previous block may end by just falling through
+        boolean fallThrough = false;
         while (v < code.length) {
             {
                 BasicBlock block = blocksByOffset[v];
                 if (block != null) {
-                    currentBlock = block;
                     SplitMethod m = block.sccRoot.splitMethod;
+                    if (fallThrough && (m != currentBlock.sccRoot.splitMethod)) {
+                        jumpToMethod(mv, block);
+                    }
                     if (m != null) {
                         mv = m.writer;
                         block.frameData.visitFrame(mv);
@@ -1198,6 +1202,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                         mv = mainMethodVisitor;
                     }
                     mv.visitLabel(block.getOutputLabel());
+                    currentBlock = block;
                 }
             }
             {
@@ -1350,6 +1355,26 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             default:
                 mv.visitMultiANewArrayInsn(readClass(readUnsignedShort(v + 1), utfDecodeBuffer), b[v + 3] & 0xFF);
                 v += 4;
+                break;
+            }
+
+            switch (opcode) {
+            case Opcodes.GOTO:
+            case 200: // GOTO_W
+            case Opcodes.RET:
+            case Opcodes.TABLESWITCH:
+            case Opcodes.LOOKUPSWITCH:
+            case Opcodes.IRETURN:
+            case Opcodes.LRETURN:
+            case Opcodes.FRETURN:
+            case Opcodes.DRETURN:
+            case Opcodes.ARETURN:
+            case Opcodes.RETURN:
+            case Opcodes.ATHROW:
+                fallThrough = false;
+                break;
+            default:
+                fallThrough = true;
                 break;
             }
         }
