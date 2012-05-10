@@ -34,6 +34,7 @@ import org.objectweb.asm.*;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.TreeSet;
+import java.util.HashMap;
 
 final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
@@ -91,6 +92,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.blocksByOffset = computeBlocksByOffset(blocks);
         this.labelsByOffset = new Label[code.length];
         parseStackMap();
+        computeFrames();
         parseBootstrapMethods();
         makeMethodWriters();
         writeMethods();
@@ -220,6 +222,10 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             }
             frameLocalCount = local;
         }
+
+        blocksByOffset[0].frameData =
+            new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
+
         /*
          * for the first explicit frame the offset is not
          * offset_delta + 1 but only offset_delta; setting the
@@ -278,7 +284,6 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             }
             frameOffset += delta + 1;
 
-            // the first frame can't be a reasonable split point
             BasicBlock block = blocksByOffset[frameOffset];
             if (block != null) {
                 block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
@@ -334,6 +339,835 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         return v;
     }
 
+    /**
+     * Symbolic reference to method or field.
+     */
+    class MemberSymRef {
+        final String owner;
+        final String name;
+        final String desc;
+        public MemberSymRef(String owner, String name, String desc) {
+            this.owner = owner;
+            this.name = name;
+            this.desc = desc;
+        }
+    }
+
+    /**
+     * Parse a symbolic reference to a member.
+     *
+     * @param v address of symbolic reference
+     * @returns symbolic reference
+     */
+    private MemberSymRef parseMemberSymRef(int v) {
+        // offset of the {Fieldref, MethodRef, InterfaceMethodRef}_Info structure
+        int cpIndex = items[readUnsignedShort(v)];
+        String iowner = readClass(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
+        cpIndex = items[readUnsignedShort(cpIndex + 2)];
+        String iname = readUTF8(cpIndex, utfDecodeBuffer);
+        String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
+        return new MemberSymRef(iowner, iname, idesc);
+    }
+
+    /**
+     * Symbolic reference to dynamic method.
+     */
+    class DynamicSymRef {
+        final String name;
+        final String desc;
+        final int bsmIndex;
+        public DynamicSymRef(String name, String desc, int bsmIndex) {
+            this.name = name;
+            this.desc = desc;
+            this.bsmIndex = bsmIndex;
+        }
+    }
+
+    /**
+     * Parse a symbolic reference to a dynamic method.
+     *
+     * @param v address of symbolic reference
+     * @returns symbolic reference
+     */
+    private DynamicSymRef parseDynamicSymRef(int v) {
+        int cpIndex = items[readUnsignedShort(v + 1)];
+        int bsmIndex = bootstrapMethods[readUnsignedShort(cpIndex)];
+        cpIndex = items[readUnsignedShort(cpIndex + 2)];
+        String iname = readUTF8(cpIndex, utfDecodeBuffer);
+        String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
+        return new DynamicSymRef(iname, idesc, bsmIndex);
+    }
+
+    /**
+     * Compute frames for all basic blocks.
+     */
+    private void computeFrames() {
+        int v = 0;
+        byte[] b = code.data;
+        int frameLocalCount = 0;
+        int frameStackCount = 0;
+        Object[] frameLocal = new Object[maxLocals];
+        Object[] frameStack = new Object[maxStack];
+        // map labels of NEW instructions to their types
+        HashMap<Label, String> labelTypes = new HashMap<Label, String>();
+        while (v < code.length) {
+            BasicBlock block = blocksByOffset[v];
+            if (block != null) {
+                FrameData fd = block.frameData;
+                if (fd == null) {
+                    block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
+                } else {
+                    frameLocalCount = fd.frameLocal.length;
+                    System.arraycopy(fd.frameLocal, 0, frameLocal, 0, frameLocalCount);
+                    frameStackCount = fd.frameStack.length;
+                    System.arraycopy(fd.frameStack, 0, frameStack, 0, frameStackCount);
+                }
+            }
+            int opcode = b[v] & 0xFF;
+            switch (opcode) {
+            case Opcodes.NOP:
+            case Opcodes.INEG:
+            case Opcodes.LNEG:
+            case Opcodes.FNEG:
+            case Opcodes.DNEG:
+            case Opcodes.I2B:
+            case Opcodes.I2C:
+            case Opcodes.I2S:
+                v += 1;
+                break;
+            case Opcodes.GOTO:
+                frameLocalCount = frameStackCount = 0;
+                v += 3;
+                break;
+            case 200: // GOTO_W
+                frameLocalCount = frameStackCount = 0;
+                v += 5;
+                break;
+            case Opcodes.IRETURN:
+            case Opcodes.FRETURN:
+            case Opcodes.ARETURN:
+            case Opcodes.ATHROW:
+            case Opcodes.RETURN:
+                frameLocalCount = frameStackCount = 0;
+                v += 1;
+                break;
+            case Opcodes.ACONST_NULL:
+                frameStack[frameStackCount++] = Opcodes.NULL;
+                v += 1;
+                break;
+            case Opcodes.ICONST_M1:
+            case Opcodes.ICONST_0:
+            case Opcodes.ICONST_1:
+            case Opcodes.ICONST_2:
+            case Opcodes.ICONST_3:
+            case Opcodes.ICONST_4:
+            case Opcodes.ICONST_5:
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 1;
+                break;
+            case Opcodes.BIPUSH:
+            case Opcodes.SIPUSH:
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 2;
+                break;
+            case Opcodes.LCONST_0:
+            case Opcodes.LCONST_1:
+                frameStack[frameStackCount++] = Opcodes.LONG;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.FCONST_0:
+            case Opcodes.FCONST_1:
+            case Opcodes.FCONST_2:
+                frameStack[frameStackCount++] = Opcodes.FLOAT;
+                v += 1;
+                break;
+            case Opcodes.DCONST_0:
+            case Opcodes.DCONST_1:
+                frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.ILOAD:
+            case Opcodes.FLOAD:
+            case Opcodes.ALOAD:
+                frameStack[frameStackCount++] = frameLocal[readUnsignedShort(v + 1)];
+                v += 2;
+                break;
+
+                // ILOAD_n
+            case 26:
+            case 27:
+            case 28:
+            case 29:
+                frameStack[frameStackCount++] = frameLocal[opcode - 26];
+                v += 1;
+                break;
+                
+                // LLOAD_n
+            case 30:
+            case 31:
+            case 32:
+            case 33:
+                frameStack[frameStackCount++] = frameLocal[opcode - 30];
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+
+                // FLOAD_n
+            case 34:
+            case 35:
+            case 36:
+            case 37:
+                frameStack[frameStackCount++] = frameLocal[opcode - 34];
+                v += 1;
+                break;
+
+                // DLOAD_n
+            case 38:
+            case 39:
+            case 40:
+            case 41:
+                frameStack[frameStackCount++] = frameLocal[opcode - 38];
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+
+                // ALOAD_n
+            case 42:
+            case 43:
+            case 44:
+            case 45:
+                frameStack[frameStackCount++] = frameLocal[opcode - 42];
+                v += 1;
+                break;
+
+            case Opcodes.LLOAD:
+            case Opcodes.DLOAD:
+                frameStack[frameStackCount++] = frameLocal[readUnsignedShort(v + 1)];
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 2;
+                break;
+            case Opcodes.IALOAD:
+            case Opcodes.BALOAD:
+            case Opcodes.CALOAD:
+            case Opcodes.SALOAD:
+                frameStackCount -= 2;
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 1;
+                break;
+            case Opcodes.LALOAD:
+            case Opcodes.D2L:
+                frameStackCount -= 2;
+                frameStack[frameStackCount++] = Opcodes.LONG;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.FALOAD:
+                frameStackCount -= 2;
+                frameStack[frameStackCount++] = Opcodes.FLOAT;
+                v += 1;
+                break;
+            case Opcodes.DALOAD:
+            case Opcodes.L2D:
+                frameStackCount -= 2;
+                frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.AALOAD: {
+                frameStackCount -= 2;
+                Object t = frameStack[frameStackCount];
+                if (t instanceof String) {
+                    frameStackCount = pushDesc(frameStack, frameStackCount, ((String) t).substring(1));
+                } else {
+                    frameStack[frameStackCount++] =  "java/lang/Object";
+                }
+                v += 1;
+                break;
+            }
+            case Opcodes.ISTORE:
+            case Opcodes.FSTORE:
+            case Opcodes.ASTORE: {
+                int n = b[v + 1];
+                frameLocal[n] = frameStack[--frameStackCount];
+                invalidateTwoWordLocal(frameLocal, n - 1);
+                v += 2;
+                break;
+            }
+                // ISTORE_n
+            case 59:
+            case 60:
+            case 61:
+            case 62: {
+                int n = opcode - 59;
+                frameLocal[n] = frameStack[--frameStackCount];
+                invalidateTwoWordLocal(frameLocal, n - 1);
+                v += 1;
+                break;
+            }
+                // LSTORE_n
+            case 63:
+            case 64:
+            case 65:
+            case 66: {
+                int n = opcode - 63;
+                frameLocal[n] = frameStack[--frameStackCount];
+                frameLocal[n + 1] = Opcodes.TOP;
+                invalidateTwoWordLocal(frameLocal, n - 1);
+                v += 1;
+                break;
+            }
+
+                // FSTORE_n
+            case 67:
+            case 68:
+            case 69:
+            case 70: {
+                int n = opcode - 67;
+                frameLocal[n] = frameStack[--frameStackCount];
+                invalidateTwoWordLocal(frameLocal, n - 1);
+                v += 1;
+                break;
+            }
+
+                // DSTORE_n
+            case 71:
+            case 72:
+            case 73:
+            case 74: {
+                int n = opcode - 71;
+                frameLocal[n] = frameStack[--frameStackCount];
+                frameLocal[n + 1] = Opcodes.TOP;
+                invalidateTwoWordLocal(frameLocal, n - 1);
+                v += 1;
+                break;
+            }
+                // ASTORE_n
+            case 75:
+            case 76:
+            case 77:
+            case 78: {
+                int n = opcode - 75;
+                frameLocal[n] = frameStack[--frameStackCount];
+                invalidateTwoWordLocal(frameLocal, n - 1);
+                v += 1;
+                break;
+            }
+
+            case Opcodes.LSTORE:
+            case Opcodes.DSTORE: {
+                int n = b[v + 1];
+                frameLocal[n] = frameStack[--frameStackCount];
+                frameLocal[n + 1] = Opcodes.TOP;
+                invalidateTwoWordLocal(frameLocal, n - 1);
+                v += 1;
+                break;
+            }
+            case Opcodes.IASTORE:
+            case Opcodes.BASTORE:
+            case Opcodes.CASTORE:
+            case Opcodes.SASTORE:
+            case Opcodes.FASTORE:
+            case Opcodes.AASTORE:
+                frameStackCount -= 3;
+                v += 1;
+                break;
+            case Opcodes.LASTORE:
+            case Opcodes.DASTORE:
+                frameStackCount -= 4;
+                v += 1;
+                break;
+            case Opcodes.POP:
+                --frameStackCount;
+                v += 1;
+                break;
+            case Opcodes.IFEQ:
+            case Opcodes.IFNE:
+            case Opcodes.IFLT:
+            case Opcodes.IFGE:
+            case Opcodes.IFGT:
+            case Opcodes.IFLE:
+            case Opcodes.IFNULL:
+            case Opcodes.IFNONNULL:
+                --frameStackCount;
+                v += 3;
+                break;
+            case Opcodes.MONITORENTER:
+            case Opcodes.MONITOREXIT:
+                --frameStackCount;
+                v += 1;
+                break;
+            case Opcodes.TABLESWITCH:
+                frameStackCount = frameLocalCount = 0;
+                // skips 0 to 3 padding bytes
+                v = v & ~3;
+                v += 12 + 4 * (readInt(v + 8) - readInt(v + 4) + 1);
+                break;
+            case Opcodes.LOOKUPSWITCH:
+                frameStackCount = frameLocalCount = 0;
+                // skips 0 to 3 padding bytes
+                v = v & ~3;
+                v += 8 + v + (readInt(v + 4) * 8);
+                break;
+            case Opcodes.POP2:
+                frameStackCount -= 2;
+                v += 1;
+                break;
+            case Opcodes.IF_ICMPEQ:
+            case Opcodes.IF_ICMPNE:
+            case Opcodes.IF_ICMPLT:
+            case Opcodes.IF_ICMPGE:
+            case Opcodes.IF_ICMPGT:
+            case Opcodes.IF_ICMPLE:
+            case Opcodes.IF_ACMPEQ:
+            case Opcodes.IF_ACMPNE:
+                frameStackCount -= 2;
+                v += 3;
+                break;
+            case Opcodes.LRETURN:
+            case Opcodes.DRETURN:
+                frameStackCount -= 2;
+                v += 1;
+                break;
+            case Opcodes.DUP: {
+                Object t = frameStack[--frameStackCount];
+                frameStack[frameStackCount++] = t;
+                frameStack[frameStackCount++] = t;
+                v += 1;
+                break;
+            }
+            case Opcodes.DUP_X1: {
+                Object t1 = frameStack[--frameStackCount];
+                Object t2 = frameStack[--frameStackCount];
+                frameStack[frameStackCount++] = t1;
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                v += 1;
+                break;
+            }
+            case Opcodes.DUP_X2: {
+                Object t1 = frameStack[--frameStackCount];
+                Object t2 = frameStack[--frameStackCount];
+                Object t3 = frameStack[--frameStackCount];
+                frameStack[frameStackCount++] = t1;
+                frameStack[frameStackCount++] = t3;
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                v += 1;
+                break;
+            }
+            case Opcodes.DUP2: {
+                Object t1 = frameStack[--frameStackCount];
+                Object t2 = frameStack[--frameStackCount];
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                v += 1;
+                break;
+            }
+            case Opcodes.DUP2_X1: {
+                Object t1 = frameStack[--frameStackCount];
+                Object t2 = frameStack[--frameStackCount];
+                Object t3 = frameStack[--frameStackCount];
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                frameStack[frameStackCount++] = t3;
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                v += 1;
+                break;
+            }
+            case Opcodes.DUP2_X2: {
+                Object t1 = frameStack[--frameStackCount];
+                Object t2 = frameStack[--frameStackCount];
+                Object t3 = frameStack[--frameStackCount];
+                Object t4 = frameStack[--frameStackCount];
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                frameStack[frameStackCount++] = t4;
+                frameStack[frameStackCount++] = t3;
+                frameStack[frameStackCount++] = t2;
+                frameStack[frameStackCount++] = t1;
+                v += 1;
+                break;
+            }
+            case Opcodes.SWAP: {
+                Object t1 = frameStack[--frameStackCount];
+                Object t2 = frameStack[--frameStackCount];
+                frameStack[frameStackCount++] = t1;
+                frameStack[frameStackCount++] = t2;
+                v += 1;
+                break;
+            }
+            case Opcodes.IADD:
+            case Opcodes.ISUB:
+            case Opcodes.IMUL:
+            case Opcodes.IDIV:
+            case Opcodes.IREM:
+            case Opcodes.IAND:
+            case Opcodes.IOR:
+            case Opcodes.IXOR:
+            case Opcodes.ISHL:
+            case Opcodes.ISHR:
+            case Opcodes.IUSHR:
+            case Opcodes.L2I:
+            case Opcodes.D2I:
+            case Opcodes.FCMPL:
+            case Opcodes.FCMPG:
+                frameStackCount -= 2;
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 1;
+                break;
+            case Opcodes.LADD:
+            case Opcodes.LSUB:
+            case Opcodes.LMUL:
+            case Opcodes.LDIV:
+            case Opcodes.LREM:
+            case Opcodes.LAND:
+            case Opcodes.LOR:
+            case Opcodes.LXOR:
+                frameStackCount -= 4;
+                frameStack[frameStackCount++] = Opcodes.LONG;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.FADD:
+            case Opcodes.FSUB:
+            case Opcodes.FMUL:
+            case Opcodes.FDIV:
+            case Opcodes.FREM:
+            case Opcodes.L2F:
+            case Opcodes.D2F:
+                frameStackCount -= 2;
+                frameStack[frameStackCount++] = Opcodes.FLOAT;
+                v += 1;
+                break;
+            case Opcodes.DADD:
+            case Opcodes.DSUB:
+            case Opcodes.DMUL:
+            case Opcodes.DDIV:
+            case Opcodes.DREM:
+                frameStackCount -= 4;
+                frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.LSHL:
+            case Opcodes.LSHR:
+            case Opcodes.LUSHR:
+                frameStackCount -= 3;
+                frameStack[frameStackCount++] = Opcodes.LONG;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.IINC:
+                frameLocal[b[v + 1]] = Opcodes.INTEGER;
+                v += 3;
+                break;
+            case Opcodes.I2L:
+            case Opcodes.F2L:
+                --frameStackCount;
+                frameStack[frameStackCount++] = Opcodes.LONG;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.I2F:
+                --frameStackCount;
+                frameStack[frameStackCount++] = Opcodes.FLOAT;
+                v += 1;
+                break;
+            case Opcodes.I2D:
+            case Opcodes.F2D:
+                --frameStackCount;
+                frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                frameStack[frameStackCount++] = Opcodes.TOP;
+                v += 1;
+                break;
+            case Opcodes.F2I:
+            case Opcodes.ARRAYLENGTH:
+                --frameStackCount;
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 1;
+                break;
+            case Opcodes.INSTANCEOF:
+                --frameStackCount;
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 3;
+                break;
+            case Opcodes.LCMP:
+            case Opcodes.DCMPL:
+            case Opcodes.DCMPG:
+                frameStackCount -= 4;
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 1;
+                break;
+            case Opcodes.JSR:
+            case 201: // JSR_W
+            case Opcodes.RET:
+                throw new RuntimeException("JSR/RET are not supported");
+            case Opcodes.GETSTATIC: {
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                v += 3;
+                break;
+            }
+            case Opcodes.PUTSTATIC: {
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = popDesc(frameStackCount, sr.desc);
+                v += 3;
+                break;
+            }
+            case Opcodes.GETFIELD: {
+                --frameStackCount;
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                v += 3;
+                break;
+            }
+            case Opcodes.PUTFIELD: {
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = popDesc(frameStackCount, sr.desc);
+                --frameStackCount;
+                v += 3;
+                break;
+            }
+            case Opcodes.INVOKEVIRTUAL: {
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = popDesc(frameStackCount, sr.desc);
+                --frameStackCount;
+                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                v += 3;
+                break;
+            }
+            case Opcodes.INVOKESPECIAL: {
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = popDesc(frameStackCount, sr.desc);
+                Object t = frameStack[--frameStackCount];
+                if (sr.name.charAt(0) == '<') {
+                    Object u;
+                    if (t == Opcodes.UNINITIALIZED_THIS) {
+                        u = thisName;
+                    } else {
+                        u = labelTypes.get(t);
+                    }
+                    for (int i = 0; i < frameLocalCount; ++i) {
+                        if (frameLocal[i] == t) {
+                            frameLocal[i] = u;
+                        }
+                    }
+                    for (int i = 0; i < frameStackCount; ++i) {
+                        if (frameStack[i] == t) {
+                            frameStack[i] = u;
+                        }
+                    }
+                }
+                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                v += 3;
+                break;
+            }
+            case Opcodes.INVOKESTATIC: {
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = popDesc(frameStackCount, sr.desc);
+                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                v += 3;
+                break;
+            }
+            case Opcodes.INVOKEINTERFACE: {
+                MemberSymRef sr = parseMemberSymRef(v + 1);
+                frameStackCount = popDesc(frameStackCount, sr.desc);
+                --frameStackCount;
+                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                v += 5;
+                break;
+            }
+            case Opcodes.INVOKEDYNAMIC: {
+                DynamicSymRef sr = parseDynamicSymRef(v + 1);
+                frameStackCount = popDesc(frameStackCount, sr.desc);
+                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                v += 5;
+                break;
+            }
+            case Opcodes.LDC:
+            case 19: // LDC_W
+            case 20: { // LDC2_W
+                int itemIndex = (opcode == Opcodes.LDC) ? (b[v + 1] & 0xFF) : readUnsignedShort(v + 1);
+                Object cst = readConst(itemIndex, utfDecodeBuffer);
+                if (cst instanceof Integer) {
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                } else if (cst instanceof Long) {
+                    frameStack[frameStackCount++] = Opcodes.LONG;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                } else if (cst instanceof Float) {
+                    frameStack[frameStackCount++] = Opcodes.FLOAT;
+                } else if (cst instanceof Double) {
+                    frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                } else if (cst instanceof String) {
+                    frameStack[frameStackCount++] = "java/lang/String";
+                } else if (cst instanceof Type) {
+                    int sort = ((Type) cst).getSort();
+                    if (sort == Type.OBJECT || sort == Type.ARRAY) {
+                        frameStack[frameStackCount++] = "java/lang/Class";
+                    } else if (sort == Type.METHOD) {
+                        frameStack[frameStackCount++] = "java/lang/invoke/MethodType";
+                    } else {
+                        throw new IllegalArgumentException();
+                    }
+                } else if (cst instanceof Handle) {
+                    frameStack[frameStackCount++] = "java/lang/invoke/MethodHandle";
+                } else {
+                    throw new IllegalArgumentException();
+                }
+                
+                v += 2;
+                break;
+            }
+            case Opcodes.NEW: {
+                Label l = labelsByOffset[v];
+                if (l == null) {
+                    l = new Label();
+                    labelsByOffset[v] = l;
+                }
+                frameStack[frameStackCount++] = l;
+                labelTypes.put(l, readClass(v + 1, utfDecodeBuffer));
+                v += 3;
+                break;
+            }
+            case Opcodes.NEWARRAY:
+                --frameStackCount;
+                switch (b[v + 1]) {
+                case Opcodes.T_BOOLEAN:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[Z");
+                    break;
+                case Opcodes.T_CHAR:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[C");
+                    break;
+                case Opcodes.T_BYTE:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[B");
+                    break;
+                case Opcodes.T_SHORT:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[S");
+                    break;
+                case Opcodes.T_INT:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[I");
+                    break;
+                case Opcodes.T_FLOAT:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[F");
+                    break;
+                case Opcodes.T_DOUBLE:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[D");
+                    break;
+                    // case Opcodes.T_LONG:
+                default:
+                    frameStackCount = pushDesc(frameStack, frameStackCount, "[J");
+                    break;
+                }
+                v += 2;
+                break;
+            case Opcodes.ANEWARRAY: {
+                --frameStackCount;
+                frameStackCount = pushDesc(frameStack, frameStackCount,
+                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1), utfDecodeBuffer)).getDescriptor());
+                v += 3;
+                break;
+            }
+            case Opcodes.CHECKCAST: {
+                --frameStackCount;
+                frameStackCount = pushDesc(frameStack, frameStackCount,
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1), utfDecodeBuffer)).getDescriptor());
+                v += 3;
+                break;
+            }
+                
+            case Opcodes.MULTIANEWARRAY: {
+                frameStackCount -= b[v + 3];
+                frameStackCount = pushDesc(frameStack, frameStackCount,
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1), utfDecodeBuffer)).getDescriptor());
+                v += 4;
+                break;
+            }
+            default: {
+                throw new RuntimeException("unhandled opcode " + opcode);
+            }
+            }
+        }
+        // FIXME: WIDE
+    }
+    
+    private int pushDesc(final Object[] frame, int frameCount, final String desc) {
+        // FIXME: too much overlap with parseStackMap
+        int index = desc.charAt(0) == '(' ? desc.indexOf(')') + 1 : 0;
+        switch (desc.charAt(index)) {
+        case 'V':
+            break;
+        case 'Z':
+        case 'C':
+        case 'B':
+        case 'S':
+        case 'I':
+            frame[frameCount++] = Opcodes.INTEGER;
+            break;
+        case 'F':
+            frame[frameCount++] = Opcodes.FLOAT;
+            break;
+        case 'J':
+            frame[frameCount++] = Opcodes.LONG;
+            frame[frameCount++] = Opcodes.TOP;
+            break;
+        case 'D':
+            frame[frameCount++] = Opcodes.DOUBLE;
+            frame[frameCount++] = Opcodes.TOP;
+            break;
+        case '[':
+            if (index == 0) {
+                frame[frameCount++] = desc;
+            } else {
+                frame[frameCount++] = desc.substring(index, desc.length());
+            }
+            break;
+            // case 'L':
+        default:
+            if (index == 0) {
+                frame[frameCount++] = desc.substring(1, desc.length() - 1);
+            } else {
+                frame[frameCount++] = desc.substring(index + 1, desc.length() - 1);
+            }
+        }
+        return frameCount;
+    }
+
+    private int popDesc(int frameCount, final String desc) {
+        char c = desc.charAt(0);
+        if (c == '(') {
+            int n = 0;
+            Type[] types = Type.getArgumentTypes(desc);
+            for (int i = 0; i < types.length; ++i) {
+                n += types[i].getSize();
+            }
+            return frameCount - n;
+        } else if (c == 'J' || c == 'D') {
+            return frameCount - 2;
+        } else {
+            return frameCount - 1;
+        }
+    }
+
+
+    /**
+     * If there's a two-word value at an index, invalidate it, as we
+     * just overwrote the second word.
+     */
+    private void invalidateTwoWordLocal(Object frameLocal[], int n) {
+        if (n >= 0) {
+            Object t = frameLocal[n];
+            if (t == Opcodes.LONG || t == Opcodes.DOUBLE) {
+                frameLocal[n] = Opcodes.TOP;
+            }
+        }
+    }
+
     private void writeMethods() {
         // FIXME: calls to split with 
 
@@ -344,6 +1178,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         writeBodyCode();
         endSplitMethods();
     }
+
 
     private void writeBodyCode() {
         byte[] b = code.data; // bytecode of the method
@@ -469,16 +1304,11 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             case ClassWriter.FIELDORMETH_INSN:
             case ClassWriter.ITFMETH_INSN: {
-                // offset of the {Fieldref, MethodRef, InterfaceMethodRef}_Info structure
-                int cpIndex = items[readUnsignedShort(v + 1)];
-                String iowner = readClass(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
-                cpIndex = items[readUnsignedShort(cpIndex + 2)];
-                String iname = readUTF8(cpIndex, utfDecodeBuffer);
-                String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
+                MemberSymRef sr = parseMemberSymRef(v + 1);
                 if (opcode < Opcodes.INVOKEVIRTUAL) {
-                    mv.visitFieldInsn(opcode, iowner, iname, idesc);
+                    mv.visitFieldInsn(opcode, sr.owner, sr.name, sr.desc);
                 } else {
-                    mv.visitMethodInsn(opcode, iowner, iname, idesc);
+                    mv.visitMethodInsn(opcode, sr.owner, sr.name, sr.desc);
                 }
                 if (opcode == Opcodes.INVOKEINTERFACE) {
                     v += 5;
@@ -488,14 +1318,11 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.INDYMETH_INSN: {
-                int cpIndex = items[readUnsignedShort(v + 1)];
-                int bsmIndex = bootstrapMethods[readUnsignedShort(cpIndex)];
-                cpIndex = items[readUnsignedShort(cpIndex + 2)];
-                String iname = readUTF8(cpIndex, utfDecodeBuffer);
-                String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
+                DynamicSymRef sr = parseDynamicSymRef(v + 1);
 
                 byte[] bm = cw.bootstrapMethods.data;
                 
+                int bsmIndex = sr.bsmIndex;
                 int mhIndex = ByteArray.readUnsignedShort(bm, bsmIndex);
                 Handle bsm = (Handle) readConst(mhIndex, utfDecodeBuffer);
                 int bsmArgCount = ByteArray.readUnsignedShort(bm, bsmIndex + 2);
@@ -506,7 +1333,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     bsmArgs[a] = readConst(argIndex, utfDecodeBuffer);
                     bsmIndex += 2;
                 }
-                mv.visitInvokeDynamicInsn(iname, idesc, bsm, bsmArgs);
+                mv.visitInvokeDynamicInsn(sr.name, sr.desc, bsm, bsmArgs);
                 
                 v += 5;
                 break;

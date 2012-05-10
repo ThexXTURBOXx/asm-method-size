@@ -34,8 +34,8 @@ import org.objectweb.asm.*;
 import java.util.*;
 
 public final class FrameData {
-    private Object[] frameLocal;
-    private Object[] frameStack;
+    Object[] frameLocal;
+    Object[] frameStack;
 
     public FrameData(int nLocal, Object[] frameLocal, int nStack, Object[] frameStack) {
         this.frameLocal = Arrays.copyOf(frameLocal, nLocal);
