@@ -366,8 +366,8 @@ class Scc {
         BasicBlock maxEntry = null;
         for (Scc s : successors) {
             BasicBlock entry = s.lookForSplitPoint();
-            Scc root = entry.sccRoot;
-            if (root != null) {
+            if (entry != null) {
+                Scc root = entry.sccRoot;
                 if (root.transitiveClosureSize > maxSize) {
                     maxSize = root.transitiveClosureSize;
                     maxEntry = entry;
