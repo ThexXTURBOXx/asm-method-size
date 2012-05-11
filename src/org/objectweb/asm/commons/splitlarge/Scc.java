@@ -93,6 +93,11 @@ class Scc {
      */
     SplitMethod splitMethod;
 
+    /**
+     * Entry basic block if this is a split point, null if it isn't.
+     * See {@link #setSplitPoint}.
+     */
+    BasicBlock splitPoint;
 
     // ------------------------------------------------------------------------
     // Strongly-connected components of control-flow graph
@@ -161,6 +166,7 @@ class Scc {
         computeTransitiveClosure();
         computeSizeInfo();
         computePredecessors();
+        computeSplitPoints();
     }
 
     /**
@@ -209,6 +215,16 @@ class Scc {
         }
     }
      
+    /**
+     * Fills the {@link #splitPoint} fields of all roots.
+     */
+    private void computeSplitPoints() {
+        Scc r = this;
+        while (r != null) {
+            r.computeSplitPoint();
+            r = r.next;
+        }
+    }
 
     /**
      * Compute all size-relevant information, i.e. set the {@link
@@ -293,12 +309,10 @@ class Scc {
      *
      * This assumes that {@link BasicBlock#predecessors} and {@link
      * #predecessors} is set.
-     *
-     * @return the entry basic block if it is, null if it isn't or if
-     * it's the root block
      */
-    public BasicBlock splitPoint() {
+    public void computeSplitPoint() {
         BasicBlock entry = null;
+        splitPoint = null;
         /*
          * First check that there's only one entry point to this
          * component.
@@ -310,17 +324,17 @@ class Scc {
                         entry = b;
                         break;
                     } else {
-                        return null;
+                        return;
                     }
                 }
             }
         }
         if (entry == null) {
-            return null;
+            return;
         } else {
             // can't split out just the exception handler
             if (entry.kind == BasicBlock.Kind.EXCEPTION_HANDLER)
-                return null;
+                return;
             /*
              * Now check that all SCC components in the transitive
              * closure have only predecessors within the transitive
@@ -330,12 +344,13 @@ class Scc {
                 if (root != this) {
                     for (Scc p : root.predecessors) {
                         if (!transitiveClosure.contains(p)) {
-                            return null;
+                            return;
                         }
                     }
                 }
             }
-            return entry;
+            splitPoint = entry;
+            return;
         }
     }
 
@@ -386,11 +401,10 @@ class Scc {
      * @return entry point of the component if found, null if not
      */
     public BasicBlock lookForSplitPoint() {
-        BasicBlock b = splitPoint();
-        if (b == null) {
+        if (splitPoint == null) {
             return lookMaxSizeSplitPointSuccessor();
         } else {
-            return b;
+            return splitPoint;
         }
     }
 

@@ -149,8 +149,8 @@ public class LabelSCCTest extends TestCase {
         assertSCC(s, scc);
         assertSet(b1.sccRoot.successors, b2.sccRoot);
         assertSet(b2.sccRoot.successors);
-        assertNull(b1.sccRoot.splitPoint());
-        assertSame(b2, b2.sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint);
+        assertSame(b2, b2.sccRoot.splitPoint);
 
         BasicBlock m = scc.findSplitPoint(8);
         assertNotNull(m);
@@ -176,7 +176,7 @@ public class LabelSCCTest extends TestCase {
 
         assertSCC(s, scc);
         assertSet(b1.sccRoot.successors);
-        assertNull(b1.sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint);
 
         assertNull(scc.findSplitPoint(8));
     }
@@ -220,8 +220,8 @@ public class LabelSCCTest extends TestCase {
         assertSet(b1.sccRoot.successors, b4.sccRoot);
         assertSet(b4.sccRoot.successors);
 
-        assertNull(b1.sccRoot.splitPoint());
-        assertSame(b4, b4.sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint);
+        assertSame(b4, b4.sccRoot.splitPoint);
 
         BasicBlock m = scc.findSplitPoint(8);
         assertNotNull(m);
@@ -273,8 +273,8 @@ public class LabelSCCTest extends TestCase {
         assertSet(b1.sccRoot.successors, b5.sccRoot);
         assertSet(b5.sccRoot.successors);
 
-        assertNull(b1.sccRoot.splitPoint());
-        assertSame(b5, b5.sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint);
+        assertSame(b5, b5.sccRoot.splitPoint);
 
         BasicBlock m = scc.findSplitPoint(8);
         assertNotNull(m);
@@ -331,8 +331,8 @@ public class LabelSCCTest extends TestCase {
         assertSet(b1.sccRoot.successors, b4.sccRoot);
         assertSet(b4.sccRoot.successors);
 
-        assertNull(b1.sccRoot.splitPoint());
-        assertSame(b4, b4.sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint);
+        assertSame(b4, b4.sccRoot.splitPoint);
 
         BasicBlock m = scc.findSplitPoint(20);
         assertNotNull(m);
@@ -379,8 +379,8 @@ public class LabelSCCTest extends TestCase {
         assertSet(b1.sccRoot.successors, b2.sccRoot);
         assertSet(b2.sccRoot.successors);
 
-        assertNull(b1.sccRoot.splitPoint());
-        assertSame(b2, b2.sccRoot.splitPoint());
+        assertNull(b1.sccRoot.splitPoint);
+        assertSame(b2, b2.sccRoot.splitPoint);
 
         BasicBlock m = scc.findSplitPoint(12);
         assertNotNull(m);
