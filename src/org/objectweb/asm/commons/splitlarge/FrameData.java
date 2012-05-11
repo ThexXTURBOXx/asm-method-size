@@ -127,13 +127,13 @@ public final class FrameData {
         } else if (el == Opcodes.LONG) {
             mv.visitVarInsn(Opcodes.LSTORE, index);
         } else if (el == Opcodes.NULL) {
-            mv.visitInsn(Opcodes.ASTORE);
+            mv.visitVarInsn(Opcodes.ASTORE, index);
         } else if (el == Opcodes.UNINITIALIZED_THIS) {
-            mv.visitInsn(Opcodes.ASTORE);
+            mv.visitVarInsn(Opcodes.ASTORE, index);
         } else if (el instanceof String) {
             mv.visitVarInsn(Opcodes.ASTORE, index);
         } else if (el instanceof Label) {
-            mv.visitInsn(Opcodes.ASTORE);
+            mv.visitVarInsn(Opcodes.ASTORE, index);
         } else {
             throw new RuntimeException("unknown frame element");
         }
