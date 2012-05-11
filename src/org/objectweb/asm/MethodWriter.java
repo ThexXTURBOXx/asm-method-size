@@ -1617,10 +1617,14 @@ public class MethodWriter extends MethodVisitor {
                     if (!resizeInstructions()) {
                         // resizeInstructions would have made the code too large
                         splitVisitEnd();
-                    } 
+                    } else {
+                        tooLargeDelegate = null;
+                    }
                 } else {
                     throw new RuntimeException("Method code too large!");
                 }
+            } else {
+                tooLargeDelegate = null;
             }
         }
     }
