@@ -90,11 +90,12 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code.data, 0, code.length, firstHandler);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
-        this.splitMethods = scc.split(thisName, access, maxMethodLength);
         this.blocksByOffset = computeBlocksByOffset(blocks);
         this.labelsByOffset = new Label[code.length];
         parseStackMap();
         computeFrames();
+        BasicBlock.computeSizes(code, blocks);
+        this.splitMethods = scc.split(thisName, access, maxMethodLength);
         parseBootstrapMethods();
         makeMethodWriters();
         writeMethods();

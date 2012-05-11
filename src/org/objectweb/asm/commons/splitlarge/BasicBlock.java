@@ -74,6 +74,11 @@ class BasicBlock implements Comparable<BasicBlock> {
     Scc sccRoot;
 
     /**
+     * Block that follows this one in the code, or null if this is the last one.
+     */
+    BasicBlock subsequent;
+
+    /**
      * Successors in flowgraph.
      *
      * We keep this separately, because {@link Label#successors} may
@@ -412,13 +417,12 @@ class BasicBlock implements Comparable<BasicBlock> {
         BasicBlock previous = null;
         for (BasicBlock block : blocks) {
             if (previous != null) {
-                previous.size = block.position - previous.position;
+                previous.subsequent = block;
             }
             previous = block;
         }
-        BasicBlock last = blocks.last();
-        last.size = codeEnd - last.position;
-        
+        blocks.last().subsequent = null;
+
         return blocks;
     }
     
@@ -446,6 +450,113 @@ class BasicBlock implements Comparable<BasicBlock> {
                 }
             }
         }
+    }
+
+    /**
+     * This needs, for all basic blocks, the {@link #sccRoot} field to
+     * be set, and the {@link Scc#splitPoint} fields of that to be
+     * set.  Also, we need the {@link #frameData} to be set.
+     */
+
+    public void computeSize(ByteVector code) {
+        int end = (subsequent != null) ? subsequent.position : code.length;
+        int size = end - position;
+        int u = position;
+        byte[] b = code.data;
+        while (u < end) {
+            int opcode = b[u] & 0xFF; // opcode of current instruction
+
+            switch (ClassWriter.TYPE[opcode]) {
+            case ClassWriter.NOARG_INSN:
+            case ClassWriter.IMPLVAR_INSN:
+                u += 1;
+                break;
+            case ClassWriter.LABEL_INSN:
+                u += 3;
+                // five additional bytes will be required to
+                // replace this IFxxx <l> instruction with
+                // IFNOTxxx <l'> GOTO_W <l>, where IFNOTxxx
+                // is the "opposite" opcode of IFxxx (i.e.,
+                // IFNE for IFEQ) and where <l'> designates
+                // the instruction just after the GOTO_W.
+                size += 5;
+                break;
+            case ClassWriter.LABELW_INSN:
+                u += 5;
+                break;
+            case ClassWriter.TABL_INSN:
+                // skips instruction
+                u = u & ~3;
+                u += 12 + 4 * (ByteArray.readInt(b, u + 8) - ByteArray.readInt(b, u + 4) + 1);
+                break;
+            case ClassWriter.LOOK_INSN:
+                u = u & ~3;
+                u += 8 + u + (ByteArray.readInt(b, u + 4) * 8);
+                break;
+            case ClassWriter.WIDE_INSN:
+                opcode = b[u + 1] & 0xFF;
+                if (opcode == Opcodes.IINC) {
+                    u += 6;
+                } else {
+                    u += 4;
+                }
+                break;
+            case ClassWriter.VAR_INSN:
+            case ClassWriter.SBYTE_INSN:
+            case ClassWriter.LDC_INSN:
+                u += 2;
+                break;
+            case ClassWriter.SHORT_INSN:
+            case ClassWriter.LDCW_INSN:
+            case ClassWriter.FIELDORMETH_INSN:
+            case ClassWriter.TYPE_INSN:
+            case ClassWriter.IINC_INSN:
+                u += 3;
+                break;
+            case ClassWriter.ITFMETH_INSN:
+            case ClassWriter.INDYMETH_INSN:
+                u += 5;
+                break;
+                // case ClassWriter.MANA_INSN:
+            default:
+                u += 4;
+                break;
+            }
+        }
+
+        if (sccRoot.splitPoint == this) {
+            // compute what it takes to restore this frame
+            size += reconstructStackSize();
+        }
+        for (BasicBlock s : successors) {
+            if (s.sccRoot.splitPoint == s) {
+                size += visitInvocationSize();
+            }
+        }
+        this.size = size;
+    }
+
+    public static void computeSizes(ByteVector code, TreeSet<BasicBlock> blocks) {
+        for (BasicBlock b : blocks) {
+            b.computeSize(code);
+        }
+    }
+
+    /**
+     * Calculcate the size of the code needed to invoke this basic
+     * block as the entry point of a split method.
+     */
+    public int visitInvocationSize() {
+        return frameData.visitPushFrameArgumentsSize() 
+            + 3 // INVOKESTATIC or INVOKEVIRTUAL
+            + 1; // RETURN
+    }
+
+    /**
+     * Calculate code size needed to reconstruct the stack from the parameters.
+     */
+    public int reconstructStackSize() {
+        return frameData.reconstructStackSize();
     }
 
     @Override

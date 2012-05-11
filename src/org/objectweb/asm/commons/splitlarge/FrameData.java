@@ -115,6 +115,38 @@ public final class FrameData {
         }
     }
 
+    /**
+     * Calculate the size of the code needed to push the current frame
+     * in preparation for an invocation.
+     */
+    public int visitPushFrameArgumentsSize() {
+        int size = 0;
+        {
+            int i = 0;
+            while (i < frameStack.length) {
+                // the last index is pushed first
+                size += storeStackElementSize(frameStack.length - i -1 + frameLocal.length, frameStack[i]);
+                ++i;
+            }
+        }
+        {
+            int i = 0;
+            while (i < frameLocal.length) {
+                size += loadFrameElementSize(i, frameLocal[i]);
+                ++i;
+            }
+        }
+        {
+            int i = 0;
+            // the first index is popped first
+            while (i < frameStack.length) {
+                size += loadFrameElementSize(i + frameLocal.length, frameStack[i]);
+                ++i;
+            }
+        }
+        return size;
+    }
+
     private void storeStackElement(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
@@ -136,6 +168,20 @@ public final class FrameData {
             mv.visitVarInsn(Opcodes.ASTORE, index);
         } else {
             throw new RuntimeException("unknown frame element");
+        }
+    }
+
+    private int storeStackElementSize(int index, Object el) {
+        if (el == Opcodes.TOP) {
+            return 0; // nothing
+        } else {
+            if (index < 4) {
+                return 1;
+            } else if (index >= 256) {
+                return 6;
+            } else {
+                return 3;
+            }
         }
     }
 
@@ -170,6 +216,20 @@ public final class FrameData {
         }
     }
 
+    /**
+     * Calculate code size needed to reconstruct the stack from the parameters.
+     */
+    public int reconstructStackSize() {
+        int codeSize = 0;
+        int localSize = frameLocal.length;
+        int i = 0, size = frameStack.length;
+        while (i < size) {
+            codeSize += loadFrameElementSize(i + localSize, frameStack[i]);
+            ++i;
+        }
+        return codeSize;
+    }
+
     private void loadFrameElement(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
@@ -193,5 +253,22 @@ public final class FrameData {
             throw new RuntimeException("unknown frame element");
         }
     }
+
+    private int loadFrameElementSize(int index, Object el) {
+        if (el == Opcodes.TOP) {
+            return 0; // nothing
+        } else if ((el == Opcodes.NULL) || (el == Opcodes.UNINITIALIZED_THIS) || (el instanceof Label)) {
+            return 1;
+        } else {
+            if (index < 4) {
+                return 1;
+            } else if (index >= 256) {
+                return 6;
+            } else {
+                return 3;
+            }
+        }
+    }
+    
 
 }
