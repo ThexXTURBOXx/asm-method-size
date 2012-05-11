@@ -34,6 +34,7 @@ import org.objectweb.asm.*;
 
 import java.util.Set;
 import java.util.HashSet;
+import java.util.TreeSet;
 
 import junit.framework.TestCase;
 
@@ -127,7 +128,11 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
-        return Split.initializeAll(mw.labels, mw.getCode().length).first().sccRoot;
+        int totalLength = mw.getCode().length;
+        TreeSet<BasicBlock> blocks = BasicBlock.computeBasicBlocks(mw.labels, totalLength);
+        Scc root = Scc.stronglyConnectedComponents(blocks);
+        root.initializeAll();
+        return root;
     }
 
     private void LABEL(final Label l) {

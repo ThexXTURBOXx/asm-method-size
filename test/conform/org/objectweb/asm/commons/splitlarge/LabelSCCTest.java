@@ -99,7 +99,10 @@ public class LabelSCCTest extends TestCase {
     }
 
     private Scc initialize(Label labels, int size) {
-        return Split.initializeAll(labels, size).first().sccRoot;
+        TreeSet<BasicBlock> blocks = BasicBlock.computeBasicBlocks(labels, size);
+        Scc root = Scc.stronglyConnectedComponents(blocks);
+        root.initializeAll();
+        return root;
     }
 
     private static Edge makeEdge(Label... label) {

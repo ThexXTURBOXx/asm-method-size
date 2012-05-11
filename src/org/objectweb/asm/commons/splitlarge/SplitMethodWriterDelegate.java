@@ -86,8 +86,10 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         parseConstantPool();
         thisName = readUTF8Item(name, utfDecodeBuffer);
         cv = cw.getFirstVisitor();
-        TreeSet<BasicBlock> blocks = Split.initializeAll(code, firstHandler);
-        this.scc = blocks.first().sccRoot;
+
+        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code.data, 0, code.length, firstHandler);
+        this.scc = Scc.stronglyConnectedComponents(blocks);
+        this.scc.initializeAll();
         this.splitMethods = scc.split(thisName, access, maxMethodLength);
         this.blocksByOffset = computeBlocksByOffset(blocks);
         this.labelsByOffset = new Label[code.length];
