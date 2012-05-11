@@ -591,6 +591,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ASTORE: {
                 int n = b[v + 1];
                 frameLocal[n] = frameStack[--frameStackCount];
+                frameLocalCount = Math.max(frameLocalCount, n + 1);
                 invalidateTwoWordLocal(frameLocal, n - 1);
                 v += 2;
                 break;
@@ -602,6 +603,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case 62: {
                 int n = opcode - 59;
                 frameLocal[n] = frameStack[--frameStackCount];
+                frameLocalCount = Math.max(frameLocalCount, n + 1);
                 invalidateTwoWordLocal(frameLocal, n - 1);
                 v += 1;
                 break;
@@ -614,6 +616,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 int n = opcode - 63;
                 frameLocal[n] = frameStack[--frameStackCount];
                 frameLocal[n + 1] = Opcodes.TOP;
+                frameLocalCount = Math.max(frameLocalCount, n + 2);
                 invalidateTwoWordLocal(frameLocal, n - 1);
                 v += 1;
                 break;
@@ -626,6 +629,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case 70: {
                 int n = opcode - 67;
                 frameLocal[n] = frameStack[--frameStackCount];
+                frameLocalCount = Math.max(frameLocalCount, n + 1);
                 invalidateTwoWordLocal(frameLocal, n - 1);
                 v += 1;
                 break;
@@ -639,6 +643,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 int n = opcode - 71;
                 frameLocal[n] = frameStack[--frameStackCount];
                 frameLocal[n + 1] = Opcodes.TOP;
+                frameLocalCount = Math.max(frameLocalCount, n + 2);
                 invalidateTwoWordLocal(frameLocal, n - 1);
                 v += 1;
                 break;
@@ -650,6 +655,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case 78: {
                 int n = opcode - 75;
                 frameLocal[n] = frameStack[--frameStackCount];
+                frameLocalCount = Math.max(frameLocalCount, n + 1);
                 invalidateTwoWordLocal(frameLocal, n - 1);
                 v += 1;
                 break;
@@ -660,6 +666,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 int n = b[v + 1];
                 frameLocal[n] = frameStack[--frameStackCount];
                 frameLocal[n + 1] = Opcodes.TOP;
+                frameLocalCount = Math.max(frameLocalCount, n + 2);
                 invalidateTwoWordLocal(frameLocal, n - 1);
                 v += 1;
                 break;
@@ -862,10 +869,13 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 frameStack[frameStackCount++] = Opcodes.TOP;
                 v += 1;
                 break;
-            case Opcodes.IINC:
-                frameLocal[b[v + 1]] = Opcodes.INTEGER;
+            case Opcodes.IINC: {
+                int n = b[v + 1];
+                frameLocal[n] = Opcodes.INTEGER;
+                frameLocalCount = Math.max(frameLocalCount, n + 1);
                 v += 3;
                 break;
+            }
             case Opcodes.I2L:
             case Opcodes.F2L:
                 --frameStackCount;
