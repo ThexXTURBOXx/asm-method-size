@@ -79,8 +79,70 @@ public class ClassWriterMethodSizeExceptionTest extends TestCase {
     }
 
 
-    public void testSimple() {
-        MethodVisitor mv = startMethod("C1");
+    public void testSimple1() {
+        /* split potentially at the handler */
+        MethodVisitor mv = startMethod("Simple1");
+
+        Label l0 = new Label();
+        Label l1 = new Label();
+        Label l2 = new Label();
+        mv.visitTryCatchBlock(l0, l1, l2, "java/lang/RuntimeException");
+        Label l3 = new Label();
+        mv.visitLabel(l3);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitVarInsn(Opcodes.ISTORE, 1);
+
+        {
+            int i = 0;
+            while (i < 5) {
+                mv.visitInsn(Opcodes.NOP);
+                ++i;
+            }
+        }
+
+        mv.visitLabel(l0);
+        mv.visitVarInsn(Opcodes.ILOAD, 1);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IDIV);
+        mv.visitVarInsn(Opcodes.ISTORE, 1);
+
+        // the Java compiler puts a jump to the end here
+        mv.visitVarInsn(Opcodes.ILOAD, 1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(l1);
+
+        // exception handler
+        mv.visitLabel(l2);
+        {
+            int i = 0;
+            while (i < 88) { // carefully chosen
+                mv.visitInsn(Opcodes.NOP);
+                ++i;
+            }
+        }
+        mv.visitVarInsn(Opcodes.ASTORE, 2);
+        mv.visitVarInsn(Opcodes.ILOAD, 1);
+        mv.visitInsn(Opcodes.ICONST_2);
+        mv.visitInsn(Opcodes.IMUL);
+        mv.visitVarInsn(Opcodes.ISTORE, 1);
+
+        // the end
+        mv.visitVarInsn(Opcodes.ILOAD, 1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitMaxs(2, 3);
+        try {
+            mv.visitEnd();
+            endMethod();
+        } catch (Exception exc) {
+            assertEquals("Method code too large!", exc.getMessage()); // FIXME: temporary
+        }
+    }
+
+    public void testSimple2() {
+        /* split before the exception business */
+        MethodVisitor mv = startMethod("Simple2");
 
         {
             int i = 0;
@@ -107,6 +169,7 @@ public class ClassWriterMethodSizeExceptionTest extends TestCase {
         mv.visitLabel(l1);
         Label l6 = new Label();
         mv.visitJumpInsn(Opcodes.GOTO, l6);
+        // exception handler
         mv.visitLabel(l2);
         mv.visitVarInsn(Opcodes.ASTORE, 2);
         mv.visitVarInsn(Opcodes.ILOAD, 1);
@@ -117,11 +180,13 @@ public class ClassWriterMethodSizeExceptionTest extends TestCase {
         mv.visitIincInsn(1, 1);
         Label l8 = new Label();
         mv.visitJumpInsn(Opcodes.GOTO, l8);
+        // finally clause
         mv.visitLabel(l4);
         mv.visitVarInsn(Opcodes.ASTORE, 3);
         mv.visitIincInsn(1, 1);
         mv.visitVarInsn(Opcodes.ALOAD, 3);
         mv.visitInsn(Opcodes.ATHROW);
+        // the end
         mv.visitLabel(l6);
         mv.visitIincInsn(1, 1);
         mv.visitLabel(l8);
@@ -129,7 +194,6 @@ public class ClassWriterMethodSizeExceptionTest extends TestCase {
         mv.visitInsn(Opcodes.IRETURN);
         mv.visitMaxs(2, 4);
         mv.visitEnd();
-
 
         endMethod();
     }

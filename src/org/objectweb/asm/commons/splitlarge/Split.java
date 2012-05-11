@@ -53,8 +53,8 @@ final class Split {
      * @param labels first label
      * @param totalLength total length of the method
      */
-    static TreeSet<BasicBlock> initializeAll(ByteVector code) {
-        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code.data, 0, code.length);
+    static TreeSet<BasicBlock> initializeAll(ByteVector code, Handler firstHandler) {
+        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code.data, 0, code.length, firstHandler);
         Scc root = Scc.stronglyConnectedComponents(blocks);
         root.initializeAll();
         return blocks;

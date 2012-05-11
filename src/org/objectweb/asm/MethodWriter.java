@@ -2255,6 +2255,15 @@ public class MethodWriter extends MethodVisitor {
         return code;
     }
 
+    /**
+     * Gets first exception handler; for testing.
+     *
+     * @return first exception handler
+     */
+    public final Handler getFirstHandler() {
+        return firstHandler;
+    }
+
     // ------------------------------------------------------------------------
     // Utility methods: instruction resizing (used to handle GOTO_W and JSR_W)
     // ------------------------------------------------------------------------

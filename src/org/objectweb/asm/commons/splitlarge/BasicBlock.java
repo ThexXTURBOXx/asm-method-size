@@ -91,6 +91,12 @@ class BasicBlock implements Comparable<BasicBlock> {
      */
     FrameData frameData;
 
+    public enum Kind {
+        EXCEPTION_HANDLER, REGULAR
+    };
+
+    Kind kind;
+
     public BasicBlock(Label l, int size) {
         this.sccIndex = -1;
         this.labels = new HashSet<Label>();
@@ -100,6 +106,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
         this.outputLabel = null;
+        this.kind = Kind.REGULAR;
     }
     
 
@@ -110,6 +117,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
         this.outputLabel = null;
+        this.kind = Kind.REGULAR;
     }
 
     public int compareTo(BasicBlock other) {
@@ -188,7 +196,7 @@ class BasicBlock implements Comparable<BasicBlock> {
     /**
      * Compute flowgraph from code.
      */
-    public static TreeSet<BasicBlock> computeFlowgraph(byte[] b, int codeStart, int codeSize) {
+    public static TreeSet<BasicBlock> computeFlowgraph(byte[] b, int codeStart, int codeSize, Handler firstHandler) {
         TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
         BasicBlock[] blockArray = new BasicBlock[codeSize + 2];
         int codeEnd = codeStart + codeSize;
@@ -280,17 +288,22 @@ class BasicBlock implements Comparable<BasicBlock> {
                     break;
                 }
             }
+        }
 
-// FIXME: This does not work: The exception handlers have not been copied into the code array yet.
-//             // parse the try catch entries
-//             int j = ByteArray.readUnsignedShort(b, v);
-//             v += 2;
-//             for (; j > 0; --j) {
-//                 getBasicBlock(ByteArray.readUnsignedShort(b, v), blockArray, blocks);
-//                 getBasicBlock(ByteArray.readUnsignedShort(b, v + 2), blockArray, blocks);
-//                 getBasicBlock(ByteArray.readUnsignedShort(b, v + 4), blockArray, blocks);
-//                 v += 8;
-//             }
+        {
+            /*
+             * The label positions should be OK; if
+             * MethodWriter.resizeInstructions() has run, it has
+             * relocated.
+             */
+            Handler h = firstHandler;
+            while (h != null) {
+                getBasicBlock(h.start.position, blockArray, blocks); // start
+                getBasicBlock(h.end.position, blockArray, blocks); // end
+                BasicBlock handler = getBasicBlock(h.handler.position, blockArray, blocks);
+                handler.kind = Kind.EXCEPTION_HANDLER;
+                h = h.next;
+            }
         }
 
         // now insert edges
@@ -379,18 +392,22 @@ class BasicBlock implements Comparable<BasicBlock> {
                 }
             }
         }
-// FIXME: This does not work: The exception handlers have not been copied into the code array yet.
-//         // parses the try catch entries
-//         int j = ByteArray.readUnsignedShort(b, v);
-//         v += 2;
-//         for (; j > 0; --j) {
-//             BasicBlock start = blockArray[ByteArray.readUnsignedShort(b, v)];
-//             BasicBlock end = blockArray[ByteArray.readUnsignedShort(b, v + 2)];
-//             BasicBlock handler = blockArray[ByteArray.readUnsignedShort(b, v + 4)];
-//             for (BasicBlock src : blocks.subSet(start, end))
-//                 src.addEdge(handler);
-//             v += 8;
-//         }
+
+        /*
+         * Add edges for the exception handlers.
+         */
+        {
+            Handler h = firstHandler;
+            while (h != null) {
+                BasicBlock start = blockArray[h.start.position];
+                BasicBlock end = blockArray[h.end.position];
+                BasicBlock handler = blockArray[h.handler.position];
+                for (BasicBlock src : blocks.subSet(start, end)) {
+                    src.addEdge(handler);
+                }
+                h = h.next;
+            }
+        }
         
         BasicBlock previous = null;
         for (BasicBlock block : blocks) {

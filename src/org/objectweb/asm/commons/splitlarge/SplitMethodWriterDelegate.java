@@ -86,7 +86,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         parseConstantPool();
         thisName = readUTF8Item(name, utfDecodeBuffer);
         cv = cw.getFirstVisitor();
-        TreeSet<BasicBlock> blocks = Split.initializeAll(code);
+        TreeSet<BasicBlock> blocks = Split.initializeAll(code, firstHandler);
         this.scc = blocks.first().sccRoot;
         this.splitMethods = scc.split(thisName, access, maxMethodLength);
         this.blocksByOffset = computeBlocksByOffset(blocks);
@@ -1186,6 +1186,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         // FIXME: visitLineNumber
         startSplitMethods();
         writeBodyCode();
+        visitExceptionHandlers();
         endSplitMethods();
     }
 
@@ -1464,6 +1465,25 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
 
+    void visitExceptionHandlers() {
+        Handler h = firstHandler;
+        while (h != null) {
+            BasicBlock start = blocksByOffset[h.start.position];
+            BasicBlock end = blocksByOffset[h.end.position];
+            BasicBlock handler = blocksByOffset[h.handler.position];
+            SplitMethod m = handler.sccRoot.splitMethod;
+            assert m == start.sccRoot.splitMethod;
+            assert m == end.sccRoot.splitMethod;
+            MethodVisitor mv;
+            if (m == null) {
+                mv = mainMethodVisitor;
+            } else {
+                mv = m.writer;
+            }
+            mv.visitTryCatchBlock(start.getOutputLabel(), end.getOutputLabel(), handler.getOutputLabel(), h.desc);
+            h = h.next;
+        }
+    }
 
     /**
      * @return main split method

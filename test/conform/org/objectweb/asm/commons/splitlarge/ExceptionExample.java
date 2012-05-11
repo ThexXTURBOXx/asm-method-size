@@ -40,6 +40,17 @@ class ExceptionExample {
         catch (RuntimeException foo) {
             i *= 2;
         }
+        return i;
+    }
+
+    public int m2() {
+        int i = 0;
+        try {
+            i /= 0;
+        }
+        catch (RuntimeException foo) {
+            i *= 2;
+        }
         finally {
             ++i;
         }

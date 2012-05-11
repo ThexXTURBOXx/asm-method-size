@@ -318,6 +318,9 @@ class Scc {
         if (entry == null) {
             return null;
         } else {
+            // can't split out just the exception handler
+            if (entry.kind == BasicBlock.Kind.EXCEPTION_HANDLER)
+                return null;
             /*
              * Now check that all SCC components in the transitive
              * closure have only predecessors within the transitive
