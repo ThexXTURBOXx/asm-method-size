@@ -1608,65 +1608,72 @@ public class MethodWriter extends MethodVisitor {
         if (classReaderOffset != 0) {
             return;
         }
-        if (resize) {
-            // replaces the temporary jump opcodes introduced by Label.resolve.
-            if (ClassReader.RESIZE) {
-                resizeInstructions();
-            } else {
-                throw new RuntimeException("Method code too large!");
+        if (code.length > ClassWriter.MAX_CODE_LENGTH) {
+            splitVisitEnd();
+        } else {
+            if (resize) {
+                // replaces the temporary jump opcodes introduced by Label.resolve.
+                if (ClassReader.RESIZE) {
+                    if (!resizeInstructions()) {
+                        // resizeInstructions would have made the code too large
+                        splitVisitEnd();
+                    } 
+                } else {
+                    throw new RuntimeException("Method code too large!");
+                }
             }
         }
-        if (code.length <= ClassWriter.MAX_CODE_LENGTH) 
-            tooLargeDelegate = null;
-        else if (tooLargeDelegate != null) {
-            MethodWriterDelegate d = tooLargeDelegate;
-            d.cw = cw;
-            d.access = access;
-            d.name = name;
-            d.desc = desc;
-            d.descriptor = descriptor;
-            d.signature = signature;
-            d.classReaderOffset = classReaderOffset;
-            d.classReaderLength = classReaderLength;
-            d.exceptionCount = exceptionCount;
-            d.exceptions = exceptions;
-            d.anns = anns;
-            d.ianns = ianns;
-            d.panns = panns;
-            d.ipanns = ipanns;
-            d.synthetics = synthetics;
-            d.attrs = attrs;
-            d.code = code;
-            d.maxStack = maxStack;
-            d.maxLocals = maxLocals;
-            d.currentLocals = currentLocals;
-            d.frameCount = frameCount;
-            d.stackMap = stackMap;
-            d.previousFrameOffset = previousFrameOffset;
-            d.previousFrame = previousFrame;
-            d.frameIndex = frameIndex;
-            d.frame = frame;
-            d.handlerCount = handlerCount;
-            d.firstHandler = firstHandler;
-            d.lastHandler = lastHandler;
-            d.localVarCount = localVarCount;
-            d.localVar = localVar;
-            d.localVarTypeCount = localVarTypeCount;
-            d.localVarType = localVarType;
-            d.lineNumberCount = lineNumberCount;
-            d.lineNumber = lineNumber;
-            d.cattrs = cattrs;
-            d.resize = resize;
-            d.subroutines = subroutines;
-            d.labels = labels;
-            d.maxStackSize = maxStackSize;
-            d.pool = cw.pool;
-            d.poolSize = cw.index;
-            d.version = cw.version;
-            d.visitEnd();
-        } else {
+    }
+
+    private void splitVisitEnd() {
+        MethodWriterDelegate d = tooLargeDelegate;
+        if (d == null) {
             throw new RuntimeException("Method code too large!");
         }
+        d.cw = cw;
+        d.access = access;
+        d.name = name;
+        d.desc = desc;
+        d.descriptor = descriptor;
+        d.signature = signature;
+        d.classReaderOffset = classReaderOffset;
+        d.classReaderLength = classReaderLength;
+        d.exceptionCount = exceptionCount;
+        d.exceptions = exceptions;
+        d.anns = anns;
+        d.ianns = ianns;
+        d.panns = panns;
+        d.ipanns = ipanns;
+        d.synthetics = synthetics;
+        d.attrs = attrs;
+        d.code = code;
+        d.maxStack = maxStack;
+        d.maxLocals = maxLocals;
+        d.currentLocals = currentLocals;
+        d.frameCount = frameCount;
+        d.stackMap = stackMap;
+        d.previousFrameOffset = previousFrameOffset;
+        d.previousFrame = previousFrame;
+        d.frameIndex = frameIndex;
+        d.frame = frame;
+        d.handlerCount = handlerCount;
+        d.firstHandler = firstHandler;
+        d.lastHandler = lastHandler;
+        d.localVarCount = localVarCount;
+        d.localVar = localVar;
+        d.localVarTypeCount = localVarTypeCount;
+        d.localVarType = localVarType;
+        d.lineNumberCount = lineNumberCount;
+        d.lineNumber = lineNumber;
+        d.cattrs = cattrs;
+        d.resize = resize;
+        d.subroutines = subroutines;
+        d.labels = labels;
+        d.maxStackSize = maxStackSize;
+        d.pool = cw.pool;
+        d.poolSize = cw.index;
+        d.version = cw.version;
+        d.visitEnd();
     }
 
     // ------------------------------------------------------------------------
@@ -2282,8 +2289,15 @@ public class MethodWriter extends MethodVisitor {
      * that is being built has been visited</i>. In particular, the
      * {@link Label Label} objects used to construct the method are no longer
      * valid after this method has been called.
+     *
+     * If this method would generate code that violates the JVM
+     * method-size limit, it does not in fact resize the instructions,
+     * and merely returns <code>false</code>.
+     *
+     * @returns <code>true</code> if successful, <code>false</code> if
+     * the result would get too large.
      */
-    private void resizeInstructions() {
+    private boolean resizeInstructions() {
         byte[] b = code.data; // bytecode of the method
         int u, v, label; // indexes in b
         int i, j; // loop indexes
@@ -2319,6 +2333,8 @@ public class MethodWriter extends MethodVisitor {
 
         resize = new boolean[code.length];
 
+        int newSize; // size of the resized code
+
         // 3 = loop again, 2 = loop ended, 1 = last pass, 0 = done
         int state = 3;
         do {
@@ -2326,6 +2342,7 @@ public class MethodWriter extends MethodVisitor {
                 state = 2;
             }
             u = 0;
+            newSize = code.length;
             while (u < b.length) {
                 int opcode = b[u] & 0xFF; // opcode of current instruction
                 int insert = 0; // bytes to be added after this instruction
@@ -2440,6 +2457,7 @@ public class MethodWriter extends MethodVisitor {
                         break;
                 }
                 if (insert != 0) {
+                    newSize += insert;
                     // adds a new (u, insert) entry in the allIndexes and
                     // allSizes arrays
                     int[] newIndexes = new int[allIndexes.length + 1];
@@ -2463,6 +2481,9 @@ public class MethodWriter extends MethodVisitor {
                 --state;
             }
         } while (state != 0);
+
+        if (newSize > ClassWriter.MAX_CODE_LENGTH)
+            return false;
 
         // 2nd step:
         // copies the bytecode of the method into a new bytevector, updates the
@@ -2704,6 +2725,8 @@ public class MethodWriter extends MethodVisitor {
 
         // replaces old bytecodes with new ones
         code = newCode;
+
+        return true;
     }
 
     /**
