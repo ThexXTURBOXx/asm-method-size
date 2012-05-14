@@ -257,5 +257,49 @@ public class ClassWriterMethodSizeTest extends TestCase {
         endMethod();
     }
 
+    /**
+     * Method with three basic blocks
+     */
+    public void testThree1() {
+        Label l1 = new Label();
+        startMethod("Three1");
+        PUSH();
+        IFNE(l1);
+        {
+            int i = 0;
+            while (i < 80) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+
+        LABEL(l1);
+
+        Label l2 = new Label();
+        PUSH();
+        IFNE(l2);
+        {
+            int i = 0;
+            while (i < 80) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+
+        LABEL(l2);
+        {
+            int i = 0;
+            while (i < 80) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+
+        endMethod();
+    }
+
 
 }
