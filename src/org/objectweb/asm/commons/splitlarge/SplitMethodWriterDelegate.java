@@ -95,6 +95,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         parseStackMap();
         computeFrames();
         BasicBlock.computeSizes(code, blocks);
+        this.scc.computeSizeInfo();
         this.splitMethods = scc.split(thisName, access, maxMethodLength);
         parseBootstrapMethods();
         makeMethodWriters();
