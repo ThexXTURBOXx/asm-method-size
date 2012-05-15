@@ -336,11 +336,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             break;
         default: { // Uninitialized
             int offset = ByteArray.readUnsignedShort(b, v);
-            Label label = labelsByOffset[offset];
-            if (label == null) {
-                label = new Label();
-                labelsByOffset[offset] = label;
-            }
+            Label label = getLabelAt(offset);
             frame[index] = label;
             v += 2;
         }
@@ -1044,11 +1040,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case Opcodes.NEW: {
-                Label l = labelsByOffset[v];
-                if (l == null) {
-                    l = new Label();
-                    labelsByOffset[v] = l;
-                }
+                Label l = getLabelAt(v);
                 frameStack[frameStackCount++] = l;
                 String clazz = readClass(readUnsignedShort(v + 1), utfDecodeBuffer);
                 labelTypes.put(l, clazz);
@@ -1574,11 +1566,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         byte[] b = lineNumber.data;
         while (v < lineNumber.length) {
             int offset = ByteArray.readUnsignedShort(b, v);
-            Label l = labelsByOffset[offset];
-            if (l == null) {
-                l = new Label();
-                labelsByOffset[offset] = l;
-            }
+            Label l = getLabelAt(offset);
             l.line = ByteArray.readUnsignedShort(b, v + 2);
             v += 4;
         }
@@ -1600,6 +1588,17 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             throw new RuntimeException("don't know how to transfer code attributes when splitting a method.");
         }
         mainMethodWriter.setNonstandardAttributes(attrs, cattrs);
+    }
+
+    
+
+    private Label getLabelAt(int offset) {
+        Label l = labelsByOffset[offset];
+        if (l == null) {
+            l = new Label();
+            labelsByOffset[offset] = l;
+        }
+        return l;
     }
 
     /**
