@@ -1185,9 +1185,6 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     private void writeMethods() {
-        // FIXME: calls to split with 
-
-        // FIXME: visitTryCatchBlock
         // FIXME: visitLocalVariable
         // FIXME: visitLineNumber
         startSplitMethods();
