@@ -101,7 +101,7 @@ class SplitMethod {
         smwf.computeMaxsOverride = true;
         smwf.computeFramesOverride = false;
         smwf.split = false;
-        writer = cv.visitMethod(access,
+        writer = cv.visitMethod(access | Opcodes.ACC_SYNTHETIC,
                                 name,
                                 descriptor,
                                 null,
