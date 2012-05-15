@@ -94,7 +94,6 @@ class SplitMethod {
     public void setSplitMethodWriter(final ClassWriter cw,
                                      final ClassVisitor cv,
                                      final String mainDescriptor,
-                                     final String signature,
                                      final String[] exceptions,
                                      final HashMap<Label, String> labelTypes) {
         descriptor = entry.frameData.getDescriptor(mainDescriptor, (access & Opcodes.ACC_STATIC) != 0, labelTypes);
@@ -105,7 +104,7 @@ class SplitMethod {
         writer = cv.visitMethod(access,
                                 name,
                                 descriptor,
-                                signature,  // #### this is all provisional
+                                null,
                                 exceptions);
         smwf.setDefaults();
     }

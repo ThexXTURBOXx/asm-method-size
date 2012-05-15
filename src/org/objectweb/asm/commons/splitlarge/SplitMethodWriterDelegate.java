@@ -1541,7 +1541,6 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         for (SplitMethod m : splitMethods) {
             m.setSplitMethodWriter(cw, cv,
                                    descriptor,
-                                   signature,
                                    exceptionNames,
                                    labelTypes);
         }
@@ -1554,7 +1553,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             cv.visitMethod(access,
                            thisName,
                            descriptor,
-                           signature,  // #### this is all provisional
+                           signature,
                            exceptionNames);
         /*
          * Major kludge:
