@@ -253,11 +253,11 @@ public final class FrameData {
         } else if (el == Opcodes.NULL) {
             mv.visitInsn(Opcodes.ACONST_NULL);
         } else if (el == Opcodes.UNINITIALIZED_THIS) {
-            mv.visitInsn(Opcodes.ACONST_NULL);
+            mv.visitVarInsn(Opcodes.ALOAD, index);
         } else if (el instanceof String) {
             mv.visitVarInsn(Opcodes.ALOAD, index);
         } else if (el instanceof Label) {
-            mv.visitInsn(Opcodes.ACONST_NULL);
+            mv.visitVarInsn(Opcodes.ALOAD, index);
         } else {
             throw new RuntimeException("unknown frame element");
         }
