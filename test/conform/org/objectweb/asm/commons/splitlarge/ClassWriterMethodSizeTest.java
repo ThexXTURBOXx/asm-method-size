@@ -189,6 +189,43 @@ public class ClassWriterMethodSizeTest extends TestCase {
     }
 
     /**
+     * Method with essentially two large basic blocks & constructor call.
+     */
+    public void testTwo1New() {
+        Label l1 = new Label();
+        startMethod("Two1", Opcodes.ACC_PUBLIC);
+        this.mv.visitTypeInsn(Opcodes.NEW, "Two1");
+        PUSH();
+        IFNE(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            this.mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                                    "Two1",
+                                    "<init>",
+                                    "()V");
+            RETURN();
+        }
+        LABEL(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            this.mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                                    "Two1",
+                                    "<init>",
+                                    "()V");
+            RETURN();
+        }
+        endMethod();
+    }
+
+    /**
      * Method with essentially two large basic blocks, with stuff in
      * the frame.
      */
