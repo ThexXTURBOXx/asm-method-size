@@ -48,7 +48,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
 
     protected MethodVisitor mv;
 
-    private void startMethod(String className) {
+    private void startMethod(String className, int access) {
         ClassWriter.MAX_CODE_LENGTH = 100;
         MethodWriterFactory cwf = new SplitMethodWriterFactory();
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
@@ -70,7 +70,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitInsn(Opcodes.RETURN);
         this.mv.visitMaxs(1, 1);
         this.mv.visitEnd();
-        this.mv = cv.visitMethod(Opcodes.ACC_PUBLIC, "m", "()V", null, null);
+        this.mv = cv.visitMethod(access, "m", "()V", null, null);
         this.mv.visitCode();
     }
 
@@ -117,7 +117,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
     /**
      * Method with one huge basic block of NOPs
      */
-//     public void testBasic() {
+//     public void testBasic("Basic",Opcodes.ACC_PUBLIC) {
 //         startMethod();
 //         int i = 0;
 //         while (i < 100000) {
@@ -137,7 +137,35 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo1() {
         Label l1 = new Label();
-        startMethod("Two1");
+        startMethod("Two1", Opcodes.ACC_PUBLIC);
+        PUSH();
+        IFNE(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
+        LABEL(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
+        endMethod();
+    }
+
+    /**
+     * Method with essentially two large basic blocks.
+     */
+    public void testTwo1Static() {
+        Label l1 = new Label();
+        startMethod("Two1", Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC);
         PUSH();
         IFNE(l1);
         {
@@ -166,7 +194,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo2() {
         Label l1 = new Label();
-        startMethod("Two2");
+        startMethod("Two2", Opcodes.ACC_PUBLIC);
         PUSH();
         ISTORE(1);
         PUSH();
@@ -200,7 +228,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo3() {
         Label l1 = new Label();
-        startMethod("Two3");
+        startMethod("Two3", Opcodes.ACC_PUBLIC);
         {
             int i = 0;
             while (i < 40) {
@@ -235,7 +263,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo4() {
         Label l1 = new Label();
-        startMethod("Two4");
+        startMethod("Two4", Opcodes.ACC_PUBLIC);
         {
             int i = 0;
             while (i < 40) {
@@ -262,7 +290,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testThree1() {
         Label l1 = new Label();
-        startMethod("Three1");
+        startMethod("Three1", Opcodes.ACC_PUBLIC);
         PUSH();
         IFNE(l1);
         {
