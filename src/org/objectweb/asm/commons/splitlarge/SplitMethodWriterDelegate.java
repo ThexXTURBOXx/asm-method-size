@@ -367,9 +367,9 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         // offset of the {Fieldref, MethodRef, InterfaceMethodRef}_Info structure
         int cpIndex = items[readUnsignedShort(v)];
         String iowner = readClass(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
-        cpIndex = items[readUnsignedShort(cpIndex + 2)];
-        String iname = readUTF8(cpIndex, utfDecodeBuffer);
-        String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
+        cpIndex = items[ByteArray.readUnsignedShort(pool.data, cpIndex + 2)];
+        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
+        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2), utfDecodeBuffer);
         return new MemberSymRef(iowner, iname, idesc);
     }
 
@@ -395,10 +395,10 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      */
     private DynamicSymRef parseDynamicSymRef(int v) {
         int cpIndex = items[readUnsignedShort(v + 1)];
-        int bsmIndex = bootstrapMethods[readUnsignedShort(cpIndex)];
+        int bsmIndex = bootstrapMethods[ByteArray.readUnsignedShort(pool.data, cpIndex)];
         cpIndex = items[readUnsignedShort(cpIndex + 2)];
-        String iname = readUTF8(cpIndex, utfDecodeBuffer);
-        String idesc = readUTF8(cpIndex + 2, utfDecodeBuffer);
+        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
+        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2), utfDecodeBuffer);
         return new DynamicSymRef(iname, idesc, bsmIndex);
     }
 
