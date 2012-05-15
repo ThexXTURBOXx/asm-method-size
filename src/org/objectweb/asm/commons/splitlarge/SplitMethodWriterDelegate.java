@@ -1045,7 +1045,8 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     labelsByOffset[v] = l;
                 }
                 frameStack[frameStackCount++] = l;
-                labelTypes.put(l, readClass(v + 1, utfDecodeBuffer));
+                String clazz = readClass(readUnsignedShort(v + 1), utfDecodeBuffer);
+                labelTypes.put(l, clazz);
                 v += 3;
                 break;
             }
