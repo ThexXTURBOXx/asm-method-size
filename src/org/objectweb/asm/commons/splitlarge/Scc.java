@@ -29,6 +29,8 @@
  */
 package org.objectweb.asm.commons.splitlarge;
 
+import org.objectweb.asm.ClassWriter;
+
 import java.util.HashSet;
 import java.util.TreeSet;
 import java.util.Stack;
@@ -78,7 +80,8 @@ class Scc {
     HashSet<Scc> transitiveClosure;
 
     /**
-     * Size of the basic blocks in the transitive closure of this component.
+     * Size of the basic blocks in the transitive closure of this
+     * component <i>that stay in the main method<i>.
      */
     int transitiveClosureSize;
 
@@ -164,7 +167,6 @@ class Scc {
     void initializeAll() {
         computeSuccessors();
         computeTransitiveClosure();
-        computeSizeInfo();
         computePredecessors();
         computeSplitPoints();
     }
@@ -227,16 +229,6 @@ class Scc {
     }
 
     /**
-     * Compute all size-relevant information, i.e. set the {@link
-     * #size}, and {@link * #transitiveClosureSize} fields of all SCC
-     * components.
-     */
-    void computeSizeInfo() {
-        computeSizes();
-        computeTransitiveClosureSizes();
-    }
-
-    /**
      * Compute transitive closure of successors relation,
      * and store it in the {@link #transitiveClosure} field.
      * Assumes that this is the root component.
@@ -253,9 +245,10 @@ class Scc {
     }
 
     /**
-     * Compute the sizes of the transitive closures in all SCC components.
+     * Compute the sizes of the transitive closures in all SCC
+     * components that remain in the main method.
      */
-    void computeTransitiveClosureSizes() {
+    private void computeTransitiveClosureSizes() {
         Scc root = this;
         while (root != null) {
             root.computeTransitiveClosureSize();
@@ -265,12 +258,14 @@ class Scc {
 
     /**
      * Compute code size of all basic blocks in the transitive closure
-     * of this component.
+     * of this component that remain in the main method.  Assumes the
+     * {@link #splitMethod} field is set.
      */
     private void computeTransitiveClosureSize() {
         transitiveClosureSize = 0;
         for (Scc root : transitiveClosure) {
-            transitiveClosureSize += root.size;
+            if (root.splitMethod == null)
+                transitiveClosureSize += root.size;
         }
     }
 
@@ -401,6 +396,8 @@ class Scc {
      * @return entry point of the component if found, null if not
      */
     public BasicBlock lookForSplitPoint() {
+        if (splitMethod != null)
+            return null;
         if (splitPoint == null) {
             return lookMaxSizeSplitPointSuccessor();
         } else {
@@ -410,17 +407,27 @@ class Scc {
 
 
     public HashSet<SplitMethod> split(String mainMethodName, int access, final int maxMethodLength) {
-        // #### very provisional
         HashSet<SplitMethod> set = new HashSet<SplitMethod>();
-        BasicBlock entry = findSplitPoint(maxMethodLength);
-        if (entry == null)
-            throw new RuntimeException("no split point found");
-
         int id = 0;
-        SplitMethod m = new SplitMethod(mainMethodName, access, id++, entry);
-        for (Scc root : entry.sccRoot.transitiveClosure)
-            root.splitMethod = m;
-        set.add(m);
+        computeTransitiveClosureSizes();
+        int totalSize = transitiveClosureSize;
+        for (;;) {
+            BasicBlock entry = findSplitPoint(maxMethodLength);
+            if (entry == null)
+                throw new RuntimeException("no split point found");
+
+            SplitMethod m = new SplitMethod(mainMethodName, access, id++, entry);
+            for (Scc root : entry.sccRoot.transitiveClosure) {
+                if (root.splitMethod == null) {
+                    root.splitMethod = m;
+                }
+            }
+            set.add(m);
+            totalSize -= entry.sccRoot.transitiveClosureSize;
+            if (totalSize <= ClassWriter.MAX_CODE_LENGTH)
+                break;
+            computeTransitiveClosureSizes();
+        }
         return set;
     }
 
