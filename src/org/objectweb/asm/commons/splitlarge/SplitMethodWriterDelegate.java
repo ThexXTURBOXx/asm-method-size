@@ -103,6 +103,8 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             visitLineNumberLabels();
         }
         writeMethods();
+        transferAnnotations();
+        transferNonstandardAttributes();
     }
 
     void parseConstantPool() {
@@ -1580,6 +1582,24 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             l.line = ByteArray.readUnsignedShort(b, v + 2);
             v += 4;
         }
+    }
+
+    private void transferAnnotations() {
+        /*
+         * Parsing the annotations would be a huge pain; we just copy
+         * the bytes directly.
+         */
+        mainMethodWriter.setAnnotations(annd, anns, ianns, panns, ipanns, synthetics);
+    }
+
+    private void transferNonstandardAttributes() {
+        /*
+         * We don't know what these look like, so we copy them directly.
+         */
+        if (cattrs != null) {
+            throw new RuntimeException("don't know how to transfer code attributes when splitting a method.");
+        }
+        mainMethodWriter.setNonstandardAttributes(attrs, cattrs);
     }
 
     /**

@@ -1981,6 +1981,26 @@ public class MethodWriter extends MethodVisitor {
         }
     }
 
+    public void setAnnotations(ByteVector annd,
+                              AnnotationWriter anns,
+                              AnnotationWriter ianns,
+                              AnnotationWriter[] panns,
+                              AnnotationWriter[] ipanns,
+                              int synthetics) {
+        this.annd = annd;
+        this.anns = anns;
+        this.ianns = ianns;
+        this.panns = panns;
+        this.ipanns = ipanns;
+        this.synthetics = synthetics;
+    }
+
+    public void setNonstandardAttributes(Attribute attrs, Attribute cattrs) {
+        this.attrs = attrs;
+        this.cattrs = cattrs;
+    }
+
+
     // ------------------------------------------------------------------------
     // Utility methods: dump bytecode array
     // ------------------------------------------------------------------------
