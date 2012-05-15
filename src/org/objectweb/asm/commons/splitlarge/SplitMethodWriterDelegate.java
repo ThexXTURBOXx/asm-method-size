@@ -93,12 +93,12 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.blocksByOffset = computeBlocksByOffset(blocks);
         this.labelsByOffset = new Label[code.length];
         parseStackMap();
-        computeFrames();
+        HashMap<Label, String> labelTypes = computeFrames();
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
         this.splitMethods = scc.split(thisName, access, maxMethodLength);
         parseBootstrapMethods();
-        makeMethodWriters();
+        makeMethodWriters(labelTypes);
         writeMethods();
     }
 
@@ -405,7 +405,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     /**
      * Compute frames for all basic blocks.
      */
-    private void computeFrames() {
+    private HashMap<Label, String> computeFrames() {
         int v = 0;
         byte[] b = code.data;
         int frameLocalCount = 0;
@@ -1108,6 +1108,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             }
         }
         // FIXME: WIDE
+        return labelTypes;
     }
     
     private int pushDesc(final Object[] frame, int frameCount, final String desc) {
@@ -1524,7 +1525,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     /**
      * Create all method writers.
      */
-    private void  makeMethodWriters() {
+    private void  makeMethodWriters(HashMap<Label, String> labelTypes) {
         String[] exceptionNames = null;
         if (exceptions != null) {
             exceptionNames = new String[exceptions.length];
@@ -1538,7 +1539,8 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             m.setSplitMethodWriter(cw, cv,
                                    descriptor,
                                    signature,
-                                   exceptionNames);
+                                   exceptionNames,
+                                   labelTypes);
         }
         SplitMethodWriterFactory smwf = (SplitMethodWriterFactory) cw.getMethodWriterFactory();
         smwf.computeMaxsOverride = true;

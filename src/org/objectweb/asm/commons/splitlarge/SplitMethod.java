@@ -31,6 +31,8 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 
+import java.util.HashMap;
+
 class SplitMethod {
 
     /**
@@ -93,8 +95,9 @@ class SplitMethod {
                                      final ClassVisitor cv,
                                      final String mainDescriptor,
                                      final String signature,
-                                     final String[] exceptions) {
-        descriptor = entry.frameData.getDescriptor(mainDescriptor, (access & Opcodes.ACC_STATIC) != 0);
+                                     final String[] exceptions,
+                                     final HashMap<Label, String> labelTypes) {
+        descriptor = entry.frameData.getDescriptor(mainDescriptor, (access & Opcodes.ACC_STATIC) != 0, labelTypes);
         SplitMethodWriterFactory smwf = (SplitMethodWriterFactory) cw.getMethodWriterFactory();
         smwf.computeMaxsOverride = true;
         smwf.computeFramesOverride = false;

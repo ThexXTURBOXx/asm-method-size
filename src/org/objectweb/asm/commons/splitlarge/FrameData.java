@@ -54,7 +54,7 @@ public final class FrameData {
      * @param methodDescriptor method descriptor of host method
      * @param isStatic says whether host method is static
      */
-    public String getDescriptor(final String methodDescriptor, final boolean isStatic) {
+    public String getDescriptor(final String methodDescriptor, final boolean isStatic, HashMap<Label, String> labelTypes) {
         StringBuilder b = new StringBuilder();
 
         b.append("(");
@@ -62,14 +62,14 @@ public final class FrameData {
             // for non-static methods, this is the first local, and implicit
             int i = isStatic ? 0 : 1;
             while (i < frameLocal.length) {
-                appendFrameTypeDescriptor(b, frameLocal[i]);
+                appendFrameTypeDescriptor(b, frameLocal[i], labelTypes);
                 ++i;
             }
         }
         {
             int i = 0;
             while (i < frameStack.length) {
-                appendFrameTypeDescriptor(b, frameStack[i]);
+                appendFrameTypeDescriptor(b, frameStack[i], labelTypes);
                 ++i;
             }
         }
@@ -185,7 +185,7 @@ public final class FrameData {
         }
     }
 
-    private void appendFrameTypeDescriptor(StringBuilder b, Object d) {
+    private void appendFrameTypeDescriptor(StringBuilder b, Object d, HashMap<Label, String> labelTypes) {
         if (d == Opcodes.INTEGER)
             b.append("I");
         else if (d == Opcodes.FLOAT)
@@ -198,9 +198,18 @@ public final class FrameData {
             b.append("L");
             b.append((String) d);
             b.append(";");
-        } else
-            // missing are TOP, and uninitialized / Labels
+        } else if (d instanceof Label) {
+            String name = labelTypes.get(d);
+            if (name == null) {
+                throw new RuntimeException("label without associated type");
+            }
+            b.append("L");
+            b.append(name);
+            b.append(";");
+        } else {
+            // missing are TOP, and uninitialized
             throw new RuntimeException("can't handle this frame element yet"); // ####
+        }
     }
 
 
