@@ -48,7 +48,10 @@ public class ClassWriterMethodSizeTest extends TestCase {
 
     protected MethodVisitor mv;
 
+    protected String className;
+
     private void startMethod(String className, int access) {
+        this.className = className;
         ClassWriter.MAX_CODE_LENGTH = 100;
         MethodWriterFactory cwf = new SplitMethodWriterFactory();
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
@@ -74,11 +77,21 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitCode();
     }
 
+    class MyClassLoader extends ClassLoader {
+        public Class defineClass(String name, byte[] b) {
+            return defineClass(name, b, 0, b.length);
+        }
+    }
+
     private void endMethod() {
         this.mv.visitMaxs(0, 0);
         this.mv.visitEnd();
         this.cv.visitEnd();
-        CheckClassAdapter.verify(new ClassReader(cw.toByteArray()), false, new java.io.PrintWriter(System.out));
+        byte[] b = cw.toByteArray();
+        CheckClassAdapter.verify(new ClassReader(b), false, new java.io.PrintWriter(System.out));
+        // make sure this code may actually work
+        MyClassLoader myClassLoader = new MyClassLoader();
+        myClassLoader.defineClass(className, b);
     }
 
     private void LABEL(final Label l) {
