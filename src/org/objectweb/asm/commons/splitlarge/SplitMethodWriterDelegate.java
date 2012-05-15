@@ -99,6 +99,9 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.splitMethods = scc.split(thisName, access, maxMethodLength);
         parseBootstrapMethods();
         makeMethodWriters(labelTypes);
+        if (lineNumber != null) {
+            visitLineNumberLabels();
+        }
         writeMethods();
     }
 
@@ -1186,7 +1189,6 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     private void writeMethods() {
         // FIXME: visitLocalVariable
-        // FIXME: visitLineNumber
         startSplitMethods();
         writeBodyCode();
         visitExceptionHandlers();
@@ -1223,6 +1225,9 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 Label l = labelsByOffset[v];
                 if (l != null) {
                     mv.visitLabel(l);
+                    if (l.line > 0) {
+                        mv.visitLineNumber(l.line, l);
+                    }
                 }
             }
 
@@ -1563,6 +1568,21 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         smwf.setDefaults();
     }
 
+    private void visitLineNumberLabels() {
+        int v = 0;
+        byte[] b = lineNumber.data;
+        while (v < lineNumber.length) {
+            int offset = ByteArray.readUnsignedShort(b, v);
+            Label l = labelsByOffset[offset];
+            if (l == null) {
+                l = new Label();
+                labelsByOffset[offset] = l;
+            }
+            l.line = ByteArray.readUnsignedShort(b, v + 2);
+            v += 4;
+        }
+    }
+
     /**
      * Returns the size of the bytecode of this method.
      *
@@ -1573,10 +1593,6 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         return mainMethodWriter.getSize();
     }
     
-
-    
-
-   
     /**
      * Puts the bytecode of this method in the given byte vector.
      *

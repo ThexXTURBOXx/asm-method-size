@@ -133,7 +133,7 @@ public class Label {
     /**
      * The line number corresponding to this label, if known.
      */
-    int line;
+    public int line;
 
     /**
      * The position of this label in the code, if known.
