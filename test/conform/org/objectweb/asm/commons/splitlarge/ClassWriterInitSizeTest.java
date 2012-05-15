@@ -48,6 +48,8 @@ public class ClassWriterInitSizeTest extends TestCase {
 
     protected MethodVisitor mv;
 
+    protected String className;
+
     private void startMethod(String className) {
         ClassWriter.MAX_CODE_LENGTH = 100;
         MethodWriterFactory cwf = new SplitMethodWriterFactory();
@@ -60,15 +62,26 @@ public class ClassWriterInitSizeTest extends TestCase {
                       null,
                       "java/lang/Object",
                       null);
+        this.className = className;
         this.mv = cv.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         this.mv.visitCode();
+    }
+
+    class MyClassLoader extends ClassLoader {
+        public Class defineClass(String name, byte[] b) {
+            return defineClass(name, b, 0, b.length);
+        }
     }
 
     private void endMethod() {
         this.mv.visitMaxs(1, 1);
         this.mv.visitEnd();
         this.cv.visitEnd();
-        CheckClassAdapter.verify(new ClassReader(cw.toByteArray()), false, new java.io.PrintWriter(System.out));
+        byte[] b = cw.toByteArray();
+        CheckClassAdapter.verify(new ClassReader(b), false, new java.io.PrintWriter(System.out));
+        // make sure this code may actually work
+        MyClassLoader myClassLoader = new MyClassLoader();
+        myClassLoader.defineClass(className, b);
     }
 
     private void LABEL(final Label l) {
