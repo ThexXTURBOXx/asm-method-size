@@ -62,9 +62,19 @@ class SplitMethod {
     public SplitMethod(String mainMethodName, int access, int id, BasicBlock entry) {
         this.mainMethodName = mainMethodName;
         this.access = access;
-        this.name = mainMethodName + "#split#" + id;
+        this.name = mungeName(mainMethodName, id);
         this.id = id;
         this.entry = entry;
+    }
+
+    private static String mungeName(String mainMethodName, int id) {
+        if (mainMethodName.equals("<init>")) {
+            return "#init##split#" + id;
+        } else if (mainMethodName.equals("<clinit>")) {
+            return "#clinit##split#" + id;
+        } else {
+            return mainMethodName + "#split#" + id;
+        }
     }
 
     public String getName() {
