@@ -48,9 +48,14 @@ class BasicBlock implements Comparable<BasicBlock> {
     int size = -1;
 
     /**
-     * Label associated with this block upon writing.
+     * Label of start of basic block in target method.
      */
-    Label outputLabel;
+    Label startLabel;
+
+    /**
+     * Label of end of basic block in target method.
+     */
+    Label endLabel;
 
     final HashSet<Label> labels;
 
@@ -110,7 +115,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         this.position = l.position;
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
-        this.outputLabel = null;
+        this.startLabel = null;
         this.kind = Kind.REGULAR;
     }
     
@@ -121,7 +126,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         this.position = position;
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
-        this.outputLabel = null;
+        this.startLabel = null;
         this.kind = Kind.REGULAR;
     }
 
@@ -136,11 +141,18 @@ class BasicBlock implements Comparable<BasicBlock> {
         l.info = this;
     }
 
-    public Label getOutputLabel() {
-        if (outputLabel != null)
-            return outputLabel;
-        outputLabel = new Label();
-        return outputLabel;
+    public Label getStartLabel() {
+        if (startLabel != null)
+            return startLabel;
+        startLabel = new Label();
+        return startLabel;
+    }
+
+    public Label getEndLabel() {
+        if (endLabel != null)
+            return endLabel;
+        endLabel = new Label();
+        return endLabel;
     }
 
     static BasicBlock get(Label label) {

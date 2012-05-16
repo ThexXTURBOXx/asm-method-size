@@ -34,6 +34,7 @@ import org.objectweb.asm.*;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.TreeSet;
+import java.util.Map;
 import java.util.HashMap;
 
 final class SplitMethodWriterDelegate extends MethodWriterDelegate {
@@ -55,8 +56,23 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     MethodVisitor mainMethodVisitor;
 
     BasicBlock[] blocksByOffset;
-    /* labels not associated with a basic block - NEW instructions */
+    /**
+     * Labels not associated with a basic block - NEW instructions,
+     * line numbers, region start for local variables.  These labels
+     * point <em>downward</em>, i.e. they really refer to something
+     * that comes directly after.
+     */
     Label[] labelsByOffset;
+    /**
+     * Labels pointing <em>upward</em> not asssociated with a basic
+     * block: Region ends for local variables.
+     *
+     * These need to be distinguished from {@link #labelsByOffset}
+     * because if a labels is just at a split point, the downward
+     * label goes into the split method, while the upward label stays
+     * in the calling method.
+     */
+    Label[] upwardLabelsByOffset;
 
     /**
      * Maximum length of the strings contained in the constant pool of the
@@ -92,6 +108,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.scc.initializeAll();
         this.blocksByOffset = computeBlocksByOffset(blocks);
         this.labelsByOffset = new Label[code.length];
+        this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
         parseStackMap();
         HashMap<Label, String> labelTypes = computeFrames();
         BasicBlock.computeSizes(code, blocks);
@@ -102,7 +119,13 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         if (lineNumber != null) {
             visitLineNumberLabels();
         }
+        if (localVar != null) {
+            visitLocalVarLabels();
+        }
         writeMethods();
+        if (localVar != null) {
+            visitLocalVars();
+        }
         transferAnnotations();
         transferNonstandardAttributes();
     }
@@ -1182,7 +1205,6 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     private void writeMethods() {
-        // FIXME: visitLocalVariable
         startSplitMethods();
         writeBodyCode();
         visitExceptionHandlers();
@@ -1193,11 +1215,17 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     private void writeBodyCode() {
         byte[] b = code.data; // bytecode of the method
         int v = 0;
-        MethodVisitor mv = null;
+        MethodVisitor mv = mainMethodVisitor;
         BasicBlock currentBlock = null;
         // whether the previous block may end by just falling through
         boolean fallThrough = false;
         while (v < code.length) {
+            {
+                Label l = upwardLabelsByOffset[v];
+                if (l != null) {
+                    mv.visitLabel(l);
+                }
+            }
             {
                 BasicBlock block = blocksByOffset[v];
                 if (block != null) {
@@ -1205,13 +1233,17 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     if (fallThrough && (m != currentBlock.sccRoot.splitMethod)) {
                         jumpToMethod(mv, block);
                     }
+                    if (currentBlock != null) {
+                        // needed for local variables
+                        mv.visitLabel(currentBlock.getEndLabel());
+                    }
                     if (m != null) {
                         mv = m.writer;
                         block.frameData.visitFrame(mv);
                     } else {
                         mv = mainMethodVisitor;
                     }
-                    mv.visitLabel(block.getOutputLabel());
+                    mv.visitLabel(block.getStartLabel());
                     currentBlock = block;
                 }
             }
@@ -1272,12 +1304,12 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 int size = max - min + 1;
                 Label[] table = new Label[size];
                 for (int j = 0; j < size; ++j) {
-                    table[j] = blocksByOffset[v + readInt(v)].getOutputLabel();
+                    table[j] = blocksByOffset[v + readInt(v)].getStartLabel();
                     v += 4;
                 }
                 mv.visitTableSwitchInsn(min,
                                         max,
-                                        blocksByOffset[label].getOutputLabel(),
+                                        blocksByOffset[label].getStartLabel(),
                                         table);
                 break;
             }
@@ -1292,10 +1324,10 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 Label[] values = new Label[size];
                 for (int j = 0; j < size; ++j) {
                     keys[j] = readInt(v);
-                    values[j] = blocksByOffset[v + readInt(v + 4)].getOutputLabel();
+                    values[j] = blocksByOffset[v + readInt(v + 4)].getStartLabel();
                     v += 8;
                 }
-                mv.visitLookupSwitchInsn(blocksByOffset[label].getOutputLabel(),
+                mv.visitLookupSwitchInsn(blocksByOffset[label].getStartLabel(),
                                          keys,
                                          values);
                 break;
@@ -1391,6 +1423,14 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
         }
+
+        // finish off the final block
+        if (currentBlock != null) {
+            mv.visitLabel(currentBlock.getEndLabel());
+        }
+        if (upwardLabelsByOffset[v] != null) {
+            mv.visitLabel(upwardLabelsByOffset[v]);
+        }
     }
 
     private void handleJump(MethodVisitor mv, int opcode, BasicBlock currentBlock, BasicBlock target) {
@@ -1407,7 +1447,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 jumpToMethod(mv, target);
             }
         } else {
-            mv.visitJumpInsn(opcode, target.getOutputLabel());
+            mv.visitJumpInsn(opcode, target.getStartLabel());
         }
     }
 
@@ -1482,7 +1522,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             } else {
                 mv = m.writer;
             }
-            mv.visitTryCatchBlock(start.getOutputLabel(), end.getOutputLabel(), handler.getOutputLabel(), h.desc);
+            mv.visitTryCatchBlock(start.getStartLabel(), end.getStartLabel(), handler.getStartLabel(), h.desc);
             h = h.next;
         }
     }
@@ -1571,6 +1611,128 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             v += 4;
         }
     }
+
+    private void visitLocalVarLabels() {
+        int v = 0;
+        byte[] b = localVar.data;
+        while (v < localVar.length) {
+            int from = ByteArray.readUnsignedShort(b, v);
+            getLabelAt(from);
+            int to = from + ByteArray.readUnsignedShort(b, v + 2);
+            if (upwardLabelsByOffset[to] == null) {
+                upwardLabelsByOffset[to] = new Label();
+            }
+            v += 10;
+        }
+    }
+
+    private void visitLocalVars() {
+        int[] typeTable = null;
+        if (localVarType != null) {
+            byte[] b = localVarType.data;
+            int k = localVarTypeCount * 3;
+            int w = 0;
+            typeTable = new int[k];
+            while (k > 0) {
+                typeTable[--k] = ByteArray.readUnsignedShort(b, w + 6); // item index of signature
+                typeTable[--k] = ByteArray.readUnsignedShort(b, w + 8); // index
+                typeTable[--k] = ByteArray.readUnsignedShort(b, w); // start
+                w += 10;
+            }        }
+        {
+            byte[] b = localVar.data;
+            int k = localVarCount;
+            int w = 0;
+            for (; k > 0; --k) {
+                int start = ByteArray.readUnsignedShort(b, w);
+                int length = ByteArray.readUnsignedShort(b, w + 2);
+                int index = ByteArray.readUnsignedShort(b, w + 8);
+                String vsignature = null;
+                if (typeTable != null) {
+                    for (int a = 0; a < typeTable.length; a += 3) {
+                        if ((typeTable[a] == start) && (typeTable[a + 1] == index)) {
+                            vsignature = readUTF8Item(typeTable[a + 2], utfDecodeBuffer);
+                            break;
+                        }
+                    }
+                }
+                visitLocalVariable(readUTF8Item(ByteArray.readUnsignedShort(b, w + 4), utfDecodeBuffer),
+                                   readUTF8Item(ByteArray.readUnsignedShort(b, w + 6), utfDecodeBuffer),
+                                   vsignature,
+                                   start, length, index);
+                w += 10;
+            }
+        }
+    }
+    
+    private void visitLocalVariable(String name, String desc, String signature,
+                                    int start, int length, int index) {
+        HashMap<MethodVisitor, Label> startLabels = new HashMap<MethodVisitor, Label>();
+        HashMap<MethodVisitor, Label> endLabels = new HashMap<MethodVisitor, Label>();
+
+        // first search backwards for the basic block we're in
+        MethodVisitor mv = null;
+        {
+            int i = start;
+            while (i >= 0) {
+                BasicBlock b = blocksByOffset[i];
+                if (b != null) {
+                    SplitMethod m = b.sccRoot.splitMethod;
+                    if (m != null) {
+                        mv = m.writer;
+                    } else {
+                        mv = mainMethodVisitor;
+                    }
+                    break;
+                }
+                --i;
+            }
+        }
+        if (mv == null) {
+            mv = mainMethodVisitor;
+        }
+
+        startLabels.put(mv, labelsByOffset[start]);
+
+        // ... then move forward
+        int v = start;
+        int end = start + length;
+        BasicBlock currentBlock = null;
+        while (v < end) {
+            BasicBlock b = blocksByOffset[v];
+            if (b != null) {
+                // push the end forward
+                if (currentBlock != null) {
+                    endLabels.put(mv, currentBlock.getEndLabel());
+                }
+                SplitMethod m = b.sccRoot.splitMethod;
+                if (m != null) {
+                    mv = m.writer;
+                } else {
+                    mv = mainMethodVisitor;
+                }
+                Label startLabel = startLabels.get(mv);
+                if (startLabel == null) {
+                    startLabels.put(mv, b.getStartLabel());
+                }
+                currentBlock = b;
+            }
+            ++v;
+        }
+        // final end
+        endLabels.put(mv, upwardLabelsByOffset[end]);
+                
+        for (Map.Entry<MethodVisitor, Label> entry : startLabels.entrySet()) {
+            mv = entry.getKey();
+            Label startLabel = entry.getValue();
+            Label endLabel = endLabels.get(mv);
+            assert endLabel != null;
+            mv.visitLocalVariable(name, desc, signature, startLabel, endLabel, index);
+        }
+        
+    }
+
+    
 
     private void transferAnnotations() {
         /*

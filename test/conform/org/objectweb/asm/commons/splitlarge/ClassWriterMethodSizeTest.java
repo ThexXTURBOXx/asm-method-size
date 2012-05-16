@@ -379,5 +379,58 @@ public class ClassWriterMethodSizeTest extends TestCase {
         endMethod();
     }
 
+    /**
+     * Method with three basic blocks
+     */
+    public void testThree1LocalVariables() {
+        startMethod("Three1", Opcodes.ACC_PUBLIC);
+        PUSH();
+        ISTORE(1);
+        PUSH();
+        ISTORE(2);
+        PUSH();
+        Label l1 = new Label();
+        IFNE(l1);
+        {
+            int i = 0;
+            while (i < 80) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+
+        LABEL(l1);
+
+        Label l2 = new Label();
+        PUSH();
+        IFNE(l2);
+        {
+            int i = 0;
+            while (i < 80) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+
+        LABEL(l2);
+        {
+            int i = 0;
+            while (i < 80) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+
+        Label l3 = new Label();
+        LABEL(l3);
+
+        this.mv.visitLocalVariable("one", "I", null, l1, l3, 1);
+        this.mv.visitLocalVariable("two", "I", null, l1, l3, 2);
+        endMethod();
+    }
+
 
 }
