@@ -51,32 +51,17 @@ class SplitMethod {
      * Name of this method.
      */
     String name;
-    /**
-     * Uid number among the split methods of a single main method.
-     */
-    int id;
 
     String descriptor;
     int descriptorIndex;
 
     MethodVisitor writer;
 
-    public SplitMethod(String mainMethodName, int access, int id, BasicBlock entry) {
+    public SplitMethod(String name, int access, BasicBlock entry) {
         this.mainMethodName = mainMethodName;
         this.access = access;
-        this.name = mungeName(mainMethodName, id);
-        this.id = id;
+        this.name = name;
         this.entry = entry;
-    }
-
-    private static String mungeName(String mainMethodName, int id) {
-        if (mainMethodName.equals("<init>")) {
-            return "#init##split#" + id;
-        } else if (mainMethodName.equals("<clinit>")) {
-            return "#clinit##split#" + id;
-        } else {
-            return mainMethodName + "#split#" + id;
-        }
     }
 
     public String getName() {

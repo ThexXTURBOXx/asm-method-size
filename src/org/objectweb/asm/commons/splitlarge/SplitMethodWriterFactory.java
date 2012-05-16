@@ -46,8 +46,15 @@ class SplitMethodWriterFactory implements MethodWriterFactory {
     // the horror
     static MethodWriter lastInstance;
 
-    public SplitMethodWriterFactory() {
+    private final INameGenerator nameGenerator;
+
+    public SplitMethodWriterFactory(INameGenerator nameGenerator) {
         setDefaults();
+        this.nameGenerator = nameGenerator;
+    }
+
+    public SplitMethodWriterFactory() {
+        this(new HashNameGenerator());
     }
 
     public void setDefaults() {
@@ -65,7 +72,7 @@ class SplitMethodWriterFactory implements MethodWriterFactory {
                                         final String[] exceptions,
                                         final boolean computeMaxs,
                                         final boolean computeFrames) {
-        MethodWriterDelegate cwd = split ? new SplitMethodWriterDelegate(ClassWriter.MAX_CODE_LENGTH) : null;
+        MethodWriterDelegate cwd = split ? new SplitMethodWriterDelegate(ClassWriter.MAX_CODE_LENGTH, nameGenerator) : null;
         boolean cm = (computeMaxsOverride != null) ? computeMaxsOverride.booleanValue() : computeMaxs;
         boolean cf = (computeFramesOverride != null) ? computeFramesOverride.booleanValue() : computeFrames;
         lastInstance = new MethodWriter(cw, access, name, desc, signature, exceptions, cm, cf, register,

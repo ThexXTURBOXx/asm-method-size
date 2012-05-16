@@ -93,8 +93,11 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     int[] bootstrapMethods;
 
-    public SplitMethodWriterDelegate(final int maxMethodLength) {
+    INameGenerator nameGenerator;
+
+    public SplitMethodWriterDelegate(final int maxMethodLength, INameGenerator nameGenerator) {
         this.maxMethodLength = maxMethodLength;
+        this.nameGenerator = nameGenerator;
     }
 
     @Override
@@ -113,7 +116,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         HashMap<Label, String> labelTypes = computeFrames();
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
-        this.splitMethods = scc.split(thisName, access, maxMethodLength);
+        this.splitMethods = scc.split(thisName, access, maxMethodLength, nameGenerator);
         parseBootstrapMethods();
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {

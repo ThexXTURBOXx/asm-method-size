@@ -406,7 +406,7 @@ class Scc {
     }
 
 
-    public HashSet<SplitMethod> split(String mainMethodName, int access, final int maxMethodLength) {
+    public HashSet<SplitMethod> split(String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
         HashSet<SplitMethod> set = new HashSet<SplitMethod>();
         int id = 0;
         computeTransitiveClosureSizes();
@@ -416,7 +416,8 @@ class Scc {
             if (entry == null)
                 throw new RuntimeException("no split point found");
 
-            SplitMethod m = new SplitMethod(mainMethodName, access, id++, entry);
+            String name = nameGenerator.generateName(mainMethodName, id++);
+            SplitMethod m = new SplitMethod(name, access, entry);
             for (Scc root : entry.sccRoot.transitiveClosure) {
                 if (root.splitMethod == null) {
                     root.splitMethod = m;
