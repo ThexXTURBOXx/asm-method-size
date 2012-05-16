@@ -585,4 +585,13 @@ public abstract class MethodVisitor {
             mv.visitEnd();
         }
     }
+
+
+    public MethodVisitor getFirstVisitor() {
+        MethodVisitor mv = this;
+        while (mv.mv != null) {
+            mv = mv.mv;
+        }
+        return mv;
+    }
 }

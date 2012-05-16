@@ -1592,15 +1592,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                            descriptor,
                            signature,
                            exceptionNames);
-        /*
-         * Major kludge:
-         * We really need the MethodWriter, as we're calling its
-         * getSize and put methods.  But visitMethod may give us a
-         * visitor wrapped around a MethodWriter.  Instead,
-         * SplitMethodWriterFactory records the instance that must be
-         * sitting insite the visitor.
-         */
-        mainMethodWriter = SplitMethodWriterFactory.lastInstance;
+        mainMethodWriter = (MethodWriter) mainMethodVisitor.getFirstVisitor();
         smwf.setDefaults();
     }
 

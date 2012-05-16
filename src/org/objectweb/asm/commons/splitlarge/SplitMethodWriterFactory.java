@@ -43,8 +43,6 @@ class SplitMethodWriterFactory implements MethodWriterFactory {
     Boolean computeMaxsOverride;
     Boolean computeFramesOverride;
     boolean register;
-    // the horror
-    static MethodWriter lastInstance;
 
     private final INameGenerator nameGenerator;
 
@@ -75,8 +73,7 @@ class SplitMethodWriterFactory implements MethodWriterFactory {
         MethodWriterDelegate cwd = split ? new SplitMethodWriterDelegate(ClassWriter.MAX_CODE_LENGTH, nameGenerator) : null;
         boolean cm = (computeMaxsOverride != null) ? computeMaxsOverride.booleanValue() : computeMaxs;
         boolean cf = (computeFramesOverride != null) ? computeFramesOverride.booleanValue() : computeFrames;
-        lastInstance = new MethodWriter(cw, access, name, desc, signature, exceptions, cm, cf, register,
-                                        cwd);
-        return lastInstance;
+        return new MethodWriter(cw, access, name, desc, signature, exceptions, cm, cf, register,
+                                cwd);
     }
 }
