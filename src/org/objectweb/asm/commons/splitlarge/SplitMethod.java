@@ -82,16 +82,20 @@ class SplitMethod {
                                      final String[] exceptions,
                                      final HashMap<Label, String> labelTypes) {
         descriptor = entry.frameData.getDescriptor(mainDescriptor, (access & Opcodes.ACC_STATIC) != 0, labelTypes);
-        SplitMethodWriterFactory smwf = (SplitMethodWriterFactory) cw.getMethodWriterFactory();
-        smwf.computeMaxsOverride = true;
-        smwf.computeFramesOverride = false;
-        smwf.split = false;
+        boolean computeMaxs = cw.computeMaxs;
+        boolean computeFrames = cw.computeFrames;
+        MethodWriterDelegate tooLargeDelegate = cw.tooLargeDelegate;
+        cw.computeMaxs = true;
+        cw.computeFrames = false;
+        cw.tooLargeDelegate = null;
         writer = cv.visitMethod(access | Opcodes.ACC_SYNTHETIC,
                                 name,
                                 descriptor,
                                 null,
                                 exceptions);
-        smwf.setDefaults();
+        cw.computeMaxs = computeMaxs;
+        cw.computeFrames = computeFrames;
+        cw.tooLargeDelegate = tooLargeDelegate;
     }
 
     public void visitJumpTo(ClassWriter cw, MethodVisitor mv) {

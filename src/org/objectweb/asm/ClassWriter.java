@@ -478,12 +478,12 @@ public class ClassWriter extends ClassVisitor {
      * <tt>true</tt> if the maximum stack size and number of local variables
      * must be automatically computed.
      */
-    private final boolean computeMaxs;
+    public boolean computeMaxs;
 
     /**
      * <tt>true</tt> if the stack map frames must be recomputed from scratch.
      */
-    private final boolean computeFrames;
+    public boolean computeFrames;
 
     /**
      * <tt>true</tt> if the stack map tables of this class are invalid. The
@@ -496,10 +496,17 @@ public class ClassWriter extends ClassVisitor {
     boolean invalidFrames;
 
     /**
-     * {@link MethodWriterFactory} for use in {@link
-     * #visitMethod}. Can be null: then we use {@link MethodWriter}.
+     * {@link MethodWriterDelegate} that gets invoked if the method
+     * code is too large for the JVM.
      */
-    private MethodWriterFactory methodWriterFactory;
+    public MethodWriterDelegate tooLargeDelegate;
+
+    /**
+     * Tells {@link MethodWriter} whether to register itself with this
+     * {@link ClassWriter}; we want to set it to <code>false</code> temporarily
+     * when creating another {@link MethodWriter} that runs off {@link #tooLargeDelegate}.
+     */
+    public boolean registerMethodWriter = true;
 
     // ------------------------------------------------------------------------
     // Static initializer
@@ -598,10 +605,10 @@ public class ClassWriter extends ClassVisitor {
      *
      * @param flags option flags that can be used to modify the default behavior
      *        of this class. See {@link #COMPUTE_MAXS}, {@link #COMPUTE_FRAMES}.
-     * @param methodWriterFactory factory for {@link MethodWriter}
-     *        object returned by {@link #visitMethod}.
+     * @param tooLargeDelegate method-writer delegate for methods that
+     *        are too large; can be null.
      */
-    public ClassWriter(final int flags, MethodWriterFactory methodWriterFactory) {
+    public ClassWriter(final int flags, MethodWriterDelegate tooLargeDelegate) {
         super(Opcodes.ASM4);
         index = 1;
         pool = new ByteVector();
@@ -613,12 +620,12 @@ public class ClassWriter extends ClassVisitor {
         key4 = new Item();
         this.computeMaxs = (flags & COMPUTE_MAXS) != 0;
         this.computeFrames = (flags & COMPUTE_FRAMES) != 0;
-        this.methodWriterFactory = methodWriterFactory;
+        this.tooLargeDelegate = tooLargeDelegate;
     }
 
     /**
      * Constructs a new {@link ClassWriter} object, with a
-     * <code>null</code> {@link MethodWriterFactory}.
+     * <code>null</code> {@link MethodWriterDelegate}.
      *
      * @param flags option flags that can be used to modify the default behavior
      *        of this class. See {@link #COMPUTE_MAXS}, {@link #COMPUTE_FRAMES}.
@@ -652,11 +659,11 @@ public class ClassWriter extends ClassVisitor {
      *        are copied as is in the new class. This means that the maximum
      *        stack size nor the stack frames will be computed for these
      *        methods</i>. See {@link #COMPUTE_MAXS}, {@link #COMPUTE_FRAMES}.
-     * @param methodWriterFactory factory for {@link MethodWriter}
-     *        object returned by {@link #visitMethod}.
+     * @param tooLargeDelegate method-writer delegate for methods that
+     *        are too large; can be null.
      */
-    public ClassWriter(final ClassReader classReader, final int flags, MethodWriterFactory methodWriterFactory) {
-        this(flags, methodWriterFactory);
+    public ClassWriter(final ClassReader classReader, final int flags, MethodWriterDelegate tooLargeDelegate) {
+        this(flags, tooLargeDelegate);
         classReader.copyPool(this);
         this.cr = classReader;
     }
@@ -668,10 +675,6 @@ public class ClassWriter extends ClassVisitor {
      */
     public ClassWriter(final ClassReader classReader, final int flags) {
         this(classReader, flags, null);
-    }
-
-    public MethodWriterFactory getMethodWriterFactory() {
-        return methodWriterFactory;
     }
 
     // ------------------------------------------------------------------------
@@ -790,26 +793,16 @@ public class ClassWriter extends ClassVisitor {
         final String signature,
         final String[] exceptions)
     {
-        if (methodWriterFactory == null) {
-            return new MethodWriter(this,
-                                    access,
-                                    name,
-                                    desc,
-                                    signature,
-                                    exceptions,
-                                    computeMaxs,
-                                    computeFrames,
-                                    null);
-        } else {
-            return methodWriterFactory.getMethodWriter(this,
-                                                       access,
-                                                       name,
-                                                       desc,
-                                                       signature,
-                                                       exceptions,
-                                                       computeMaxs,
-                                                       computeFrames);
-        }
+        return new MethodWriter(this,
+                                access,
+                                name,
+                                desc,
+                                signature,
+                                exceptions,
+                                computeMaxs,
+                                computeFrames,
+                                registerMethodWriter,
+                                tooLargeDelegate);
     }
 
     @Override

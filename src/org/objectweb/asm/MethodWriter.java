@@ -412,6 +412,10 @@ public class MethodWriter extends MethodVisitor {
      *        of local variables must be automatically computed.
      * @param computeFrames <tt>true</tt> if the stack map tables must be
      *        recomputed from scratch.
+     * @param register says whether this {@link MethodWriter} should
+     *        register itself with the {@link ClassWriter}.
+     * @param tooLargeDelegate is a method-writer delegate that gets
+     *        invoked when the method code size exceeds the JVM limit.
      */
     public MethodWriter(
         final ClassWriter cw,
@@ -420,81 +424,6 @@ public class MethodWriter extends MethodVisitor {
         final String desc,
         final String signature,
         final String[] exceptions,
-        final boolean computeMaxs,
-        final boolean computeFrames,
-        final MethodWriterDelegate tooLargeDelegate)
-    {
-        this(cw, access, 
-             cw.newUTF8(name), desc, cw.newUTF8(desc), 
-             signature,
-             makePoolExceptions(cw, exceptions),
-             computeMaxs, computeFrames, 
-             true,
-             tooLargeDelegate);
-    }
-
-    public MethodWriter(
-        final ClassWriter cw,
-        final int access,
-        final String name,
-        final String desc,
-        final String signature,
-        final String[] exceptions,
-        final boolean computeMaxs,
-        final boolean computeFrames,
-        final boolean register,
-        final MethodWriterDelegate tooLargeDelegate)
-    {
-        this(cw, access, 
-             cw.newUTF8(name), desc, cw.newUTF8(desc), 
-             signature,
-             makePoolExceptions(cw, exceptions),
-             computeMaxs, computeFrames, 
-             register,
-             tooLargeDelegate);
-    }
-
-    private static int[] makePoolExceptions(ClassWriter cw, String[] exceptions) {
-        int[] poolExceptions = null;
-        if (exceptions != null && exceptions.length > 0) {
-            int exceptionCount = exceptions.length;
-            poolExceptions = new int[exceptionCount];
-            for (int i = 0; i < exceptionCount; ++i) {
-                poolExceptions[i] = cw.newClass(exceptions[i]);
-            }
-        }
-        return poolExceptions;
-    }
-
-    public MethodWriter(
-        final ClassWriter cw,
-        final int access,
-        final int name,
-        final String descriptor,
-        final int desc,
-        final String signature,
-        final int[] exceptions,
-        final boolean computeMaxs,
-        final boolean computeFrames,
-        final MethodWriterDelegate tooLargeDelegate)
-    {
-        this(cw, 
-             access, name,
-             descriptor, desc, 
-             signature, 
-             exceptions, 
-             computeMaxs, computeFrames, 
-             true, tooLargeDelegate);
-    }
-
-    public MethodWriter(
-        final ClassWriter cw,
-        final int access,
-        final int name,
-        final String descriptor,
-        final int desc,
-        final String signature,
-        final int[] exceptions,
         final boolean computeMaxs,
         final boolean computeFrames,
         final boolean register,
@@ -511,13 +440,20 @@ public class MethodWriter extends MethodVisitor {
         }
         this.cw = cw;
         this.access = access;
-        this.name = name;
-        this.desc = desc;
-        this.descriptor = descriptor;
+        this.name = cw.newUTF8(name);
+        this.desc = cw.newUTF8(desc);
+        this.descriptor = desc;
         if (ClassReader.SIGNATURES) {
             this.signature = signature;
         }
-        this.exceptions = exceptions;
+        this.exceptions = null;
+        if (exceptions != null && exceptions.length > 0) {
+            int exceptionCount = exceptions.length;
+            this.exceptions = new int[exceptionCount];
+            for (int i = 0; i < exceptionCount; ++i) {
+                this.exceptions[i] = cw.newClass(exceptions[i]);
+            }
+        }
         this.compute = computeFrames ? FRAMES : (computeMaxs ? MAXS : NOTHING);
         if (computeMaxs || computeFrames) {
             if (computeFrames && "<init>".equals(name)) {
@@ -537,7 +473,7 @@ public class MethodWriter extends MethodVisitor {
         }
         this.tooLargeDelegate = tooLargeDelegate;
     }
-
+    
     // ------------------------------------------------------------------------
     // Implementation of the MethodVisitor abstract class
     // ------------------------------------------------------------------------

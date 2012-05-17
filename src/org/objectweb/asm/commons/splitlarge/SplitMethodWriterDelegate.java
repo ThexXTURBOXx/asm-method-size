@@ -95,9 +95,13 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     INameGenerator nameGenerator;
 
-    public SplitMethodWriterDelegate(final int maxMethodLength, INameGenerator nameGenerator) {
-        this.maxMethodLength = maxMethodLength;
+    public SplitMethodWriterDelegate(INameGenerator nameGenerator) {
+        this.maxMethodLength = ClassWriter.MAX_CODE_LENGTH;
         this.nameGenerator = nameGenerator;
+    }
+
+    public SplitMethodWriterDelegate() {
+        this(new HashNameGenerator());
     }
 
     @Override
@@ -134,6 +138,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     void parseConstantPool() {
+        maxStringLength = 0;
         int n = poolSize;
         items = new int[n];
         byte[] b = pool.data;
@@ -1581,11 +1586,13 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                                    exceptionNames,
                                    labelTypes);
         }
-        SplitMethodWriterFactory smwf = (SplitMethodWriterFactory) cw.getMethodWriterFactory();
-        smwf.computeMaxsOverride = true;
-        smwf.computeFramesOverride = false;
-        smwf.split = false;
-        smwf.register = false;
+        boolean computeMaxs = cw.computeMaxs;
+        boolean computeFrames = cw.computeFrames;
+        MethodWriterDelegate tooLargeDelegate = cw.tooLargeDelegate;
+        cw.computeMaxs = true;
+        cw.computeFrames = false;
+        cw.tooLargeDelegate = null;
+        cw.registerMethodWriter = false;
         mainMethodVisitor =
             cv.visitMethod(access,
                            thisName,
@@ -1593,7 +1600,10 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                            signature,
                            exceptionNames);
         mainMethodWriter = (MethodWriter) mainMethodVisitor.getFirstVisitor();
-        smwf.setDefaults();
+        cw.computeMaxs = computeMaxs;
+        cw.computeFrames = computeFrames;
+        cw.tooLargeDelegate = tooLargeDelegate;
+        cw.registerMethodWriter = true;
     }
 
     private void visitLineNumberLabels() {

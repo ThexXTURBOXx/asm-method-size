@@ -53,8 +53,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
     private void startMethod(String className, int access) {
         this.className = className;
         ClassWriter.MAX_CODE_LENGTH = 100;
-        MethodWriterFactory cwf = new SplitMethodWriterFactory();
-        this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, cwf);
+        this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, new SplitMethodWriterDelegate());
         TraceClassVisitor tcv = new TraceClassVisitor(cw, new java.io.PrintWriter(System.out));
         this.cv = tcv;
         this.cv.visit(Opcodes.V1_6,
