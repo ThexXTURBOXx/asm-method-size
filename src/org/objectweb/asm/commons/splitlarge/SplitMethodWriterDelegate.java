@@ -107,7 +107,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     @Override
     public void visitEnd() {
         parseConstantPool();
-        thisName = readUTF8Item(name, utfDecodeBuffer);
+        thisName = readUTF8Item(name);
         cv = cw.getFirstVisitor();
 
         TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code.data, 0, code.length, firstHandler);
@@ -283,14 +283,14 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 delta = tag;
             } else if (tag < MethodWriter.RESERVED) {
                 delta = tag - MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME;
-                v = readFrameType(frameStack, 0, v, utfDecodeBuffer);
+                v = readFrameType(frameStack, 0, v);
                 frameStackCount = 1;
 
             } else {
                 delta = ByteArray.readUnsignedShort(b, v);
                 v += 2;
                 if (tag == MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED) {
-                    v = readFrameType(frameStack, 0, v, utfDecodeBuffer);
+                    v = readFrameType(frameStack, 0, v);
                     frameStackCount = 1;
                 } else if (tag >= MethodWriter.CHOP_FRAME
                            && tag < MethodWriter.SAME_FRAME_EXTENDED) {
@@ -301,7 +301,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 } else if (tag < MethodWriter.FULL_FRAME) {
                     int j = frameLocalCount;
                     for (int k = tag - MethodWriter.SAME_FRAME_EXTENDED; k > 0; k--) {
-                        v = readFrameType(frameLocal, j++, v, utfDecodeBuffer);
+                        v = readFrameType(frameLocal, j++, v);
                     }
                     frameLocalCount += tag - MethodWriter.SAME_FRAME_EXTENDED;
                     frameStackCount = 0;
@@ -310,14 +310,14 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                         int n = frameLocalCount = ByteArray.readUnsignedShort(b, v);
                         v += 2;
                         for (int j = 0; n > 0; n--) {
-                            v = readFrameType(frameLocal, j++, v, utfDecodeBuffer);
+                            v = readFrameType(frameLocal, j++, v);
                         }
                     }
                     {
                         int n = frameStackCount = ByteArray.readUnsignedShort(b, v);
                         v += 2;
                         for (int j = 0; n > 0; n--) {
-                            v = readFrameType(frameStack, j++, v, utfDecodeBuffer);
+                            v = readFrameType(frameStack, j++, v);
                         }
                     }
                 }
@@ -335,8 +335,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     private int readFrameType(final Object[] frame,
                               final int index,
-                              int v,
-                              final char[] buf) {
+                              int v) {
         byte[] b = stackMap.data;
         int type = b[v++] & 0xFF;
         switch (type) {
@@ -362,7 +361,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             frame[index] = Opcodes.UNINITIALIZED_THIS;
             break;
         case 7: // Object
-            frame[index] = readClass(ByteArray.readUnsignedShort(b, v), buf);
+            frame[index] = readClass(ByteArray.readUnsignedShort(b, v));
             v += 2;
             break;
         default: { // Uninitialized
@@ -398,10 +397,10 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
     private MemberSymRef parseMemberSymRef(int v) {
         // offset of the {Fieldref, MethodRef, InterfaceMethodRef}_Info structure
         int cpIndex = items[readUnsignedShort(v)];
-        String iowner = readClass(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
+        String iowner = readClass(ByteArray.readUnsignedShort(pool.data, cpIndex));
         cpIndex = items[ByteArray.readUnsignedShort(pool.data, cpIndex + 2)];
-        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
-        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2), utfDecodeBuffer);
+        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex));
+        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2));
         return new MemberSymRef(iowner, iname, idesc);
     }
 
@@ -429,8 +428,8 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
         int cpIndex = items[readUnsignedShort(v + 1)];
         int bsmIndex = bootstrapMethods[ByteArray.readUnsignedShort(pool.data, cpIndex)];
         cpIndex = items[readUnsignedShort(cpIndex + 2)];
-        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex), utfDecodeBuffer);
-        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2), utfDecodeBuffer);
+        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex));
+        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2));
         return new DynamicSymRef(iname, idesc, bsmIndex);
     }
 
@@ -1039,7 +1038,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case 19: // LDC_W
             case 20: { // LDC2_W
                 int itemIndex = (opcode == Opcodes.LDC) ? (b[v + 1] & 0xFF) : readUnsignedShort(v + 1);
-                Object cst = readConst(itemIndex, utfDecodeBuffer);
+                Object cst = readConst(itemIndex);
                 if (cst instanceof Integer) {
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                 } else if (cst instanceof Long) {
@@ -1073,7 +1072,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.NEW: {
                 Label l = getLabelAt(v);
                 frameStack[frameStackCount++] = l;
-                String clazz = readClass(readUnsignedShort(v + 1), utfDecodeBuffer);
+                String clazz = readClass(readUnsignedShort(v + 1));
                 labelTypes.put(l, clazz);
                 v += 3;
                 break;
@@ -1112,14 +1111,14 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ANEWARRAY: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1), utfDecodeBuffer)).getDescriptor());
+                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 3;
                 break;
             }
             case Opcodes.CHECKCAST: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1), utfDecodeBuffer)).getDescriptor());
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 3;
                 break;
             }
@@ -1127,7 +1126,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.MULTIANEWARRAY: {
                 frameStackCount -= b[v + 3];
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1), utfDecodeBuffer)).getDescriptor());
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 4;
                 break;
             }
@@ -1353,11 +1352,11 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 v += 3;
                 break;
             case ClassWriter.LDC_INSN:
-                mv.visitLdcInsn(readConst(b[v + 1] & 0xFF, utfDecodeBuffer));
+                mv.visitLdcInsn(readConst(b[v + 1] & 0xFF));
                 v += 2;
                 break;
             case ClassWriter.LDCW_INSN:
-                mv.visitLdcInsn(readConst(readUnsignedShort(v + 1), utfDecodeBuffer));
+                mv.visitLdcInsn(readConst(readUnsignedShort(v + 1)));
                 v += 3;
                 break;
             case ClassWriter.FIELDORMETH_INSN:
@@ -1382,13 +1381,13 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 
                 int bsmIndex = sr.bsmIndex;
                 int mhIndex = ByteArray.readUnsignedShort(bm, bsmIndex);
-                Handle bsm = (Handle) readConst(mhIndex, utfDecodeBuffer);
+                Handle bsm = (Handle) readConst(mhIndex);
                 int bsmArgCount = ByteArray.readUnsignedShort(bm, bsmIndex + 2);
                 Object[] bsmArgs = new Object[bsmArgCount];
                 bsmIndex += 4;
                 for(int a = 0; a < bsmArgCount; a++) {
                     int argIndex = ByteArray.readUnsignedShort(bm, bsmIndex);
-                    bsmArgs[a] = readConst(argIndex, utfDecodeBuffer);
+                    bsmArgs[a] = readConst(argIndex);
                     bsmIndex += 2;
                 }
                 mv.visitInvokeDynamicInsn(sr.name, sr.desc, bsm, bsmArgs);
@@ -1397,7 +1396,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.TYPE_INSN:
-                mv.visitTypeInsn(opcode, readClass(readUnsignedShort(v + 1), utfDecodeBuffer));
+                mv.visitTypeInsn(opcode, readClass(readUnsignedShort(v + 1)));
                 v += 3;
                 break;
             case ClassWriter.IINC_INSN:
@@ -1406,7 +1405,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
                 // case MANA_INSN:
             default:
-                mv.visitMultiANewArrayInsn(readClass(readUnsignedShort(v + 1), utfDecodeBuffer), b[v + 3] & 0xFF);
+                mv.visitMultiANewArrayInsn(readClass(readUnsignedShort(v + 1)), b[v + 3] & 0xFF);
                 v += 4;
                 break;
             }
@@ -1576,7 +1575,7 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             exceptionNames = new String[exceptions.length];
             int i = 0;
             while (i < exceptions.length) {
-                exceptionNames[i] = readUTF8Item(name, utfDecodeBuffer);
+                exceptionNames[i] = readUTF8Item(name);
                 ++i;
             }
         }
@@ -1656,13 +1655,13 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 if (typeTable != null) {
                     for (int a = 0; a < typeTable.length; a += 3) {
                         if ((typeTable[a] == start) && (typeTable[a + 1] == index)) {
-                            vsignature = readUTF8Item(typeTable[a + 2], utfDecodeBuffer);
+                            vsignature = readUTF8Item(typeTable[a + 2]);
                             break;
                         }
                     }
                 }
-                visitLocalVariable(readUTF8Item(ByteArray.readUnsignedShort(b, w + 4), utfDecodeBuffer),
-                                   readUTF8Item(ByteArray.readUnsignedShort(b, w + 6), utfDecodeBuffer),
+                visitLocalVariable(readUTF8Item(ByteArray.readUnsignedShort(b, w + 4)),
+                                   readUTF8Item(ByteArray.readUnsignedShort(b, w + 6)),
                                    vsignature,
                                    start, length, index);
                 w += 10;
@@ -1798,16 +1797,14 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      * class generators or adapters.</i>
      *
      * @param index the index of a constant pool class item.
-     * @param buf buffer to be used to read the item. This buffer must be
-     *        sufficiently large. It is not automatically resized.
      * @return the String corresponding to the specified class item.
      */
-    public String readClass(final int itemIndex, final char[] buf) {
+    public String readClass(final int itemIndex) {
         // computes the start index of the CONSTANT_Class item in b
         // and reads the CONSTANT_Utf8 item designated by
         // the first two bytes of this CONSTANT_Class item
         int classOffset = items[itemIndex];
-        return readUTF8Item(ByteArray.readUnsignedShort(pool.data, classOffset), buf);
+        return readUTF8Item(ByteArray.readUnsignedShort(pool.data, classOffset));
     }
 
 
@@ -1884,17 +1881,15 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      *
      * @param index the start index of an unsigned short value in {@link #b b},
      *        whose value is the index of an UTF8 constant pool item.
-     * @param buf buffer to be used to read the item. This buffer must be
-     *        sufficiently large. It is not automatically resized.
      * @return the String corresponding to the specified UTF8 item.
      */
-    public String readUTF8(int index, final char[] buf) {
-        return readUTF8Item(readUnsignedShort(index), buf);
+    public String readUTF8(int index) {
+        return readUTF8Item(readUnsignedShort(index));
     }
 
-    public String readUTF8Item(int item, final char[] buf) {
+    public String readUTF8Item(int item) {
         int offset = items[item];
-        return ByteArray.readUTF8(pool.data, offset + 2, ByteArray.readUnsignedShort(pool.data, offset), buf);
+        return ByteArray.readUTF8(pool.data, offset + 2, ByteArray.readUnsignedShort(pool.data, offset), utfDecodeBuffer);
     }
 
 
@@ -1904,13 +1899,11 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
      * needed by class generators or adapters.</i>
      *
      * @param item the index of a constant pool item.
-     * @param buf buffer to be used to read the item. This buffer must be
-     *        sufficiently large. It is not automatically resized.
      * @return the {@link Integer}, {@link Float}, {@link Long}, {@link Double},
      *         {@link String}, {@link Type} or {@link Handle} corresponding to
      *         the given constant pool item.
      */
-    public Object readConst(final int item, final char[] buf) {
+    public Object readConst(final int item) {
         int index = items[item];
         byte[] b = pool.data;
         switch (b[index - 1]) {
@@ -1923,21 +1916,21 @@ final class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case ClassWriter.DOUBLE:
                 return new Double(Double.longBitsToDouble(readLong(index)));
             case ClassWriter.CLASS:
-                return Type.getObjectType(readUTF8(index, buf));
+                return Type.getObjectType(readUTF8(index));
             case ClassWriter.STR:
-                return readUTF8(index, buf);
+                return readUTF8(index);
             case ClassWriter.MTYPE:
-                return Type.getMethodType(readUTF8(index, buf));
+                return Type.getMethodType(readUTF8(index));
 
             //case ClassWriter.HANDLE_BASE + [1..9]:
             default: {
                 int tag = readByte(index);
                 int[] items = this.items;
                 int cpIndex = items[readUnsignedShort(index + 1)];
-                String owner = readClass(cpIndex, buf);
+                String owner = readClass(cpIndex);
                 cpIndex = items[readUnsignedShort(cpIndex + 2)];
-                String name = readUTF8(cpIndex, buf);
-                String desc = readUTF8(cpIndex + 2, buf);
+                String name = readUTF8(cpIndex);
+                String desc = readUTF8(cpIndex + 2);
                 return new Handle(tag, owner, name, desc);
             }
         }
