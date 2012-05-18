@@ -37,7 +37,7 @@ import java.util.TreeSet;
 import java.util.Map;
 import java.util.HashMap;
 
-final class SplitMethodWriterDelegate extends MethodWriterDelegate {
+final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     /**
      * We'll want to call the same {@link ClassVisitor} methods
