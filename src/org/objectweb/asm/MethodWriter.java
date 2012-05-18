@@ -472,6 +472,9 @@ public class MethodWriter extends MethodVisitor {
             visitLabel(labels);
         }
         this.tooLargeDelegate = tooLargeDelegate;
+        if (tooLargeDelegate != null) {
+            tooLargeDelegate.newMethod();
+        }
     }
     
     // ------------------------------------------------------------------------
@@ -2801,4 +2804,19 @@ public class MethodWriter extends MethodVisitor {
             label.status |= Label.RESIZED;
         }
     }
+
+    /**
+     * Note that a forward reference has an offset that's too large.
+     *
+     * @param label target label of the reference
+     * @param reference offset into the code where the reference is supposed to be
+     */
+    void noteTooLargeOffset(Label label, int reference) {
+        if (tooLargeDelegate != null) {
+            tooLargeDelegate.noteTooLargeOffset(label, reference);
+        } else {
+            throw new RuntimeException("foward branch offset >64k");
+        }
+    }
+
 }

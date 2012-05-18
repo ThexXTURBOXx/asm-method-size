@@ -213,7 +213,7 @@ class BasicBlock implements Comparable<BasicBlock> {
     /**
      * Compute flowgraph from code.
      */
-    public static TreeSet<BasicBlock> computeFlowgraph(byte[] b, int codeStart, int codeSize, Handler firstHandler) {
+    public static TreeSet<BasicBlock> computeFlowgraph(byte[] b, int codeStart, int codeSize, Handler firstHandler, Label[] largeBranchTargets) {
         TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
         BasicBlock[] blockArray = new BasicBlock[codeSize + 2];
         int codeEnd = codeStart + codeSize;
@@ -240,7 +240,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                      */
                     if (opcode > 201) {
                         opcode = opcode < 218 ? opcode - 49 : opcode - 20;
-                        label = w + ByteArray.readUnsignedShort(b, v + 1);
+                        Label l = largeBranchTargets[v + 1];
+                        if (l != null) {
+                            label = l.position;
+                        } else {
+                            label = w + ByteArray.readUnsignedShort(b, v + 1);
+                        }
                     } else {
                         label = w + ByteArray.readShort(b, v + 1);
                     }
@@ -353,9 +358,14 @@ class BasicBlock implements Comparable<BasicBlock> {
                 int label;
                 if (opcode > 201) {
                     opcode = opcode < 218 ? opcode - 49 : opcode - 20;
-                    label = w + ByteArray.readUnsignedShort(b, v + 1);
+                    Label l = largeBranchTargets[w + 1];
+                    if (l != null) {
+                        label = l.position;
+                    } else {
+                        label = w + ByteArray.readUnsignedShort(b, w + 1);
+                    }
                 } else {
-                    label = w + ByteArray.readShort(b, v + 1);
+                    label = w + ByteArray.readShort(b, w + 1);
                 }
                 currentBlock.addEdge(blockArray[label]);
                 v += 3;

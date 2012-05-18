@@ -279,6 +279,11 @@ public abstract class MethodWriterDelegate {
     protected int version;
 
     /**
+     * Signal to the delegate that a new method has started.
+     */
+    public abstract void newMethod();
+
+    /**
      * Method called off the {@link MethodWriter}'s {MethodWriter#visitEnd} method.
      */
     public abstract void visitEnd();
@@ -297,4 +302,13 @@ public abstract class MethodWriterDelegate {
      *        copied.
      */
     public abstract void put(ByteVector out);
+
+    /**
+     * Note that a forward reference has an offset that's too large.
+     *
+     * @param label target label of the reference
+     * @param reference offset into the code where the reference is supposed to be
+     */
+    public abstract void noteTooLargeOffset(Label label, int reference);
+
 }

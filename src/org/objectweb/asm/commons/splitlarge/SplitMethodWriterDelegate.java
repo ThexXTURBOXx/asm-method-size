@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.TreeSet;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.ArrayList;
 
 final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
@@ -95,6 +96,19 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     INameGenerator nameGenerator;
 
+    class Branch {
+        public Label label;
+        public int reference;
+        public Branch(Label label, int reference) {
+            this.label = label;
+            this.reference = reference;
+        }
+    }
+        
+    ArrayList<Branch> largeBranches;
+
+    Label[] largeBranchTargets;
+
     public SplitMethodWriterDelegate(INameGenerator nameGenerator) {
         this.maxMethodLength = ClassWriter.MAX_CODE_LENGTH;
         this.nameGenerator = nameGenerator;
@@ -104,13 +118,26 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this(new HashNameGenerator());
     }
 
+
+    @Override
+    public void newMethod() {
+        this.largeBranches = new ArrayList<Branch>();
+    }
+
+
+    @Override
+    public void noteTooLargeOffset(Label label, int reference) {
+        largeBranches.add(new Branch(label, reference));
+    }
+
     @Override
     public void visitEnd() {
         parseConstantPool();
         thisName = readUTF8Item(name);
         cv = cw.getFirstVisitor();
 
-        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code.data, 0, code.length, firstHandler);
+        this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
+        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code.data, 0, code.length, firstHandler, largeBranchTargets);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.blocksByOffset = computeBlocksByOffset(blocks);
@@ -1341,7 +1368,12 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                  */
                 if (opcode > 201) {
                     opcode = opcode < 218 ? opcode - 49 : opcode - 20;
-                    label = v + readUnsignedShort(v + 1);
+                    Label l = largeBranchTargets[v + 1];
+                    if (l != null) {
+                        label = l.position;
+                    } else {
+                        label = v + readUnsignedShort(v + 1);
+                    }
                 } else {
                     label = v + readShort(v + 1);
                 }
@@ -1625,6 +1657,14 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         BasicBlock[] array = new BasicBlock[code.length];
         for (BasicBlock b : blocks) {
             array[b.position] = b;
+        }
+        return array;
+    }
+
+    private Label[] computeLargeBranchTargets(ArrayList<Branch> largeBranches) {
+        Label[] array = new Label[code.length];
+        for (Branch lb : largeBranches) {
+            array[lb.reference] = lb.label;
         }
         return array;
     }

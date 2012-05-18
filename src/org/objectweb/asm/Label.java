@@ -399,6 +399,9 @@ public class Label {
                     }
                     needUpdate = true;
                 }
+                if (offset > 65535) {
+                    owner.noteTooLargeOffset(this, reference);
+                }
                 data[reference++] = (byte) (offset >>> 8);
                 data[reference] = (byte) offset;
             } else {

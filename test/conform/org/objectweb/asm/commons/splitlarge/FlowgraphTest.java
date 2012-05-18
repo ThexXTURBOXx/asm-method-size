@@ -83,7 +83,10 @@ public class FlowgraphTest extends TestCase {
         this.mw.visitEnd();
         this.cw.visitEnd();
         ByteVector code = mw.getCode();
-        return BasicBlock.computeFlowgraph(code.data, 0, code.length, mw.getFirstHandler()).toArray(new BasicBlock[0]);
+        return BasicBlock.computeFlowgraph(code.data, 0, code.length,
+                                           mw.getFirstHandler(),
+                                           new Label[code.length])
+            .toArray(new BasicBlock[0]);
     }
 
     private void LABEL(final Label l) {
