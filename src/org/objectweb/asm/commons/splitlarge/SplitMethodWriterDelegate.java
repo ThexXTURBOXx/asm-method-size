@@ -1139,12 +1139,55 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 v += 4;
                 break;
             }
+            case 196: // WIDE
+                opcode = b[v + 1] & 0xFF;
+                switch (opcode) {
+                case Opcodes.ILOAD:
+                case Opcodes.FLOAD:
+                case Opcodes.ALOAD:
+                    frameStack[frameStackCount++] = frameLocal[readUnsignedShort(v + 2)];
+                    v += 4;
+                    break;
+                case Opcodes.LLOAD:
+                case Opcodes.DLOAD:
+                    frameStack[frameStackCount++] = frameLocal[readUnsignedShort(v + 2)];
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 4;
+                    break;
+                case Opcodes.ISTORE:
+                case Opcodes.FSTORE:
+                case Opcodes.ASTORE: {
+                    int n = readUnsignedShort(v + 2);
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocalCount = Math.max(frameLocalCount, n + 1);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 4;
+                    break;
+                }
+                case Opcodes.LSTORE:
+                case Opcodes.DSTORE: {
+                    int n = readUnsignedShort(v + 2);
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocal[n + 1] = Opcodes.TOP;
+                    frameLocalCount = Math.max(frameLocalCount, n + 2);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 1;
+                    break;
+                }
+                case Opcodes.IINC: {
+                    int n = readUnsignedShort(v + 2);
+                    frameLocal[n] = Opcodes.INTEGER;
+                    frameLocalCount = Math.max(frameLocalCount, n + 1);
+                    v += 6;
+                    break;
+                }
+                }
+                break;
             default: {
                 throw new RuntimeException("unhandled opcode " + opcode);
             }
             }
         }
-        // FIXME: WIDE
         return labelTypes;
     }
     
