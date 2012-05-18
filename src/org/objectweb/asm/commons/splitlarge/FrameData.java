@@ -206,9 +206,11 @@ public final class FrameData {
             b.append("L");
             b.append(name);
             b.append(";");
+        } else if (d == Opcodes.TOP) {
+            ; // it's not the TOP that counts, but what's before it
         } else {
-            // missing are TOP, and uninitialized
-            throw new RuntimeException("can't handle this frame element yet"); // ####
+            // #### UNINITIALIZED_THIS is missing
+            throw new RuntimeException("can't handle this frame element");
         }
     }
 
