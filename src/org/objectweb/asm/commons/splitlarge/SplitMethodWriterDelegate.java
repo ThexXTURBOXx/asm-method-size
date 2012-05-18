@@ -535,7 +535,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ILOAD:
             case Opcodes.FLOAD:
             case Opcodes.ALOAD:
-                frameStack[frameStackCount++] = frameLocal[b[v + 1]];
+                frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
                 v += 2;
                 break;
 
@@ -633,7 +633,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ISTORE:
             case Opcodes.FSTORE:
             case Opcodes.ASTORE: {
-                int n = b[v + 1];
+                int n = b[v + 1] & 0xFF;
                 frameLocal[n] = frameStack[--frameStackCount];
                 frameLocalCount = Math.max(frameLocalCount, n + 1);
                 invalidateTwoWordLocal(frameLocal, n - 1);
@@ -707,7 +707,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
             case Opcodes.LSTORE:
             case Opcodes.DSTORE: {
-                int n = b[v + 1];
+                int n = b[v + 1] & 0xFF;
                 frameLocal[n] = frameStack[--frameStackCount];
                 frameLocal[n + 1] = Opcodes.TOP;
                 frameLocalCount = Math.max(frameLocalCount, n + 2);
@@ -914,7 +914,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 v += 1;
                 break;
             case Opcodes.IINC: {
-                int n = b[v + 1];
+                int n = b[v + 1] & 0xFF;
                 frameLocal[n] = Opcodes.INTEGER;
                 frameLocalCount = Math.max(frameLocalCount, n + 1);
                 v += 3;
@@ -1133,7 +1133,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             }
                 
             case Opcodes.MULTIANEWARRAY: {
-                frameStackCount -= b[v + 3];
+                frameStackCount -= b[v + 3] & 0xFF;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
                                            Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 4;
