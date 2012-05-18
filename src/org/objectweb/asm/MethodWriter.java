@@ -2815,7 +2815,7 @@ public class MethodWriter extends MethodVisitor {
         if (tooLargeDelegate != null) {
             tooLargeDelegate.noteTooLargeOffset(label, reference);
         } else {
-            throw new RuntimeException("foward branch offset >64k");
+            throw new RuntimeException("forward branch offset >64k");
         }
     }
 
