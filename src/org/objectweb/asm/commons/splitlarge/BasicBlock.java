@@ -232,7 +232,19 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.LABEL_INSN: {
                     if (opcode == Opcodes.JSR)
                         throw new UnsupportedOperationException("JSR instruction not supported yet");
-                    getBasicBlock(w + ByteArray.readShort(b, v + 1), blockArray, blocks);
+                    int label;
+                    /*
+                     * converts temporary opcodes 202 to 217, 218 and
+                     * 219 to IFEQ ... JSR (inclusive), IFNULL and
+                     * IFNONNULL
+                     */
+                    if (opcode > 201) {
+                        opcode = opcode < 218 ? opcode - 49 : opcode - 20;
+                        label = w + ByteArray.readUnsignedShort(b, v + 1);
+                    } else {
+                        label = w + ByteArray.readShort(b, v + 1);
+                    }
+                    getBasicBlock(label, blockArray, blocks);
                     v += 3;
                     if (opcode != Opcodes.GOTO) // the rest are conditional branches
                         getBasicBlock(v - codeStart, blockArray, blocks);
@@ -337,10 +349,18 @@ class BasicBlock implements Comparable<BasicBlock> {
             case ClassWriter.IMPLVAR_INSN:
                 v += 1;
                 break;
-            case ClassWriter.LABEL_INSN:
-                currentBlock.addEdge(blockArray[w + ByteArray.readShort(b, v + 1)]);
+            case ClassWriter.LABEL_INSN: {
+                int label;
+                if (opcode > 201) {
+                    opcode = opcode < 218 ? opcode - 49 : opcode - 20;
+                    label = w + ByteArray.readUnsignedShort(b, v + 1);
+                } else {
+                    label = w + ByteArray.readShort(b, v + 1);
+                }
+                currentBlock.addEdge(blockArray[label]);
                 v += 3;
                 break;
+            }
             case ClassWriter.LABELW_INSN:
                 currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v + 1)]);
                 v += 5;

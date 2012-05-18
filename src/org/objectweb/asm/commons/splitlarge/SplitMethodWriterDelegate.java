@@ -459,6 +459,15 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 }
             }
             int opcode = b[v] & 0xFF;
+            if (opcode > 201) {
+                /*
+                 * Convert temporary opcodes 202 to 217, 218 and 219
+                 * to IFEQ ... JSR (inclusive), IFNULL and
+                 * IFNONNULL. (The label targets themselves aren't
+                 * relevant here.)
+                 */
+                opcode = opcode < 218 ? opcode - 49 : opcode - 20;
+            }
             switch (opcode) {
             case Opcodes.NOP:
             case Opcodes.INEG:
@@ -1282,10 +1291,21 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 }
                 v += 1;
                 break;
-            case ClassWriter.LABEL_INSN:
-                handleJump(mv, opcode, currentBlock, blocksByOffset[v + readShort(v + 1)]);
+            case ClassWriter.LABEL_INSN: {
+                int label;
+                /*
+                 * ASM's artificial, temporary branch opcodes with unsigned offsets.
+                 */
+                if (opcode > 201) {
+                    opcode = opcode < 218 ? opcode - 49 : opcode - 20;
+                    label = v + readUnsignedShort(v + 1);
+                } else {
+                    label = v + readShort(v + 1);
+                }
+                handleJump(mv, opcode, currentBlock, blocksByOffset[label]);
                 v += 3;
                 break;
+            }
             case ClassWriter.LABELW_INSN:
                 handleJump(mv, opcode - 33, currentBlock, blocksByOffset[v + readInt(v + 1)]);
                 v += 5;
