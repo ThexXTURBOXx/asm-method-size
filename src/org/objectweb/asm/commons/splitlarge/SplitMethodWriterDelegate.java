@@ -469,7 +469,9 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         int frameLocalCount = 0;
         int frameStackCount = 0;
         Object[] frameLocal = new Object[maxLocals];
+        Arrays.fill(frameLocal, Opcodes.TOP);
         Object[] frameStack = new Object[maxStack];
+        Arrays.fill(frameStack, Opcodes.TOP);
         // map labels of NEW instructions to their types
         HashMap<Label, String> labelTypes = new HashMap<Label, String>();
         while (v < code.length) {
