@@ -535,7 +535,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ILOAD:
             case Opcodes.FLOAD:
             case Opcodes.ALOAD:
-                frameStack[frameStackCount++] = frameLocal[readUnsignedShort(v + 1)];
+                frameStack[frameStackCount++] = frameLocal[b[v + 1]];
                 v += 2;
                 break;
 
