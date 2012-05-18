@@ -588,7 +588,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
             case Opcodes.LLOAD:
             case Opcodes.DLOAD:
-                frameStack[frameStackCount++] = frameLocal[readUnsignedShort(v + 1)];
+                frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
                 frameStack[frameStackCount++] = Opcodes.TOP;
                 v += 2;
                 break;
@@ -712,7 +712,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 frameLocal[n + 1] = Opcodes.TOP;
                 frameLocalCount = Math.max(frameLocalCount, n + 2);
                 invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 1;
+                v += 2;
                 break;
             }
             case Opcodes.IASTORE:
