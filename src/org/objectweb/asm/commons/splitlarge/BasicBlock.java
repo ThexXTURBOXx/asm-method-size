@@ -213,16 +213,15 @@ class BasicBlock implements Comparable<BasicBlock> {
     /**
      * Compute flowgraph from code.
      */
-    public static TreeSet<BasicBlock> computeFlowgraph(byte[] b, int codeStart, int codeSize, Handler firstHandler, Label[] largeBranchTargets) {
+    public static TreeSet<BasicBlock> computeFlowgraph(ByteVector code, Handler firstHandler, Label[] largeBranchTargets) {
+        byte[] b = code.data;
         TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
-        BasicBlock[] blockArray = new BasicBlock[codeSize + 2];
-        int codeEnd = codeStart + codeSize;
+        BasicBlock[] blockArray = new BasicBlock[code.length + 2];
         // first, collect all the blocks
         {
             getBasicBlock(0, blockArray, blocks);
-            int v = codeStart;
-            while (v < codeEnd) {
-                int w = v - codeStart;
+            int v = 0;
+            while (v < code.length) {
                 int opcode = b[v] & 0xFF;
                 switch (ClassWriter.TYPE[opcode]) {
                 case ClassWriter.NOARG_INSN:
@@ -244,24 +243,24 @@ class BasicBlock implements Comparable<BasicBlock> {
                         if (l != null) {
                             label = l.position;
                         } else {
-                            label = w + ByteArray.readUnsignedShort(b, v + 1);
+                            label = v + ByteArray.readUnsignedShort(b, v + 1);
                         }
                     } else {
-                        label = w + ByteArray.readShort(b, v + 1);
+                        label = v + ByteArray.readShort(b, v + 1);
                     }
                     getBasicBlock(label, blockArray, blocks);
                     v += 3;
                     if (opcode != Opcodes.GOTO) // the rest are conditional branches
-                        getBasicBlock(v - codeStart, blockArray, blocks);
+                        getBasicBlock(v, blockArray, blocks);
                     break;
                 }
                 case ClassWriter.LABELW_INSN: {
                     if (opcode == 201) // JSR_W
                         throw new UnsupportedOperationException("JSR_W instruction not supported yet");
-                    getBasicBlock(w + ByteArray.readInt(b, v + 1), blockArray, blocks);
+                    getBasicBlock(v + ByteArray.readInt(b, v + 1), blockArray, blocks);
                     v += 5;
                     if (opcode != 200) // GOTO_W; the rest are conditional branches
-                        getBasicBlock(v - codeStart, blockArray, blocks);
+                        getBasicBlock(v, blockArray, blocks);
                     break;
                 }
                 case ClassWriter.WIDE_INSN:
@@ -274,26 +273,26 @@ class BasicBlock implements Comparable<BasicBlock> {
                     break;
                 case ClassWriter.TABL_INSN: {
                     // skips 0 to 3 padding bytes*
-                    v = v + 4 - (w & 3);
+                    v = v + 4 - (v & 3);
                     // reads instruction
-                    getBasicBlock(w + ByteArray.readInt(b, v), blockArray, blocks);
+                    getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
                     int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                     v += 12;
                     for (; j > 0; --j) {
-                        getBasicBlock(w + ByteArray.readInt(b, v), blockArray, blocks);
+                        getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
                         v += 4;
                     }
                     break;
                 }
                 case ClassWriter.LOOK_INSN: {
                     // skips 0 to 3 padding bytes*
-                    v = v + 4 - (w & 3);
+                    v = v + 4 - (v & 3);
                     // reads instruction
-                    getBasicBlock(w + ByteArray.readInt(b, v), blockArray, blocks);
+                    getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
                     int j = ByteArray.readInt(b, v + 4);
                     v += 8;
                     for (; j > 0; --j) {
-                        getBasicBlock(w + ByteArray.readInt(b, v + 4), blockArray, blocks);
+                        getBasicBlock(v + ByteArray.readInt(b, v + 4), blockArray, blocks);
                         v += 8;
                     }
                     break;
@@ -341,12 +340,11 @@ class BasicBlock implements Comparable<BasicBlock> {
         }
 
         // now insert edges
-        int v = codeStart;
+        int v = 0;
         BasicBlock currentBlock = null;
-        while (v < codeEnd) {
-            int w = v - codeStart;
-            if (blockArray[w] != null) {
-                currentBlock = blockArray[w];
+        while (v < code.length) {
+            if (blockArray[v] != null) {
+                currentBlock = blockArray[v];
             }
             int opcode = b[v] & 0xFF;
             switch (ClassWriter.TYPE[opcode]) {
@@ -358,21 +356,21 @@ class BasicBlock implements Comparable<BasicBlock> {
                 int label;
                 if (opcode > 201) {
                     opcode = opcode < 218 ? opcode - 49 : opcode - 20;
-                    Label l = largeBranchTargets[w + 1];
+                    Label l = largeBranchTargets[v + 1];
                     if (l != null) {
                         label = l.position;
                     } else {
-                        label = w + ByteArray.readUnsignedShort(b, w + 1);
+                        label = v + ByteArray.readUnsignedShort(b, v + 1);
                     }
                 } else {
-                    label = w + ByteArray.readShort(b, w + 1);
+                    label = v + ByteArray.readShort(b, v + 1);
                 }
                 currentBlock.addEdge(blockArray[label]);
                 v += 3;
                 break;
             }
             case ClassWriter.LABELW_INSN:
-                currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v + 1)]);
+                currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v + 1)]);
                 v += 5;
                 break;
             case ClassWriter.WIDE_INSN:
@@ -385,25 +383,25 @@ class BasicBlock implements Comparable<BasicBlock> {
                 break;
             case ClassWriter.TABL_INSN: {
                 // skips 0 to 3 padding bytes*
-                v = v + 4 - (w & 3);
+                v = v + 4 - (v & 3);
                 // reads instruction
-                currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v)]);
+                currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v)]);
                 int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                 v += 12;
                 for (; j > 0; --j) {
-                    currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v)]);
+                    currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v)]);
                     v += 4;
                 }
                 break;
             }
             case ClassWriter.LOOK_INSN: {
                 // skips 0 to 3 padding bytes*
-                v = v + 4 - (w & 3);
+                v = v + 4 - (v & 3);
                 // reads instruction
                 int j = ByteArray.readInt(b, v + 4);
                 v += 8;
                 for (; j > 0; --j) {
-                    currentBlock.addEdge(blockArray[w + ByteArray.readInt(b, v + 4)]);
+                    currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v + 4)]);
                     v += 8;
                 }
                 break;
@@ -433,7 +431,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 && (opcode != Opcodes.TABLESWITCH)
                 && (opcode != Opcodes.LOOKUPSWITCH)
                 && !((opcode >= Opcodes.IRETURN) && (opcode <= Opcodes.RETURN))) {
-                BasicBlock next = blockArray[v - codeStart];
+                BasicBlock next = blockArray[v];
                 if (next != null) {
                     currentBlock.addEdge(next);
                 }
