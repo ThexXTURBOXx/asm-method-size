@@ -129,20 +129,16 @@ public class ClassWriterMethodSizeTest extends TestCase {
     /**
      * Method with one huge basic block of NOPs
      */
-//     public void testBasic("Basic",Opcodes.ACC_PUBLIC) {
-//         startMethod();
-//         int i = 0;
-//         while (i < 100000) {
-//             NOP();
-//             ++i;
-//         }
-//         try {
-//             endMethod();
-//         }
-//         catch (RuntimeException e) {
-//             assertEquals("no split point found", e.getMessage());
-//         }
-//     }
+    public void testBasic() {
+        startMethod("Basic", Opcodes.ACC_PUBLIC, 50);
+        int i = 0;
+        while (i < 70) {
+            NOP();
+            ++i;
+        }
+        RETURN();
+        endMethod();
+    }
     
     /**
      * Method with essentially two large basic blocks.
