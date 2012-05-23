@@ -310,7 +310,8 @@ class Scc {
         splitPoint = null;
         /*
          * First check that there's only one entry point to this
-         * component.
+         * component, i.e. that only a single basic block within the
+         * component has predecessors outside of the component.
          */
         for (BasicBlock b : blocks) {
             for (BasicBlock p : b.predecessors) {
@@ -332,8 +333,8 @@ class Scc {
                 return;
             /*
              * Now check that all SCC components in the transitive
-             * closure have only predecessors within the transitive
-             * closure.
+             * closure (except for this one) have only predecessors
+             * within the transitive closure.
              */
             for (Scc root : transitiveClosure) {
                 if (root != this) {
@@ -351,19 +352,30 @@ class Scc {
 
     /**
      * Find an appropriate split point that will diminish the size of
-     * a closure that's too big.
+     * a closure that's too big.  If this method returns
+     * <code>null</code>, that means that either that this node did
+     * not need splitting, or that it needed splitting, but that this
+     * wasn't possible.
      *
      * @return split method with info about the closure
      */
     public BasicBlock findSplitPoint(int maxMethodLength) {
+        // Do a bottom-up pass, finding out if any of the successors
+        // need splitting.
         for (Scc s : successors) {
             BasicBlock m = s.findSplitPoint(maxMethodLength);
             if (m != null)
                 return m;
         }
-        // none have been split
+        // none have been split ...
         if (transitiveClosureSize > maxMethodLength) {
-            return lookMaxSizeSplitPointSuccessor();
+            // ... but *we* need splitting
+            BasicBlock entry = lookMaxSizeSplitPointSuccessor();
+            if (entry == null) {
+                throw new RuntimeException("no split point was found");
+            } else {
+                return entry;
+            }
         } else {
             return null;
         }
