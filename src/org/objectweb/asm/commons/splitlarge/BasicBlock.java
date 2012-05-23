@@ -570,7 +570,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         }
         for (BasicBlock s : successors) {
             if (s.sccRoot.splitPoint == s) {
-                size += visitInvocationSize();
+                size += s.visitInvocationSize();
             }
         }
         this.size = size;
