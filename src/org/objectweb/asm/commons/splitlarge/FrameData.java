@@ -147,7 +147,7 @@ public final class FrameData {
         return size;
     }
 
-    private void storeStackElement(MethodVisitor mv, int index, Object el) {
+    private static void storeStackElement(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
         } else if (el == Opcodes.INTEGER) {
@@ -171,7 +171,7 @@ public final class FrameData {
         }
     }
 
-    private int storeStackElementSize(int index, Object el) {
+    private static int storeStackElementSize(int index, Object el) {
         if (el == Opcodes.TOP) {
             return 0; // nothing
         } else {
@@ -185,7 +185,7 @@ public final class FrameData {
         }
     }
 
-    private void appendFrameTypeDescriptor(StringBuilder b, Object d, HashMap<Label, String> labelTypes) {
+    private static void appendFrameTypeDescriptor(StringBuilder b, Object d, HashMap<Label, String> labelTypes) {
         if (d == Opcodes.INTEGER)
             b.append("I");
         else if (d == Opcodes.FLOAT)
@@ -241,7 +241,7 @@ public final class FrameData {
         return codeSize;
     }
 
-    private void loadFrameElement(MethodVisitor mv, int index, Object el) {
+    private static void loadFrameElement(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
         } else if (el == Opcodes.INTEGER) {
@@ -265,7 +265,7 @@ public final class FrameData {
         }
     }
 
-    private int loadFrameElementSize(int index, Object el) {
+    private static int loadFrameElementSize(int index, Object el) {
         if (el == Opcodes.TOP) {
             return 0; // nothing
         } else if ((el == Opcodes.NULL) || (el == Opcodes.UNINITIALIZED_THIS) || (el instanceof Label)) {
