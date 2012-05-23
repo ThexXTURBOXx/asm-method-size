@@ -301,7 +301,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
          */
         int frameOffset = -1;
         int v = 0;
-        byte[] b = stackMap.data;
+        byte[] b = (stackMap != null) ? stackMap.data : new byte[0];
         int count = 0;
         while (count < frameCount) {
             int tag = b[v++] & 0xFF;
