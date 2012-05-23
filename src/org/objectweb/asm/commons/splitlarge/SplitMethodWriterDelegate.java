@@ -975,7 +975,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 if (sr.name.charAt(0) == '<') {
                     Object u;
                     if (t == Opcodes.UNINITIALIZED_THIS) {
-                        u = thisName;
+                        u = cw.thisName;
                     } else {
                         u = labelTypes.get(t);
                     }
