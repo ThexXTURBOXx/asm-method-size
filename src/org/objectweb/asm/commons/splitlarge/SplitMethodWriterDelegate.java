@@ -223,72 +223,16 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         }
     }
 
+
+
     private void parseStackMap() {
         if ((version & 0xFFFF) < Opcodes.V1_6) {
             throw new RuntimeException("JVM version < 1.6 not supported");
         }
-        int frameLocalCount = 0;
-        int frameStackCount = 0;
         Object[] frameLocal = new Object[maxLocals];
+        int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, access, this.descriptor, frameLocal);
+        int frameStackCount = 0;
         Object[] frameStack = new Object[maxStack];
-        String desc = this.descriptor;
-
-        // creates the very first (implicit) frame from the method
-        // descriptor
-        {
-            int local = 0;
-            if ((access & Opcodes.ACC_STATIC) == 0) {
-                if ("<init>".equals(thisName)) {
-                    frameLocal[local++] = Opcodes.UNINITIALIZED_THIS;
-                } else {
-                    frameLocal[local++] = cw.thisName;
-                }
-            }
-            int j = 1;
-            loop: while (true) {
-                int k = j;
-                switch (desc.charAt(j++)) {
-                case 'Z':
-                case 'C':
-                case 'B':
-                case 'S':
-                case 'I':
-                    frameLocal[local++] = Opcodes.INTEGER;
-                    break;
-                case 'F':
-                    frameLocal[local++] = Opcodes.FLOAT;
-                    break;
-                case 'J':
-                    frameLocal[local++] = Opcodes.LONG;
-                    break;
-                case 'D':
-                    frameLocal[local++] = Opcodes.DOUBLE;
-                    break;
-                case '[':
-                    while (desc.charAt(j) == '[') {
-                        ++j;
-                    }
-                    if (desc.charAt(j) == 'L') {
-                        ++j;
-                        while (desc.charAt(j) != ';') {
-                            ++j;
-                        }
-                    }
-                    frameLocal[local++] = desc.substring(k, ++j);
-                    break;
-                case 'L':
-                    while (desc.charAt(j) != ';') {
-                        ++j;
-                    }
-                    frameLocal[local++] = desc.substring(k + 1,
-                                                         j++);
-                    break;
-                default:
-                    break loop;
-                }
-            }
-            frameLocalCount = local;
-        }
 
         blocksByOffset[0].frameData =
             new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
@@ -1220,6 +1164,65 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         return labelTypes;
     }
     
+    /**
+     * Creates the very first (implicit) frame from the method
+     * descriptor.
+     */
+    private static int computeMethodDescriptorFrame(String className, String methodName, int access, String desc, Object[] frameLocal) {
+        int local = 0;
+        if ((access & Opcodes.ACC_STATIC) == 0) {
+            if ("<init>".equals(methodName)) {
+                frameLocal[local++] = Opcodes.UNINITIALIZED_THIS;
+            } else {
+                frameLocal[local++] = className;
+            }
+        }
+        int j = 1;
+        loop: while (true) {
+            int k = j;
+            switch (desc.charAt(j++)) {
+            case 'Z':
+            case 'C':
+            case 'B':
+            case 'S':
+            case 'I':
+                frameLocal[local++] = Opcodes.INTEGER;
+                break;
+            case 'F':
+                frameLocal[local++] = Opcodes.FLOAT;
+                break;
+            case 'J':
+                frameLocal[local++] = Opcodes.LONG;
+                break;
+            case 'D':
+                frameLocal[local++] = Opcodes.DOUBLE;
+                break;
+            case '[':
+                while (desc.charAt(j) == '[') {
+                    ++j;
+                }
+                if (desc.charAt(j) == 'L') {
+                    ++j;
+                    while (desc.charAt(j) != ';') {
+                        ++j;
+                    }
+                }
+                frameLocal[local++] = desc.substring(k, ++j);
+                break;
+            case 'L':
+                while (desc.charAt(j) != ';') {
+                    ++j;
+                }
+                frameLocal[local++] = desc.substring(k + 1,
+                                                     j++);
+                break;
+            default:
+                break loop;
+            }
+        }
+        return local;
+    }
+
     private int pushDesc(final Object[] frame, int frameCount, final String desc) {
         // FIXME: too much overlap with parseStackMap
         int index = desc.charAt(0) == '(' ? desc.indexOf(')') + 1 : 0;
