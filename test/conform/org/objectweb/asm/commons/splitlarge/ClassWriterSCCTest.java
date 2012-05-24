@@ -79,57 +79,12 @@ public class ClassWriterSCCTest extends TestCase {
         assertEquals(labels, s);
     }
 
-    private Scc findRoot(Scc roots, Label l) {
-        Scc root = roots;
-        while (root != null) {
-            if (isInRoot(root, l))
-                return root;
-            root = root.next;
-        }
-        fail("root not found at all");
-        return null;
-    }
-
-    private boolean isInRoot(Scc root, Label l) {
-        return root.blocks.contains(BasicBlock.get(l));
-    }
-
-    private void assertSCC1(final Set<Label> desired, Scc roots) {
-        // the labels of this desired root must all be in the same actual root
-        Scc desiredRoot = findRoot(roots, desired.iterator().next());
-        for (Label l: desired)
-            assertTrue(isInRoot(desiredRoot, l));
-        // ... and they must be in no other root
-        Scc root = roots;
-        while (root != null) {
-            if (root != desiredRoot) {
-                for (Label l: desired)
-                    assertFalse(isInRoot(root, l));
-            }
-            root = root.next;
-        }
-
-        // check that the sccRoot fields match up
-        root = roots;
-        while (root != null) {
-            for (BasicBlock b : root.blocks) {
-                assertSame(root, b.sccRoot);
-            }
-            root = root.next;
-        }
-    }
-
-    private void assertSCC(final Set<Set<Label>> desired, Scc roots) {
-        for (Set<Label> s: desired)
-            assertSCC1(s, roots);
-    }
-
-    private Scc endMethod() {
+    private Scc endMethod(int maxStack, int maxLocals) {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
-        int totalLength = mw.getCode().length;
-        TreeSet<BasicBlock> blocks = BasicBlock.computeBasicBlocks(mw.labels, totalLength);
+        ByteVector code = mw.getCode();
+        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, null, new Label[code.length + 1], maxStack, maxLocals, 65536);
         Scc root = Scc.stronglyConnectedComponents(blocks);
         root.initializeAll();
         return root;
@@ -160,28 +115,19 @@ public class ClassWriterSCCTest extends TestCase {
      * Method with zero real SCCs
      */
     public void testZero() {
-        Label l1 = new Label();
-        Label l2 = new Label();
         startMethod();
-        LABEL(l1);
         NOP();
-        LABEL(l2);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l2);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
+        Scc root = endMethod(0, 0);
 
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
-        assertSet(BasicBlock.get(l2).sccRoot.successors);
+        assertNull(root.next);
+        assertEquals(1, root.blocks.size());
     }
+    
+    // for calling toArray
+    private BasicBlock[] bbTag = new BasicBlock[0];
 
-   /**
+    /**
      * Method with one SCC.
      */
     public void testOne1() {
@@ -190,14 +136,14 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l1);
         GOTO(l1);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        Scc root = endMethod();
+        Scc root = endMethod(0, 0);
 
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors);
+        assertNull(root.next);
+        BasicBlock[] blocks = root.blocks.toArray(bbTag);
+        assertEquals(1, blocks.length);
+        BasicBlock[] successors = blocks[0].successors.toArray(bbTag);
+        assertEquals(1, successors.length);
+        assertEquals(blocks[0], successors[0]);
     }
 
     /**
@@ -217,20 +163,21 @@ public class ClassWriterSCCTest extends TestCase {
         IFNE(l1);
         LABEL(l4);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l4);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
+        Scc root = endMethod(1, 0);
 
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
-        assertSet(BasicBlock.get(l4).sccRoot.successors);
+        assertNotNull(root.next);
+        assertNull(root.next.next);
+        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
+        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
+
+        assertEquals(1, blocks0.length);
+        assertEquals(1, blocks1.length);
+
+        BasicBlock[] successors0 = blocks0[0].successors.toArray(bbTag);
+        BasicBlock[] successors1 = blocks1[0].successors.toArray(bbTag);
+
+        assertEquals(2, successors0.length);
+        assertEquals(0, successors1.length);
     }
 
 
@@ -256,21 +203,16 @@ public class ClassWriterSCCTest extends TestCase {
         IFNE(l1);
         LABEL(l5);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        s1.add(l4);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l5);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
+        Scc root = endMethod(1, 0);
 
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l5).sccRoot);
-        assertSet(BasicBlock.get(l5).sccRoot.successors);
+        assertNotNull(root.next);
+        assertNull(root.next.next);
+
+        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
+        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
+
+        assertEquals(3, blocks0.length);
+        assertEquals(1, blocks1.length);
     }
 
     /**
@@ -298,23 +240,20 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l6);
         IFNE(l4);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        s1.add(l2);
-        s1.add(l3);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l4);
-        s2.add(l5);
-        s2.add(l6);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
+        Scc root = endMethod(1, 0);
 
-        Scc root = endMethod();
+        assertNotNull(root.next);
+        assertNotNull(root.next.next);
+        assertNull(root.next.next.next);
+        
+        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
+        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
+        BasicBlock[] blocks2 = root.next.next.blocks.toArray(bbTag);
 
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l4).sccRoot);
-        assertSet(BasicBlock.get(l4).sccRoot.successors);
+        assertEquals(1, blocks0.length);
+        assertEquals(1, blocks1.length);
+        assertEquals(1, blocks2.length);
+
     }
 
 
@@ -337,20 +276,19 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l4);
         IFNE(l3);
 
-        Set<Label> s1 = new HashSet<Label>();
-        s1.add(l1);
-        Set<Label> s2 = new HashSet<Label>();
-        s2.add(l2);
-        s2.add(l3);
-        s2.add(l4);
-        Set<Set<Label>> s = new HashSet<Set<Label>>();
-        s.add(s1);
-        s.add(s2);
-        Scc root = endMethod();
+        Scc root = endMethod(1, 0);
 
-        assertSCC(s, root);
-        assertSet(BasicBlock.get(l1).sccRoot.successors, BasicBlock.get(l2).sccRoot);
-        assertSet(BasicBlock.get(l2).sccRoot.successors);
+        assertNotNull(root.next);
+        assertNotNull(root.next.next);
+        assertNull(root.next.next.next);
+        
+        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
+        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
+        BasicBlock[] blocks2 = root.next.next.blocks.toArray(bbTag);
+
+        assertEquals(1, blocks0.length);
+        assertEquals(3, blocks1.length);
+        assertEquals(1, blocks2.length);
     }
 
 

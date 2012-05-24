@@ -33,11 +33,9 @@ import org.objectweb.asm.*;
 
 import java.util.HashSet;
 import java.util.TreeSet;
-import java.util.TreeMap;
-import java.util.LinkedList;
 
 /**
- * Info attached to a label needed for splitting a large method. See {@link Label Label}.
+ * Basic block in flowgraph.
  *
  * @author Mike Sperber
  */
@@ -56,8 +54,6 @@ class BasicBlock implements Comparable<BasicBlock> {
      * Label of end of basic block in target method.
      */
     Label endLabel;
-
-    final HashSet<Label> labels;
 
     /**
      * The depth-first-search index for the SCC computation.
@@ -85,9 +81,6 @@ class BasicBlock implements Comparable<BasicBlock> {
 
     /**
      * Successors in flowgraph.
-     *
-     * We keep this separately, because {@link Label#successors} may
-     * point to labels not in the labels list.
      */
     final HashSet<BasicBlock> successors;
 
@@ -107,22 +100,8 @@ class BasicBlock implements Comparable<BasicBlock> {
 
     Kind kind;
 
-    public BasicBlock(Label l, int size) {
-        this.sccIndex = -1;
-        this.labels = new HashSet<Label>();
-        addLabel(l);
-        this.size = size;
-        this.position = l.position;
-        this.successors = new HashSet<BasicBlock>();
-        this.predecessors = new HashSet<BasicBlock>();
-        this.startLabel = null;
-        this.kind = Kind.REGULAR;
-    }
-    
-
     public BasicBlock(int position) {
         this.sccIndex = -1;
-        this.labels = null;
         this.position = position;
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
@@ -133,12 +112,6 @@ class BasicBlock implements Comparable<BasicBlock> {
     public int compareTo(BasicBlock other) {
         Integer Position = position;
         return Position.compareTo(other.position);
-    }
-
-    public void addLabel(Label l) {
-        assert position == l.position;
-        labels.add(l);
-        l.info = this;
     }
 
     public Label getStartLabel() {
@@ -153,53 +126,6 @@ class BasicBlock implements Comparable<BasicBlock> {
             return endLabel;
         endLabel = new Label();
         return endLabel;
-    }
-
-    static BasicBlock get(Label label) {
-        return (BasicBlock) label.info;
-    }
-
-    public static TreeSet<BasicBlock> computeBasicBlocks(Label labels, int totalSize) {
-        TreeSet<BasicBlock> blocks = collectBasicBlocks(labels, totalSize);
-        initializeSuccessorsPredecessors(blocks);
-        return blocks;
-    }
-
-    /**
-     * Collect all basic blocks, initialize successors and
-     * predecessors fields.
-     */
-    private static TreeSet<BasicBlock> collectBasicBlocks(Label labels, int totalSize) {
-        // collect all basic blocks
-        TreeMap<Integer, BasicBlock> map = new TreeMap<Integer, BasicBlock>();
-        LinkedList<Label> work = new LinkedList<Label>();
-        HashSet<Label> seen = new HashSet<Label>();
-        {
-            Label l = labels;
-            while (l != null) {
-                work.add(l);
-                l = l.successor;
-            }
-        }
-        while (!work.isEmpty()) {
-            Label l = work.remove();
-            seen.add(l);
-            BasicBlock b = map.get(l.position);
-            if (b == null) {
-                int sp = (l.successor == null) ? totalSize : l.successor.position;
-                b = new BasicBlock(l, sp - l.position);
-                map.put(l.position, b);
-            } else
-                b.addLabel(l);
-            Edge s = l.successors;
-            while (s != null) {
-                if (!seen.contains(s.successor)) {
-                    work.add(s.successor);
-                }
-                s = s.next;
-            }
-        }
-        return new TreeSet<BasicBlock>(map.values());
     }
 
     /**
@@ -511,22 +437,6 @@ class BasicBlock implements Comparable<BasicBlock> {
             blocks.add(block);
         }
         return block;
-    }
-
-    /**
-     * Computes the predecessor graph.
-     * Assumes that this is the first label.
-     */
-    private static void initializeSuccessorsPredecessors(TreeSet<BasicBlock> blocks) {
-        for (BasicBlock b : blocks) {
-            for (Label l : b.labels) {
-                Edge s = l.successors;
-                while (s != null) {
-                    b.addEdge(get(s.successor));
-                    s = s.next;
-                }
-            }
-        }
     }
 
     /**
