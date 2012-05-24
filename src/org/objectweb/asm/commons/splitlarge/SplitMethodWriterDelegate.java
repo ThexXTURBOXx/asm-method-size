@@ -1789,6 +1789,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
         // first search backwards for the basic block we're in
         MethodVisitor mv = null;
+        BasicBlock currentBlock = null;
         {
             int i = start;
             while (i >= 0) {
@@ -1800,6 +1801,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     } else {
                         mv = mainMethodVisitor;
                     }
+                    currentBlock = b;
                     break;
                 }
                 --i;
@@ -1814,7 +1816,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         // ... then move forward
         int v = start;
         int end = start + length;
-        BasicBlock currentBlock = null;
         while (v < end) {
             BasicBlock b = blocksByOffset[v];
             if (b != null) {
