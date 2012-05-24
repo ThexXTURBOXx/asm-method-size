@@ -1049,7 +1049,11 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     throw new IllegalArgumentException();
                 }
                 
-                v += 2;
+                if (opcode == Opcodes.LDC) {
+                    v += 2;
+                } else {
+                    v += 3;
+                }
                 break;
             }
             case Opcodes.NEW: {
