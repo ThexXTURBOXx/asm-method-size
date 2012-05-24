@@ -226,14 +226,14 @@ public class Label {
      * does not contain successive labels that denote the same bytecode position
      * (in this case only the first label appears in this list).
      */
-    public Label successor;
+    Label successor;
 
     /**
      * The successors of this node in the control flow graph. These successors
      * are stored in a linked list of {@link Edge Edge} objects, linked to each
      * other by their {@link Edge#next} field.
      */
-    public Edge successors;
+    Edge successors;
 
     /**
      * The next basic block in the basic block stack. This stack is used in the
