@@ -147,6 +147,13 @@ public final class FrameData {
         return size;
     }
 
+    public static int visitPushFrameArgumentsMaxSize(int maxStack, int maxLocals) {
+        int size = 0;
+        size += frameLoadStoreMaxSize(maxLocals, maxLocals + maxStack) * 2;
+        size += frameLoadStoreMaxSize(0, maxLocals);
+        return size;
+    }
+
     private static void storeStackElement(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
@@ -241,6 +248,10 @@ public final class FrameData {
         return codeSize;
     }
 
+    public static int reconstructStackMaxSize(int maxStack, int maxLocals) {
+        return frameLoadStoreMaxSize(maxLocals, maxStack + maxLocals);
+    }
+
     private static void loadFrameElement(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
@@ -279,6 +290,29 @@ public final class FrameData {
                 return 3;
             }
         }
+    }
+
+    /**
+     * Calculate the maximum size of either storing or loading a bunch
+     * of locals at indices.
+     *
+     * @param start inclusive
+     * @param end exclusive
+     */
+    private static int frameLoadStoreMaxSize(int start, int end) {
+        int size = 0;
+        if (start < 4) {
+            int m = Math.min(4, end);
+            size += m - start;
+            start = m;
+        }
+        if (start < 256) {
+            int m = Math.min(256, end);
+            size += (m - start) * 3;
+            start = m;
+        }
+        size += (end - start) * 6;
+        return size;
     }
     
 

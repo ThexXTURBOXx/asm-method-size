@@ -1,4 +1,4 @@
-/***
+ /***
  * ASM: a very small and fast Java bytecode manipulation framework
  * Copyright (c) 2000-2011 INRIA, France Telecom
  * All rights reserved.
@@ -137,7 +137,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         cv = cw.getFirstVisitor();
 
         this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
-        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, firstHandler, largeBranchTargets);
+        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, firstHandler, largeBranchTargets,
+                                                                 maxStack, maxLocals, maxMethodLength);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.blocksByOffset = computeBlocksByOffset(blocks);
