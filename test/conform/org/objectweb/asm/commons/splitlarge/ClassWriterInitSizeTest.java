@@ -33,6 +33,7 @@ package org.objectweb.asm.commons.splitlarge;
 import org.objectweb.asm.*;
 import org.objectweb.asm.util.TraceClassVisitor;
 import org.objectweb.asm.util.CheckClassAdapter;
+import org.objectweb.asm.tree.ClassNode;
 
 import junit.framework.TestCase;
 
@@ -77,7 +78,7 @@ public class ClassWriterInitSizeTest extends TestCase {
         this.mv.visitEnd();
         this.cv.visitEnd();
         byte[] b = cw.toByteArray();
-        CheckClassAdapter.verify(new ClassReader(b), false, new java.io.PrintWriter(System.out));
+        (new ClassReader(b)).accept(new CheckClassAdapter(new ClassNode(), true), ClassReader.SKIP_DEBUG);
         // make sure this code may actually work
         MyClassLoader myClassLoader = new MyClassLoader();
         myClassLoader.defineClass(className, b);

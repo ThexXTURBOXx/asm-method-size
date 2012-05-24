@@ -35,6 +35,7 @@ import org.objectweb.asm.*;
 import junit.framework.TestCase;
 import org.objectweb.asm.util.TraceClassVisitor;
 import org.objectweb.asm.util.CheckClassAdapter;
+import org.objectweb.asm.tree.ClassNode;
 
 /**
  * ClassWriter unit tests for method size restriction, involving exceptions
@@ -74,7 +75,8 @@ public class ClassWriterMethodSizeExceptionTest extends TestCase {
 
     private void endMethod() {
         cv.visitEnd();
-        CheckClassAdapter.verify(new ClassReader(cw.toByteArray()), false, new java.io.PrintWriter(System.out));
+        byte[] b = cw.toByteArray();
+        (new ClassReader(b)).accept(new CheckClassAdapter(new ClassNode(), true), ClassReader.SKIP_DEBUG);
     }
 
 
