@@ -110,6 +110,13 @@ public class CycleEquivalence {
         int dfsNum = -1;
         
         /**
+         * Representative edge for this node if we're computing
+         * node-cycle equivalence.  It's set identically in both the
+         * in and the out node.
+         */
+        Edge representativeEdge;
+
+        /**
          * List of brackets of this block.
          */
         final DList<Edge> bracketList;
@@ -155,6 +162,7 @@ public class CycleEquivalence {
          
         public Node(BasicBlock block) {
             this.block = block;
+            this.representativeEdge = null;
             this.allEdges = new ArrayList<Edge>();
             this.treeEdges = new ArrayList<Edge>();
             this.backEdgesFrom = new ArrayList<Edge>();
@@ -319,34 +327,44 @@ public class CycleEquivalence {
     }
 
     /**
+     * Compute the undirected, expanded flowgraph from a set of basic
+     * blocks.
+     * 
      * @return starting node
      */
-    private static Node computeUndigraph(SortedSet<BasicBlock> blocks) {
-        // FIXME: stick the node in a field of BasicBlock
-        HashMap<BasicBlock, Node> blockNodes = new HashMap<BasicBlock, Node>(blocks.size());
+    public static Node computeUndigraph(SortedSet<BasicBlock> blocks) {
+        // FIXME: stick the nodes in a field of BasicBlock
+        HashMap<BasicBlock, Node> blockNodesIn = new HashMap<BasicBlock, Node>(blocks.size());
+        ArrayList<Node> blockNodesOut = new ArrayList<Node>(blocks.size());
         // add nodes
         for (BasicBlock block : blocks) {
-            blockNodes.put(block, new Node(block));
+            Node in = new Node(block);
+            Node out = new Node(block);
+            blockNodesIn.put(block, in);
+            blockNodesOut.add(out);
+            Edge rep = in.addEdge(out);
+            in.representativeEdge = rep;
+            out.representativeEdge = rep;
         }
 
         // create artifical nodes
         BasicBlock first = blocks.first();
         Node start = new Node();
-        Node firstNode = blockNodes.get(first);
+        Node firstNode = blockNodesIn.get(first);
         start.addEdge(firstNode);
 
         Node end = new Node();
         end.addEdge(start);
 
         // add edges
-        for (Node node : blockNodes.values()) {
-            BasicBlock block = node.block;
+        for (Node out : blockNodesOut) {
+            BasicBlock block = out.block;
             for (BasicBlock b : block.successors) {
-                Node other = blockNodes.get(b);
-                node.addEdge(other);
+                Node other = blockNodesIn.get(b);
+                out.addEdge(other);
             }
             if (block.successors.isEmpty()) { // leaf node
-                node.addEdge(end);
+                out.addEdge(end);
             }
         }
         return start;

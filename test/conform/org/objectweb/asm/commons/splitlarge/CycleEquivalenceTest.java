@@ -31,10 +31,120 @@
 package org.objectweb.asm.commons.splitlarge;
 
 import java.util.ArrayList;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import junit.framework.TestCase;
 
 public class CycleEquivalenceTest extends TestCase {
+
+    public void testTechreportFigure1() {
+        // Figure 1 from the tech report
+        BasicBlock a = new BasicBlock(0);
+        BasicBlock b = new BasicBlock(1);
+        BasicBlock c = new BasicBlock(2);
+        BasicBlock d = new BasicBlock(3);
+        BasicBlock e = new BasicBlock(4);
+        BasicBlock f = new BasicBlock(5);
+        BasicBlock t = new BasicBlock(6);
+        a.addEdge(b);
+        a.addEdge(c);
+        b.addEdge(c);
+        c.addEdge(d);
+        c.addEdge(e);
+        d.addEdge(f);
+        e.addEdge(f);
+        f.addEdge(b);
+        f.addEdge(t);
+        SortedSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
+        blocks.add(a);
+        blocks.add(b);
+        blocks.add(c);
+        blocks.add(d);
+        blocks.add(e);
+        blocks.add(f);
+        blocks.add(t);
+        CycleEquivalence.Node start = CycleEquivalence.computeUndigraph(blocks);
+        CycleEquivalence.Node aIn = findEdgeTo(start, a);
+        assertNotNull(aIn);
+        CycleEquivalence.Node aOut = findOutNode(aIn);
+        assertNotNull(aOut);
+
+        CycleEquivalence.Node bIn = findEdgeTo(aOut, b);
+        assertNotNull(bIn);
+        CycleEquivalence.Node bOut = findOutNode(bIn);
+        assertNotNull(bOut);
+
+        CycleEquivalence.Node cIn = findEdgeTo(bOut, c);
+        assertNotNull(cIn);
+        CycleEquivalence.Node cOut = findOutNode(cIn);
+        assertNotNull(cOut);
+
+        CycleEquivalence.Node dIn = findEdgeTo(cOut, d);
+        assertNotNull(dIn);
+        CycleEquivalence.Node dOut = findOutNode(dIn);
+        assertNotNull(dOut);
+
+        CycleEquivalence.Node eIn = findEdgeTo(cOut, e);
+        assertNotNull(eIn);
+        CycleEquivalence.Node eOut = findOutNode(eIn);
+        assertNotNull(eOut);
+
+        CycleEquivalence.Node fIn = findEdgeTo(dOut, f);
+        assertNotNull(fIn);
+        CycleEquivalence.Node fOut = findOutNode(fIn);
+        assertNotNull(fOut);
+
+        assertSame(fIn, findEdgeTo(eOut, f));
+
+        ArrayList<CycleEquivalence.Node> nodes = new ArrayList<CycleEquivalence.Node>();
+        start.computeSpanningTree(nodes);
+        CycleEquivalence.computeCycleEquivalence(nodes);
+        
+        CycleEquivalence.EquivClass ca = aIn.representativeEdge.equivClass;
+        CycleEquivalence.EquivClass cb = bIn.representativeEdge.equivClass;
+        CycleEquivalence.EquivClass cc = cIn.representativeEdge.equivClass;
+        CycleEquivalence.EquivClass cd = dIn.representativeEdge.equivClass;
+        CycleEquivalence.EquivClass ce = eIn.representativeEdge.equivClass;
+        CycleEquivalence.EquivClass cf = fIn.representativeEdge.equivClass;
+
+        assertNotSame(ca, cb);
+        assertNotSame(ca, cc);
+        assertNotSame(ca, cd);
+        assertNotSame(ca, ce);
+        assertNotSame(ca, cf);
+
+        assertNotSame(cb, cc);
+        assertNotSame(cb, cd);
+        assertNotSame(cb, ce);
+        assertNotSame(cb, cf);
+
+        assertNotSame(cc, cd);
+        assertNotSame(cc, ce);
+        assertSame(cc, cf);
+
+        assertNotSame(cd, ce);
+        assertNotSame(cd, cf);
+
+        assertNotSame(ce, cf);
+    }
+
+    /**
+     * @returns in node
+     */
+    private CycleEquivalence.Node findEdgeTo(CycleEquivalence.Node from, BasicBlock block) {
+        for (CycleEquivalence.Edge edge : from.allEdges) {
+            CycleEquivalence.Node other = edge.getOtherNode(from);
+            if (other.block == block) {
+                return other;
+            }
+        }
+        return null;
+    }
+
+    private CycleEquivalence.Node findOutNode(CycleEquivalence.Node in) {
+        return in.representativeEdge.getOtherNode(in);
+    }
 
     public void testSpanningTree1() {
         CycleEquivalence.Node n0 = new CycleEquivalence.Node();
