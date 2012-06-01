@@ -140,7 +140,7 @@ class Scc {
                 // Successor w has not yet been visited; recurse on it
                 index = strongConnect(w, index, stack, root);
                 b.sccLowLink = Math.min(b.sccLowLink, w.sccLowLink);
-            } else if (stack.contains(w)) {
+            } else if (stack.contains(w)) { // FIXME: this test should be done done with a flag
                 // Successor w is in stack S and hence in the current SCC
                 b.sccLowLink = Math.min(b.sccLowLink, w.sccIndex);
             }
