@@ -196,7 +196,7 @@ public class CycleEquivalence {
         }
 
         public void computeSpanningTree(List<Node> nodes) {
-            assert this.parent == null;
+            assert this.dfsNum == -1;
             this.dfsNum = nodes.size();
             nodes.add(this);
             // the dfsNum field serves as a "seen mark"
