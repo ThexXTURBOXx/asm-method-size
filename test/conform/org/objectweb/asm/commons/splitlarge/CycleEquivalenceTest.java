@@ -97,16 +97,29 @@ public class CycleEquivalenceTest extends TestCase {
 
         assertSame(fIn, findEdgeTo(eOut, f));
 
+        CycleEquivalence.Node tIn = findEdgeTo(fOut, t);
+        assertNotNull(tIn);
+        CycleEquivalence.Node tOut = findOutNode(tIn);
+        assertNotNull(tOut);
+
         ArrayList<CycleEquivalence.Node> nodes = new ArrayList<CycleEquivalence.Node>();
         start.computeSpanningTree(nodes);
         CycleEquivalence.computeCycleEquivalence(nodes);
         
         CycleEquivalence.EquivClass ca = aIn.representativeEdge.equivClass;
+        assertSame(2, ca.nodes.size());
         CycleEquivalence.EquivClass cb = bIn.representativeEdge.equivClass;
+        assertSame(1, cb.nodes.size());
         CycleEquivalence.EquivClass cc = cIn.representativeEdge.equivClass;
+        assertSame(2, cc.nodes.size());
         CycleEquivalence.EquivClass cd = dIn.representativeEdge.equivClass;
+        assertSame(1, cd.nodes.size());
         CycleEquivalence.EquivClass ce = eIn.representativeEdge.equivClass;
+        assertSame(1, ce.nodes.size());
         CycleEquivalence.EquivClass cf = fIn.representativeEdge.equivClass;
+        assertSame(2, cf.nodes.size());
+        CycleEquivalence.EquivClass ct = tIn.representativeEdge.equivClass;
+        assertSame(2, ct.nodes.size());
 
         assertNotSame(ca, cb);
         assertNotSame(ca, cc);

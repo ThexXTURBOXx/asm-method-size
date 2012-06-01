@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.SortedSet;
+import java.util.Collection;
 
 /**
  * Computing cycle equivalence according to
@@ -45,16 +46,38 @@ import java.util.SortedSet;
 public class CycleEquivalence {
 
     public static class EquivClass {
+        /**
+         * Topmost bracket; identifies the class.
+         */
         Edge bracket;
+
+        /**
+         * Size of the the bracket list.
+         */
         int size;
+
+        Collection<Edge> edges;
+        Collection<Node> nodes;
 
         public EquivClass(Edge bracket, int size) {
             this.bracket = bracket;
             this.size = size;
+            this.edges = new ArrayList<Edge>();
+            this.nodes = new ArrayList<Node>();
         }
 
         public EquivClass(DList<Edge> bracketList) {
             this(bracketList.getFirst(), bracketList.size());
+        }
+
+        /**
+         * Does not check if the edge is already included.
+         */
+        public void addEdge(Edge edge) {
+            this.edges.add(edge);
+            if (edge.represented != null) {
+                this.nodes.add(edge.represented);
+            }
         }
         
         @Override public String toString() {
@@ -67,12 +90,22 @@ public class CycleEquivalence {
         int recentSize;
         EquivClass recentEquivClass;
         DList<Edge>.Node node;
+        /**
+         * In node represented by this edge, if any.
+         */
+        Node represented;
+        /**
+         * Says whether this edge was seen in a traversal.
+         */
+        boolean seen;
 
         final Node node1, node2;
 
         public Edge(Node node1, Node node2) {
             this.node1 = node1;
             this.node2 = node2;
+            this.seen = false;
+            this.represented = null;
         }
 
         public Node getOtherNode(Node node) {
@@ -191,7 +224,7 @@ public class CycleEquivalence {
             if (block == null) {
                 return b;
             } else {
-                return block.toString() + b;
+                return b + block.toString();
             }
         }
 
@@ -277,7 +310,7 @@ public class CycleEquivalence {
                 // if b.class undefined then
                 if (edge.equivClass == null) {
                     // b.class := new-class () ;
-                    edge.equivClass = new EquivClass(blist);
+                    edge.equivClass = new  EquivClass(blist);
                 }
             }
             // for each backedge e from n to an ancestor of n do
@@ -343,6 +376,7 @@ public class CycleEquivalence {
             blockNodesIn.put(block, in);
             blockNodesOut.add(out);
             Edge rep = in.addEdge(out);
+            rep.represented = in;
             in.representativeEdge = rep;
             out.representativeEdge = rep;
         }
@@ -375,6 +409,20 @@ public class CycleEquivalence {
         while (i >= 0) {
             nodes.get(i).computeCycleEquivalence();
             --i;
+        }
+        for (Node node : nodes) {
+            for (Edge edge : node.treeEdges) {
+                if (!edge.seen) {
+                    edge.equivClass.addEdge(edge);
+                    edge.seen = true;
+                }
+            }
+            for (Edge edge : node.backEdgesFrom) {
+                if (!edge.seen) {
+                    edge.equivClass.addEdge(edge);
+                    edge.seen = true;
+                }
+            }
         }
     }
 
