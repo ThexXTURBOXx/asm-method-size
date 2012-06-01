@@ -139,6 +139,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
         TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, firstHandler, largeBranchTargets,
                                                                  maxStack, maxLocals, maxMethodLength);
+        CycleEquivalence.compute(blocks);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.blocksByOffset = computeBlocksByOffset(blocks);

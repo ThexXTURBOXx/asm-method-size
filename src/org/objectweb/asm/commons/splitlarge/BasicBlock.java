@@ -428,7 +428,8 @@ class BasicBlock implements Comparable<BasicBlock> {
 
         return blocks;
     }
-    
+
+
     private static BasicBlock getBasicBlock(int offset, BasicBlock[] array, TreeSet<BasicBlock> blocks) {
         BasicBlock block = array[offset];
         if (block == null) {
