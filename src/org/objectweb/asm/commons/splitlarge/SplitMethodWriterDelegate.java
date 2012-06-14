@@ -1407,6 +1407,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 }
                 break;
             case ClassWriter.TABL_INSN: {
+                int start = v;
                 // skips 0 to 3 padding bytes
                 v = v & ~3;
                 // reads instruction
@@ -1417,7 +1418,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 int size = max - min + 1;
                 Label[] table = new Label[size];
                 for (int j = 0; j < size; ++j) {
-                    table[j] = blocksByOffset[v + readInt(v)].getStartLabel();
+                    table[j] = blocksByOffset[start + readInt(v)].getStartLabel();
                     v += 4;
                 }
                 mv.visitTableSwitchInsn(min,
@@ -1427,6 +1428,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.LOOK_INSN: {
+                int start = v;
                 // skips 0 to 3 padding bytes
                 v = v & ~3;
                 // reads instruction
@@ -1437,7 +1439,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 Label[] values = new Label[size];
                 for (int j = 0; j < size; ++j) {
                     keys[j] = readInt(v);
-                    values[j] = blocksByOffset[v + readInt(v + 4)].getStartLabel();
+                    values[j] = blocksByOffset[start + readInt(v + 4)].getStartLabel();
                     v += 8;
                 }
                 mv.visitLookupSwitchInsn(blocksByOffset[label].getStartLabel(),

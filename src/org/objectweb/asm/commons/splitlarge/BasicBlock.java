@@ -215,6 +215,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     break;
                 case ClassWriter.TABL_INSN: {
                     // skips 0 to 3 padding bytes*
+                    int start = v;
                     v = v + 4 - (v & 3);
                     s += 3;
                     getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
@@ -223,7 +224,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     v += 12;
                     s += 12;
                     for (; j > 0; --j) {
-                        getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
+                        getBasicBlock(start + ByteArray.readInt(b, v), blockArray, blocks);
                         v += 4;
                         s += 4;
                     }
@@ -231,7 +232,8 @@ class BasicBlock implements Comparable<BasicBlock> {
                     break;
                 }
                 case ClassWriter.LOOK_INSN: {
-                    // skips 0 to 3 padding bytes*
+                    // skips 0 to 3 padding bytes
+                    int start = v;
                     v = v + 4 - (v & 3);
                     s += 3;
                     getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
@@ -240,7 +242,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     v += 8;
                     s += 8;
                     for (; j > 0; --j) {
-                        getBasicBlock(v + ByteArray.readInt(b, v + 4), blockArray, blocks);
+                        getBasicBlock(start + ByteArray.readInt(b, v + 4), blockArray, blocks);
                         v += 8;
                         s += 8;
                     }
@@ -345,26 +347,28 @@ class BasicBlock implements Comparable<BasicBlock> {
                 }
                 break;
             case ClassWriter.TABL_INSN: {
-                // skips 0 to 3 padding bytes*
+                int start = v;
+                // skips 0 to 3 padding bytes
                 v = v + 4 - (v & 3);
                 // reads instruction
                 currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v)]);
                 int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                 v += 12;
                 for (; j > 0; --j) {
-                    currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v)]);
+                    currentBlock.addEdge(blockArray[start + ByteArray.readInt(b, v)]);
                     v += 4;
                 }
                 break;
             }
             case ClassWriter.LOOK_INSN: {
-                // skips 0 to 3 padding bytes*
+                int start = v;
+                // skips 0 to 3 padding bytes
                 v = v + 4 - (v & 3);
                 // reads instruction
                 int j = ByteArray.readInt(b, v + 4);
                 v += 8;
                 for (; j > 0; --j) {
-                    currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v + 4)]);
+                    currentBlock.addEdge(blockArray[start + ByteArray.readInt(b, v + 4)]);
                     v += 8;
                 }
                 break;
