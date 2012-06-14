@@ -2023,29 +2023,29 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         byte[] b = pool.data;
         switch (b[index - 1]) {
             case ClassWriter.INT:
-                return new Integer(readInt(index));
+                return new Integer(ByteArray.readInt(b, index));
             case ClassWriter.FLOAT:
-                return new Float(Float.intBitsToFloat(readInt(index)));
+                return new Float(Float.intBitsToFloat(ByteArray.readInt(b, index)));
             case ClassWriter.LONG:
-                return new Long(readLong(index));
+                return new Long(ByteArray.readLong(b, index));
             case ClassWriter.DOUBLE:
-                return new Double(Double.longBitsToDouble(readLong(index)));
+                return new Double(Double.longBitsToDouble(ByteArray.readLong(b, index)));
             case ClassWriter.CLASS:
-                return Type.getObjectType(readUTF8(index));
+                return Type.getObjectType(readUTF8Item(item));
             case ClassWriter.STR:
-                return readUTF8(index);
+                return readUTF8Item(item);
             case ClassWriter.MTYPE:
-                return Type.getMethodType(readUTF8(index));
+                return Type.getMethodType(readUTF8Item(item));
 
             //case ClassWriter.HANDLE_BASE + [1..9]:
             default: {
-                int tag = readByte(index);
+                int tag = ByteArray.readByte(b, index);
                 int[] items = this.items;
-                int cpIndex = items[readUnsignedShort(index + 1)];
+                int cpIndex = items[ByteArray.readUnsignedShort(b, index + 1)];
                 String owner = readClass(cpIndex);
-                cpIndex = items[readUnsignedShort(cpIndex + 2)];
-                String name = readUTF8(cpIndex);
-                String desc = readUTF8(cpIndex + 2);
+                cpIndex = items[ByteArray.readUnsignedShort(b, cpIndex + 2)];
+                String name = readUTF8Item(ByteArray.readUnsignedShort(b, cpIndex));
+                String desc = readUTF8Item(ByteArray.readUnsignedShort(b, cpIndex + 2));
                 return new Handle(tag, owner, name, desc);
             }
         }
