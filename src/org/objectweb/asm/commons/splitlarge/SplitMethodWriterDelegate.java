@@ -727,13 +727,13 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.TABLESWITCH:
                 frameStackCount = frameLocalCount = 0;
                 // skips 0 to 3 padding bytes
-                v = v & ~3;
+                v = v + 4 - (v & 3);
                 v += 12 + 4 * (readInt(v + 8) - readInt(v + 4) + 1);
                 break;
             case Opcodes.LOOKUPSWITCH:
                 frameStackCount = frameLocalCount = 0;
                 // skips 0 to 3 padding bytes
-                v = v & ~3;
+                v = v + 4 - (v & 3);
                 v += 8 + v + (readInt(v + 4) * 8);
                 break;
             case Opcodes.POP2:
