@@ -47,7 +47,7 @@ public final class FrameData {
     }
 
     public void visitFrame(MethodVisitor mv) {
-        mv.visitFrame(Opcodes.F_NEW, frameLocal.length, frameLocal, frameStack.length, frameLocal);
+        mv.visitFrame(Opcodes.F_NEW, frameLocal.length, frameLocal, frameStack.length, frameStack);
     }
 
     /**
