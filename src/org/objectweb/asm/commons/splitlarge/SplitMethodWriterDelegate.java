@@ -2033,11 +2033,11 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case ClassWriter.DOUBLE:
                 return new Double(Double.longBitsToDouble(ByteArray.readLong(b, index)));
             case ClassWriter.CLASS:
-                return Type.getObjectType(readUTF8Item(item));
+                return Type.getObjectType(readUTF8Item(ByteArray.readUnsignedShort(b, index)));
             case ClassWriter.STR:
-                return readUTF8Item(item);
+                return readUTF8Item(ByteArray.readUnsignedShort(b, index));
             case ClassWriter.MTYPE:
-                return Type.getMethodType(readUTF8Item(item));
+                return Type.getMethodType(readUTF8Item(ByteArray.readUnsignedShort(b, index)));
 
             //case ClassWriter.HANDLE_BASE + [1..9]:
             default: {
