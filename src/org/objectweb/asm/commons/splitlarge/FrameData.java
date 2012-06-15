@@ -202,16 +202,14 @@ public final class FrameData {
         else if (d == Opcodes.DOUBLE)
             b.append("D");
         else if (d instanceof String) {
-            b.append("L");
-            b.append((String) d);
+            appendFrameReferenceTypeDescriptor(b, (String) d, 0);
             b.append(";");
         } else if (d instanceof Label) {
             String name = labelTypes.get(d);
             if (name == null) {
                 throw new RuntimeException("label without associated type");
             }
-            b.append("L");
-            b.append(name);
+            appendFrameReferenceTypeDescriptor(b, name, 0);
             b.append(";");
         } else if (d == Opcodes.TOP) {
             ; // it's not the TOP that counts, but what's before it
@@ -219,6 +217,16 @@ public final class FrameData {
             // #### UNINITIALIZED_THIS is missing
             throw new RuntimeException("can't handle this frame element");
         }
+    }
+
+    private static void appendFrameReferenceTypeDescriptor(StringBuilder b, String name, int index) {
+        // internal names and descriptors don't relate well
+        while (name.charAt(index) == '[') {
+            b.append("[");
+            ++index;
+        }
+        b.append("L");
+        b.append(name, index, name.length());
     }
 
 

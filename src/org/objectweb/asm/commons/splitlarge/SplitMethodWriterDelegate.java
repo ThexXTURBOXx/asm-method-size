@@ -1099,14 +1099,14 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ANEWARRAY: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
+                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1))).getInternalName());
                 v += 3;
                 break;
             }
             case Opcodes.CHECKCAST: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getInternalName());
                 v += 3;
                 break;
             }
@@ -1114,7 +1114,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.MULTIANEWARRAY: {
                 frameStackCount -= b[v + 3] & 0xFF;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getInternalName());
                 v += 4;
                 break;
             }
