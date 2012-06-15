@@ -93,8 +93,7 @@ public final class FrameData {
         {
             int i = 0;
             while (i < frameStack.length) {
-                // the last index is pushed first
-                storeStackElement(mv, frameStack.length - i -1 + frameLocal.length, frameStack[i]);
+                storeStackElement(mv, frameLocal.length + i, frameStack[frameStack.length - i - 1]);
                 ++i;
             }
         }
@@ -107,9 +106,9 @@ public final class FrameData {
         }
         {
             int i = 0;
-            // the first index is popped first
+            // now the relative frame indices correspond to the original stack indices
             while (i < frameStack.length) {
-                loadFrameElement(mv, i + frameLocal.length, frameStack[i]);
+                loadFrameElement(mv, frameLocal.length + frameStack.length - i - 1, frameStack[i]);
                 ++i;
             }
         }
@@ -124,8 +123,7 @@ public final class FrameData {
         {
             int i = 0;
             while (i < frameStack.length) {
-                // the last index is pushed first
-                size += storeStackElementSize(frameStack.length - i -1 + frameLocal.length, frameStack[i]);
+                size += storeStackElementSize(frameLocal.length + i, frameStack[frameStack.length - i - 1]);
                 ++i;
             }
         }
@@ -138,9 +136,8 @@ public final class FrameData {
         }
         {
             int i = 0;
-            // the first index is popped first
             while (i < frameStack.length) {
-                size += loadFrameElementSize(i + frameLocal.length, frameStack[i]);
+                size += loadFrameElementSize(frameLocal.length + frameStack.length -i - 1, frameStack[i]);
                 ++i;
             }
         }
@@ -236,8 +233,9 @@ public final class FrameData {
     public void reconstructStack(MethodVisitor mw) {
         int localSize = frameLocal.length;
         int i = 0, size = frameStack.length;
+        // the relative frame indices correspond to the original stack indices
         while (i < size) {
-            loadFrameElement(mw, i + localSize, frameStack[i]);
+            loadFrameElement(mw, localSize + i, frameStack[i]);
             ++i;
         }
     }
