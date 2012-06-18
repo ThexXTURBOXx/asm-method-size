@@ -168,7 +168,6 @@ class Scc {
         computeSuccessors();
         computeTransitiveClosure();
         computePredecessors();
-        computeSplitPoints();
     }
 
     /**
@@ -220,7 +219,7 @@ class Scc {
     /**
      * Fills the {@link #splitPoint} fields of all roots.
      */
-    private void computeSplitPoints() {
+    public void computeSplitPoints() {
         Scc r = this;
         while (r != null) {
             r.computeSplitPoint();
@@ -330,6 +329,8 @@ class Scc {
         } else {
             // can't split out just the exception handler
             if (entry.kind == BasicBlock.Kind.EXCEPTION_HANDLER)
+                return;
+            if (!entry.hasFullyDefinedFrame())
                 return;
             /*
              * Now check that all SCC components in the transitive

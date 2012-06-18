@@ -149,6 +149,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         HashMap<Label, String> labelTypes = computeFrames();
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
+        this.scc.computeSplitPoints();
         this.splitMethods = scc.split(thisName, access, maxMethodLength, nameGenerator);
         parseBootstrapMethods();
         makeMethodWriters(labelTypes);
@@ -1099,14 +1100,14 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ANEWARRAY: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1))).getInternalName());
+                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1))));
                 v += 3;
                 break;
             }
             case Opcodes.CHECKCAST: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getInternalName());
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 3;
                 break;
             }
@@ -1114,7 +1115,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.MULTIANEWARRAY: {
                 frameStackCount -= b[v + 3] & 0xFF;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getInternalName());
+                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 4;
                 break;
             }

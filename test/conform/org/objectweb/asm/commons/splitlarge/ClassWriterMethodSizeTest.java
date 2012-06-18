@@ -199,6 +199,9 @@ public class ClassWriterMethodSizeTest extends TestCase {
 
     /**
      * Method with essentially two large basic blocks & constructor call.
+     *
+     * But we can't split at points where parts of the frame are
+     * uninitialized.
      */
     public void testTwo1New() {
         Label l1 = new Label();
@@ -231,7 +234,12 @@ public class ClassWriterMethodSizeTest extends TestCase {
                                     "()V");
             RETURN();
         }
-        endMethod();
+        try {
+            endMethod();
+        }
+        catch (RuntimeException e) {
+            assertEquals("no split point was found", e.getMessage());
+        }
     }
 
     /**

@@ -51,6 +51,30 @@ public final class FrameData {
     }
 
     /**
+     * Return <code>true</code> if this frame has no uninitialized
+     * elements, <code>false</code> otherwise,
+     */
+    public boolean isFullyDefined() {
+        for (Object el: frameLocal) {
+            if (!isElementFullyDefined(el)) {
+                return false;
+            }
+        }
+        for (Object el: frameStack) {
+            if (!isElementFullyDefined(el)) {
+                return false;
+            }
+        }
+        return true;
+        
+    }
+
+    private boolean isElementFullyDefined(Object el) {
+        return (el != Opcodes.UNINITIALIZED_THIS)
+            && !(el instanceof Label);
+    }
+
+    /**
      * @param methodDescriptor method descriptor of host method
      * @param isStatic says whether host method is static
      */

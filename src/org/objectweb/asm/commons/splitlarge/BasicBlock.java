@@ -552,6 +552,10 @@ class BasicBlock implements Comparable<BasicBlock> {
             + 1; // RETURN
     }
 
+    public boolean hasFullyDefinedFrame() {
+        return frameData.isFullyDefined();
+    }
+
     /**
      * Calculate code size needed to reconstruct the stack from the parameters.
      */
