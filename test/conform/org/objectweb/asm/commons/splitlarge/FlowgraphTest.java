@@ -86,7 +86,8 @@ public class FlowgraphTest extends TestCase {
         return BasicBlock.computeFlowgraph(code,
                                            mw.getFirstHandler(),
                                            new Label[code.length],
-                                           0, 0, 65536)
+                                           0, 0, 65536,
+                                           new BasicBlock[code.length + 1])
             .toArray(new BasicBlock[0]);
     }
 

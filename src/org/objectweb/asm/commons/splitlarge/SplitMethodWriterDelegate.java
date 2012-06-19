@@ -133,12 +133,13 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.labelsByOffset = new Label[code.length];
         BasicBlock.parseStackMap(stackMap, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
         this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
+        this.blocksByOffset = new BasicBlock[code.length + 2];
         TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, firstHandler, largeBranchTargets,
-                                                                 maxStack, maxLocals, maxMethodLength);
+                                                                 maxStack, maxLocals, maxMethodLength,
+                                                                 blocksByOffset);
         CycleEquivalence.compute(blocks);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
-        this.blocksByOffset = computeBlocksByOffset(blocks);
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
         {
             int i = 0;
@@ -590,17 +591,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         mainMethodVisitor.visitEnd();
     }
         
-
-    /**
-     * Get array, indexed by code pointer, of all labels.
-     */
-    private BasicBlock[] computeBlocksByOffset(TreeSet<BasicBlock> blocks) {
-        BasicBlock[] array = new BasicBlock[code.length];
-        for (BasicBlock b : blocks) {
-            array[b.position] = b;
-        }
-        return array;
-    }
 
     private Label[] computeLargeBranchTargets(ArrayList<Branch> largeBranches) {
         Label[] array = new Label[code.length];

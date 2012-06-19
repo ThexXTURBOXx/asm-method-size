@@ -84,7 +84,8 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitEnd();
         this.cw.visitEnd();
         ByteVector code = mw.getCode();
-        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, null, new Label[code.length + 1], maxStack, maxLocals, 65536);
+        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, null, new Label[code.length + 1], maxStack, maxLocals, 65536,
+                                                                 new BasicBlock[code.length + 2]);
         Scc root = Scc.stronglyConnectedComponents(blocks);
         root.initializeAll();
         return root;

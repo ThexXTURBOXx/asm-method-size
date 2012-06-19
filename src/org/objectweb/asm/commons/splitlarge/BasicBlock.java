@@ -1106,15 +1106,15 @@ class BasicBlock implements Comparable<BasicBlock> {
      * Compute flowgraph from code.
      */
     public static TreeSet<BasicBlock> computeFlowgraph(ByteVector code, Handler firstHandler, Label[] largeBranchTargets,
-                                                       int maxStack, int maxLocals, int maxBlockSize) {
+                                                       int maxStack, int maxLocals, int maxBlockSize,
+                                                       BasicBlock[] blocksByOffset) {
         byte[] b = code.data;
         TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
-        BasicBlock[] blockArray = new BasicBlock[code.length + 2];
         final int exitOverhead = visitInvocationMaxSize(maxStack, maxLocals);
         final int stackOverhead = reconstructStackMaxSize(maxStack, maxLocals);
         // first, collect all the blocks
         {
-            getBasicBlock(0, blockArray, blocks);
+            getBasicBlock(0, blocksByOffset, blocks);
             int v = 0;
             int previousV = v;
             int s = 0; // block size
@@ -1148,11 +1148,11 @@ class BasicBlock implements Comparable<BasicBlock> {
                     } else {
                         label = v + ByteArray.readShort(b, v + 1);
                     }
-                    getBasicBlock(label, blockArray, blocks);
+                    getBasicBlock(label, blocksByOffset, blocks);
                     v += 3;
                     s += 8;
                     if (opcode != Opcodes.GOTO) {  // the rest are conditional branches
-                        getBasicBlock(v, blockArray, blocks);
+                        getBasicBlock(v, blocksByOffset, blocks);
                         ++exitCount;
                     }
                     break;
@@ -1160,11 +1160,11 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.LABELW_INSN: {
                     if (opcode == 201) // JSR_W
                         throw new UnsupportedOperationException("JSR_W instruction not supported yet");
-                    getBasicBlock(v + ByteArray.readInt(b, v + 1), blockArray, blocks);
+                    getBasicBlock(v + ByteArray.readInt(b, v + 1), blocksByOffset, blocks);
                     v += 5;
                     s += 8;
                     if (opcode != 200) { // GOTO_W; the rest are conditional branches
-                        getBasicBlock(v, blockArray, blocks);
+                        getBasicBlock(v, blocksByOffset, blocks);
                         ++exitCount;
                     }
                     break;
@@ -1184,17 +1184,17 @@ class BasicBlock implements Comparable<BasicBlock> {
                     int start = v;
                     v = v + 4 - (v & 3);
                     s += 3;
-                    getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
+                    getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                     exitCount = j;
                     v += 12;
                     s += 12;
                     for (; j > 0; --j) {
-                        getBasicBlock(start + ByteArray.readInt(b, v), blockArray, blocks);
+                        getBasicBlock(start + ByteArray.readInt(b, v), blocksByOffset, blocks);
                         v += 4;
                         s += 4;
                     }
-                    getBasicBlock(v, blockArray, blocks);
+                    getBasicBlock(v, blocksByOffset, blocks);
                     break;
                 }
                 case ClassWriter.LOOK_INSN: {
@@ -1202,17 +1202,17 @@ class BasicBlock implements Comparable<BasicBlock> {
                     int start = v;
                     v = v + 4 - (v & 3);
                     s += 3;
-                    getBasicBlock(v + ByteArray.readInt(b, v), blockArray, blocks);
+                    getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 4);
                     exitCount = j;
                     v += 8;
                     s += 8;
                     for (; j > 0; --j) {
-                        getBasicBlock(start + ByteArray.readInt(b, v + 4), blockArray, blocks);
+                        getBasicBlock(start + ByteArray.readInt(b, v + 4), blocksByOffset, blocks);
                         v += 8;
                         s += 8;
                     }
-                    getBasicBlock(v, blockArray, blocks);
+                    getBasicBlock(v, blocksByOffset, blocks);
                     break;
                 }
                 case ClassWriter.VAR_INSN:
@@ -1243,10 +1243,10 @@ class BasicBlock implements Comparable<BasicBlock> {
                     break;
                 }
                 if (s + (exitCount * exitOverhead) + stackOverhead > maxBlockSize) {
-                    getBasicBlock(previousV, blockArray, blocks);
+                    getBasicBlock(previousV, blocksByOffset, blocks);
                     s = (s - previousS);
                 }
-                if (blockArray[v] != null) {
+                if (blocksByOffset[v] != null) {
                     s = exitOverhead;
                 }
                 previousV = v;
@@ -1262,9 +1262,9 @@ class BasicBlock implements Comparable<BasicBlock> {
              */
             Handler h = firstHandler;
             while (h != null) {
-                getBasicBlock(h.start.position, blockArray, blocks); // start
-                getBasicBlock(h.end.position, blockArray, blocks); // end
-                BasicBlock handler = getBasicBlock(h.handler.position, blockArray, blocks);
+                getBasicBlock(h.start.position, blocksByOffset, blocks); // start
+                getBasicBlock(h.end.position, blocksByOffset, blocks); // end
+                BasicBlock handler = getBasicBlock(h.handler.position, blocksByOffset, blocks);
                 handler.kind = Kind.EXCEPTION_HANDLER;
                 h = h.next;
             }
@@ -1274,8 +1274,8 @@ class BasicBlock implements Comparable<BasicBlock> {
         int v = 0;
         BasicBlock currentBlock = null;
         while (v < code.length) {
-            if (blockArray[v] != null) {
-                currentBlock = blockArray[v];
+            if (blocksByOffset[v] != null) {
+                currentBlock = blocksByOffset[v];
             }
             int opcode = b[v] & 0xFF;
             switch (ClassWriter.TYPE[opcode]) {
@@ -1296,12 +1296,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                 } else {
                     label = v + ByteArray.readShort(b, v + 1);
                 }
-                currentBlock.addEdge(blockArray[label]);
+                currentBlock.addEdge(blocksByOffset[label]);
                 v += 3;
                 break;
             }
             case ClassWriter.LABELW_INSN:
-                currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v + 1)]);
+                currentBlock.addEdge(blocksByOffset[v + ByteArray.readInt(b, v + 1)]);
                 v += 5;
                 break;
             case ClassWriter.WIDE_INSN:
@@ -1317,11 +1317,11 @@ class BasicBlock implements Comparable<BasicBlock> {
                 // skips 0 to 3 padding bytes
                 v = v + 4 - (v & 3);
                 // reads instruction
-                currentBlock.addEdge(blockArray[v + ByteArray.readInt(b, v)]);
+                currentBlock.addEdge(blocksByOffset[v + ByteArray.readInt(b, v)]);
                 int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                 v += 12;
                 for (; j > 0; --j) {
-                    currentBlock.addEdge(blockArray[start + ByteArray.readInt(b, v)]);
+                    currentBlock.addEdge(blocksByOffset[start + ByteArray.readInt(b, v)]);
                     v += 4;
                 }
                 break;
@@ -1334,7 +1334,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 int j = ByteArray.readInt(b, v + 4);
                 v += 8;
                 for (; j > 0; --j) {
-                    currentBlock.addEdge(blockArray[start + ByteArray.readInt(b, v + 4)]);
+                    currentBlock.addEdge(blocksByOffset[start + ByteArray.readInt(b, v + 4)]);
                     v += 8;
                 }
                 break;
@@ -1364,7 +1364,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 && (opcode != Opcodes.TABLESWITCH)
                 && (opcode != Opcodes.LOOKUPSWITCH)
                 && !((opcode >= Opcodes.IRETURN) && (opcode <= Opcodes.RETURN))) {
-                BasicBlock next = blockArray[v];
+                BasicBlock next = blocksByOffset[v];
                 if (next != null) {
                     currentBlock.addEdge(next);
                 }
@@ -1377,9 +1377,9 @@ class BasicBlock implements Comparable<BasicBlock> {
         {
             Handler h = firstHandler;
             while (h != null) {
-                BasicBlock start = blockArray[h.start.position];
-                BasicBlock end = blockArray[h.end.position];
-                BasicBlock handler = blockArray[h.handler.position];
+                BasicBlock start = blocksByOffset[h.start.position];
+                BasicBlock end = blocksByOffset[h.end.position];
+                BasicBlock handler = blocksByOffset[h.handler.position];
                 for (BasicBlock src : blocks.subSet(start, end)) {
                     src.addEdge(handler);
                 }
