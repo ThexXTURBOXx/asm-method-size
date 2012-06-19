@@ -1,4 +1,4 @@
- /***
+/***
  * ASM: a very small and fast Java bytecode manipulation framework
  * Copyright (c) 2000-2011 INRIA, France Telecom
  * All rights reserved.
@@ -79,22 +79,11 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
      * Maximum length of the strings contained in the constant pool of the
      * class.
      */
-    private int maxStringLength;
-
-    private char[] utfDecodeBuffer;
-
-    /**
-     * Offsets of the CONSTANT_Class_info structures in the pools;
-     * more precisely the offsets of the meat of those structures
-     * after the tag.
-     */
-    int[] items;
-
     String thisName;
 
-    int[] bootstrapMethods;
-
     INameGenerator nameGenerator;
+
+    ConstantPool constantPool;
 
     class Branch {
         public Label label;
@@ -132,8 +121,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     @Override
     public void visitEnd() {
-        parseConstantPool();
-        thisName = readUTF8Item(name);
+        constantPool = new ConstantPool(pool, poolSize, cw.bootstrapMethods, cw.bootstrapMethodsCount);
+        thisName = constantPool.readUTF8Item(name);
         cv = cw.getFirstVisitor();
 
         this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
@@ -151,7 +140,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.scc.computeSizes();
         this.scc.computeSplitPoints();
         this.splitMethods = scc.split(thisName, access, maxMethodLength, nameGenerator);
-        parseBootstrapMethods();
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {
             visitLineNumberLabels();
@@ -166,67 +154,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         transferAnnotations();
         transferNonstandardAttributes();
     }
-
-    void parseConstantPool() {
-        maxStringLength = 0;
-        int n = poolSize;
-        items = new int[n];
-        byte[] b = pool.data;
-        int max = 0;
-        int index = 0;
-        for (int i = 1; i < n; ++i) {
-            items[i] = index + 1;
-            int size;
-            switch (b[index]) {
-            case ClassWriter.FIELD:
-            case ClassWriter.METH:
-            case ClassWriter.IMETH:
-            case ClassWriter.INT:
-            case ClassWriter.FLOAT:
-            case ClassWriter.NAME_TYPE:
-            case ClassWriter.INDY:
-                size = 5;
-                break;
-            case ClassWriter.LONG:
-            case ClassWriter.DOUBLE:
-                size = 9;
-                ++i;
-                break;
-            case ClassWriter.UTF8:
-                size = 3 + ByteArray.readUnsignedShort(b, index + 1);
-                if (size > max) {
-                    max = size;
-                }
-                break;
-            case ClassWriter.HANDLE:
-                size = 4;
-                break;
-                // case ClassWriter.CLASS:
-                // case ClassWriter.STR:
-                // case ClassWriter.MTYPE
-            default:
-                size = 3;
-                break;
-            }
-            index += size;
-        }
-        maxStringLength = max;
-        utfDecodeBuffer = new char[maxStringLength];
-    }
-
-    void parseBootstrapMethods() {
-        if (cw.bootstrapMethods == null)
-            return;
-        int boostrapMethodCount = cw.bootstrapMethodsCount;
-        bootstrapMethods = new int[boostrapMethodCount];
-        int x = 0;
-        for (int j = 0; j < boostrapMethodCount; j++) {
-            bootstrapMethods[j] = x;
-            x += 2 + readUnsignedShort(x + 2) << 1;
-        }
-    }
-
-
 
     private void parseStackMap() {
         if ((version & 0xFFFF) < Opcodes.V1_6) {
@@ -335,7 +262,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             frame[index] = Opcodes.UNINITIALIZED_THIS;
             break;
         case 7: // Object
-            frame[index] = readClass(ByteArray.readUnsignedShort(b, v));
+            frame[index] = constantPool.readClass(ByteArray.readUnsignedShort(b, v));
             v += 2;
             break;
         default: { // Uninitialized
@@ -346,65 +273,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         }
         }
         return v;
-    }
-
-    /**
-     * Symbolic reference to method or field.
-     */
-    class MemberSymRef {
-        final String owner;
-        final String name;
-        final String desc;
-        public MemberSymRef(String owner, String name, String desc) {
-            this.owner = owner;
-            this.name = name;
-            this.desc = desc;
-        }
-    }
-
-    /**
-     * Parse a symbolic reference to a member.
-     *
-     * @param v address of symbolic reference
-     * @returns symbolic reference
-     */
-    private MemberSymRef parseMemberSymRef(int v) {
-        // offset of the {Fieldref, MethodRef, InterfaceMethodRef}_Info structure
-        int cpIndex = items[readUnsignedShort(v)];
-        String iowner = readClass(ByteArray.readUnsignedShort(pool.data, cpIndex));
-        cpIndex = items[ByteArray.readUnsignedShort(pool.data, cpIndex + 2)];
-        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex));
-        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2));
-        return new MemberSymRef(iowner, iname, idesc);
-    }
-
-    /**
-     * Symbolic reference to dynamic method.
-     */
-    class DynamicSymRef {
-        final String name;
-        final String desc;
-        final int bsmIndex;
-        public DynamicSymRef(String name, String desc, int bsmIndex) {
-            this.name = name;
-            this.desc = desc;
-            this.bsmIndex = bsmIndex;
-        }
-    }
-
-    /**
-     * Parse a symbolic reference to a dynamic method.
-     *
-     * @param v address of symbolic reference
-     * @returns symbolic reference
-     */
-    private DynamicSymRef parseDynamicSymRef(int v) {
-        int cpIndex = items[readUnsignedShort(v + 1)];
-        int bsmIndex = bootstrapMethods[ByteArray.readUnsignedShort(pool.data, cpIndex)];
-        cpIndex = items[readUnsignedShort(cpIndex + 2)];
-        String iname = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex));
-        String idesc = readUTF8Item(ByteArray.readUnsignedShort(pool.data, cpIndex + 2));
-        return new DynamicSymRef(iname, idesc, bsmIndex);
     }
 
     /**
@@ -938,33 +806,33 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.RET:
                 throw new RuntimeException("JSR/RET are not supported");
             case Opcodes.GETSTATIC: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                 v += 3;
                 break;
             }
             case Opcodes.PUTSTATIC: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = popDesc(frameStackCount, sr.desc);
                 v += 3;
                 break;
             }
             case Opcodes.GETFIELD: {
                 --frameStackCount;
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                 v += 3;
                 break;
             }
             case Opcodes.PUTFIELD: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = popDesc(frameStackCount, sr.desc);
                 --frameStackCount;
                 v += 3;
                 break;
             }
             case Opcodes.INVOKEVIRTUAL: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = popDesc(frameStackCount, sr.desc);
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
@@ -972,7 +840,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case Opcodes.INVOKESPECIAL: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = popDesc(frameStackCount, sr.desc);
                 Object t = frameStack[--frameStackCount];
                 if (sr.name.charAt(0) == '<') {
@@ -998,14 +866,14 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case Opcodes.INVOKESTATIC: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = popDesc(frameStackCount, sr.desc);
                 frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                 v += 3;
                 break;
             }
             case Opcodes.INVOKEINTERFACE: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 frameStackCount = popDesc(frameStackCount, sr.desc);
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
@@ -1013,7 +881,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case Opcodes.INVOKEDYNAMIC: {
-                DynamicSymRef sr = parseDynamicSymRef(v + 1);
+                ConstantPool.DynamicSymRef sr = constantPool.parseDynamicSymRef(readUnsignedShort(v + 1));
                 frameStackCount = popDesc(frameStackCount, sr.desc);
                 frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                 v += 5;
@@ -1023,7 +891,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case 19: // LDC_W
             case 20: { // LDC2_W
                 int itemIndex = (opcode == Opcodes.LDC) ? (b[v + 1] & 0xFF) : readUnsignedShort(v + 1);
-                Object cst = readConst(itemIndex);
+                Object cst = constantPool.readConst(itemIndex);
                 if (cst instanceof Integer) {
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                 } else if (cst instanceof Long) {
@@ -1061,7 +929,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.NEW: {
                 Label l = getLabelAt(v);
                 frameStack[frameStackCount++] = l;
-                String clazz = readClass(readUnsignedShort(v + 1));
+                String clazz = constantPool.readClass(readUnsignedShort(v + 1));
                 labelTypes.put(l, clazz);
                 v += 3;
                 break;
@@ -1100,14 +968,14 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.ANEWARRAY: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           "[" + Type.getObjectType(readClass(readUnsignedShort(v + 1))));
+                                           "[" + Type.getObjectType(constantPool.readClass(readUnsignedShort(v + 1))));
                 v += 3;
                 break;
             }
             case Opcodes.CHECKCAST: {
                 --frameStackCount;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
+                                           Type.getObjectType(constantPool.readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 3;
                 break;
             }
@@ -1115,7 +983,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case Opcodes.MULTIANEWARRAY: {
                 frameStackCount -= b[v + 3] & 0xFF;
                 frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(readClass(readUnsignedShort(v + 1))).getDescriptor());
+                                           Type.getObjectType(constantPool.readClass(readUnsignedShort(v + 1))).getDescriptor());
                 v += 4;
                 break;
             }
@@ -1461,16 +1329,16 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 v += 3;
                 break;
             case ClassWriter.LDC_INSN:
-                mv.visitLdcInsn(readConst(b[v + 1] & 0xFF));
+                mv.visitLdcInsn(constantPool.readConst(b[v + 1] & 0xFF));
                 v += 2;
                 break;
             case ClassWriter.LDCW_INSN:
-                mv.visitLdcInsn(readConst(readUnsignedShort(v + 1)));
+                mv.visitLdcInsn(constantPool.readConst(readUnsignedShort(v + 1)));
                 v += 3;
                 break;
             case ClassWriter.FIELDORMETH_INSN:
             case ClassWriter.ITFMETH_INSN: {
-                MemberSymRef sr = parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(v + 1);
                 if (opcode < Opcodes.INVOKEVIRTUAL) {
                     mv.visitFieldInsn(opcode, sr.owner, sr.name, sr.desc);
                 } else {
@@ -1484,19 +1352,19 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.INDYMETH_INSN: {
-                DynamicSymRef sr = parseDynamicSymRef(v + 1);
+                ConstantPool.DynamicSymRef sr = constantPool.parseDynamicSymRef(readUnsignedShort(v + 1));
 
                 byte[] bm = cw.bootstrapMethods.data;
                 
                 int bsmIndex = sr.bsmIndex;
                 int mhIndex = ByteArray.readUnsignedShort(bm, bsmIndex);
-                Handle bsm = (Handle) readConst(mhIndex);
+                Handle bsm = (Handle) constantPool.readConst(mhIndex);
                 int bsmArgCount = ByteArray.readUnsignedShort(bm, bsmIndex + 2);
                 Object[] bsmArgs = new Object[bsmArgCount];
                 bsmIndex += 4;
                 for(int a = 0; a < bsmArgCount; a++) {
                     int argIndex = ByteArray.readUnsignedShort(bm, bsmIndex);
-                    bsmArgs[a] = readConst(argIndex);
+                    bsmArgs[a] = constantPool.readConst(argIndex);
                     bsmIndex += 2;
                 }
                 mv.visitInvokeDynamicInsn(sr.name, sr.desc, bsm, bsmArgs);
@@ -1505,7 +1373,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.TYPE_INSN:
-                mv.visitTypeInsn(opcode, readClass(readUnsignedShort(v + 1)));
+                mv.visitTypeInsn(opcode, constantPool.readClass(readUnsignedShort(v + 1)));
                 v += 3;
                 break;
             case ClassWriter.IINC_INSN:
@@ -1514,7 +1382,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
                 // case MANA_INSN:
             default:
-                mv.visitMultiANewArrayInsn(readClass(readUnsignedShort(v + 1)), b[v + 3] & 0xFF);
+                mv.visitMultiANewArrayInsn(constantPool.readClass(readUnsignedShort(v + 1)), b[v + 3] & 0xFF);
                 v += 4;
                 break;
             }
@@ -1692,7 +1560,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             exceptionNames = new String[exceptions.length];
             int i = 0;
             while (i < exceptions.length) {
-                exceptionNames[i] = readUTF8Item(name);
+                exceptionNames[i] = constantPool.readUTF8Item(name);
                 ++i;
             }
         }
@@ -1772,13 +1640,13 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 if (typeTable != null) {
                     for (int a = 0; a < typeTable.length; a += 3) {
                         if ((typeTable[a] == start) && (typeTable[a + 1] == index)) {
-                            vsignature = readUTF8Item(typeTable[a + 2]);
+                            vsignature = constantPool.readUTF8Item(typeTable[a + 2]);
                             break;
                         }
                     }
                 }
-                visitLocalVariable(readUTF8Item(ByteArray.readUnsignedShort(b, w + 4)),
-                                   readUTF8Item(ByteArray.readUnsignedShort(b, w + 6)),
+                visitLocalVariable(constantPool.readUTF8Item(ByteArray.readUnsignedShort(b, w + 4)),
+                                   constantPool.readUTF8Item(ByteArray.readUnsignedShort(b, w + 6)),
                                    vsignature,
                                    start, length, index);
                 w += 10;
@@ -1906,25 +1774,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         mainMethodWriter.put(out);
     }
 
-    //
-    // Constant pool
-    //
-    /**
-     * Reads a class constant pool item in {@link #b b}. <i>This method is
-     * intended for {@link Attribute} sub classes, and is normally not needed by
-     * class generators or adapters.</i>
-     *
-     * @param index the index of a constant pool class item.
-     * @return the String corresponding to the specified class item.
-     */
-    public String readClass(final int itemIndex) {
-        // computes the start index of the CONSTANT_Class item in b
-        // and reads the CONSTANT_Utf8 item designated by
-        // the first two bytes of this CONSTANT_Class item
-        int classOffset = items[itemIndex];
-        return readUTF8Item(ByteArray.readUnsignedShort(pool.data, classOffset));
-    }
-
 
     // ------------------------------------------------------------------------
     // Utility methods: low level parsing
@@ -1991,66 +1840,4 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         return ByteArray.readLong(code.data, index);
     }
 
-
-    /**
-     * Reads an UTF8 string constant pool item in {@link #b b}. <i>This method
-     * is intended for {@link Attribute} sub classes, and is normally not needed
-     * by class generators or adapters.</i>
-     *
-     * @param index the start index of an unsigned short value in {@link #b b},
-     *        whose value is the index of an UTF8 constant pool item.
-     * @return the String corresponding to the specified UTF8 item.
-     */
-    public String readUTF8(int index) {
-        return readUTF8Item(readUnsignedShort(index));
-    }
-
-    public String readUTF8Item(int item) {
-        int offset = items[item];
-        return ByteArray.readUTF8(pool.data, offset + 2, ByteArray.readUnsignedShort(pool.data, offset), utfDecodeBuffer);
-    }
-
-
-    /**
-     * Reads a numeric or string constant pool item in {@link #b b}. <i>This
-     * method is intended for {@link Attribute} sub classes, and is normally not
-     * needed by class generators or adapters.</i>
-     *
-     * @param item the index of a constant pool item.
-     * @return the {@link Integer}, {@link Float}, {@link Long}, {@link Double},
-     *         {@link String}, {@link Type} or {@link Handle} corresponding to
-     *         the given constant pool item.
-     */
-    public Object readConst(final int item) {
-        int index = items[item];
-        byte[] b = pool.data;
-        switch (b[index - 1]) {
-            case ClassWriter.INT:
-                return new Integer(ByteArray.readInt(b, index));
-            case ClassWriter.FLOAT:
-                return new Float(Float.intBitsToFloat(ByteArray.readInt(b, index)));
-            case ClassWriter.LONG:
-                return new Long(ByteArray.readLong(b, index));
-            case ClassWriter.DOUBLE:
-                return new Double(Double.longBitsToDouble(ByteArray.readLong(b, index)));
-            case ClassWriter.CLASS:
-                return Type.getObjectType(readUTF8Item(ByteArray.readUnsignedShort(b, index)));
-            case ClassWriter.STR:
-                return readUTF8Item(ByteArray.readUnsignedShort(b, index));
-            case ClassWriter.MTYPE:
-                return Type.getMethodType(readUTF8Item(ByteArray.readUnsignedShort(b, index)));
-
-            //case ClassWriter.HANDLE_BASE + [1..9]:
-            default: {
-                int tag = ByteArray.readByte(b, index);
-                int[] items = this.items;
-                int cpIndex = items[ByteArray.readUnsignedShort(b, index + 1)];
-                String owner = readClass(cpIndex);
-                cpIndex = items[ByteArray.readUnsignedShort(b, cpIndex + 2)];
-                String name = readUTF8Item(ByteArray.readUnsignedShort(b, cpIndex));
-                String desc = readUTF8Item(ByteArray.readUnsignedShort(b, cpIndex + 2));
-                return new Handle(tag, owner, name, desc);
-            }
-        }
-    }
 }
