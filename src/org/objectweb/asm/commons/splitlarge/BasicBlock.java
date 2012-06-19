@@ -136,6 +136,134 @@ class BasicBlock implements Comparable<BasicBlock> {
         other.predecessors.add(this);
     }
 
+    public static void parseStackMap(ByteVector stackMap,
+                                     ConstantPool constantPool,
+                                     int frameCount,
+                                     int maxLocals, int frameLocalCount, Object[] frameLocal, int maxStack,
+                                     Label[] labelsByOffset,
+                                     FrameData[] frameDataByOffset) {
+        int frameStackCount = 0;
+        Object[] frameStack = new Object[maxStack];
+
+        frameDataByOffset[0] = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
+
+        /*
+         * for the first explicit frame the offset is not
+         * offset_delta + 1 but only offset_delta; setting the
+         * implicit frame offset to -1 allow the use of the
+         * "offset_delta + 1" rule in all cases
+         */
+        int frameOffset = -1;
+        int v = 0;
+        byte[] b = (stackMap != null) ? stackMap.data : new byte[0];
+        int count = 0;
+        while (count < frameCount) {
+            int tag = b[v++] & 0xFF;
+            int delta;
+            if (tag < MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME) {
+                delta = tag;
+            } else if (tag < MethodWriter.RESERVED) {
+                delta = tag - MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME;
+                v = readFrameType(stackMap, constantPool, labelsByOffset, frameStack, 0, v);
+                frameStackCount = 1;
+
+            } else {
+                delta = ByteArray.readUnsignedShort(b, v);
+                v += 2;
+                if (tag == MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED) {
+                    v = readFrameType(stackMap, constantPool, labelsByOffset, frameStack, 0, v);
+                    frameStackCount = 1;
+                } else if (tag >= MethodWriter.CHOP_FRAME
+                           && tag < MethodWriter.SAME_FRAME_EXTENDED) {
+                    frameLocalCount -= MethodWriter.SAME_FRAME_EXTENDED - tag;
+                    frameStackCount = 0;
+                } else if (tag == MethodWriter.SAME_FRAME_EXTENDED) {
+                    frameStackCount = 0;
+                } else if (tag < MethodWriter.FULL_FRAME) {
+                    int j = frameLocalCount;
+                    for (int k = tag - MethodWriter.SAME_FRAME_EXTENDED; k > 0; k--) {
+                        v = readFrameType(stackMap, constantPool, labelsByOffset, frameLocal, j++, v);
+                    }
+                    frameLocalCount += tag - MethodWriter.SAME_FRAME_EXTENDED;
+                    frameStackCount = 0;
+                } else { // if (tag == FULL_FRAME) {
+                    {
+                        int n = frameLocalCount = ByteArray.readUnsignedShort(b, v);
+                        v += 2;
+                        for (int j = 0; n > 0; n--) {
+                            v = readFrameType(stackMap, constantPool, labelsByOffset, frameLocal, j++, v);
+                        }
+                    }
+                    {
+                        int n = frameStackCount = ByteArray.readUnsignedShort(b, v);
+                        v += 2;
+                        for (int j = 0; n > 0; n--) {
+                            v = readFrameType(stackMap, constantPool, labelsByOffset, frameStack, j++, v);
+                        }
+                    }
+                }
+            }
+            frameOffset += delta + 1;
+
+            frameDataByOffset[frameOffset] = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
+
+            ++count;
+        }
+    }
+
+    private static int readFrameType(ByteVector stackMap, 
+                                     ConstantPool constantPool,
+                                     Label[] labelsByOffset,
+                                     final Object[] frame,
+                                     final int index,
+                                     int v) {
+        byte[] b = stackMap.data;
+        int type = b[v++] & 0xFF;
+        switch (type) {
+        case 0:
+            frame[index] = Opcodes.TOP;
+            break;
+        case 1:
+            frame[index] = Opcodes.INTEGER;
+            break;
+        case 2:
+            frame[index] = Opcodes.FLOAT;
+            break;
+        case 3:
+            frame[index] = Opcodes.DOUBLE;
+            break;
+        case 4:
+            frame[index] = Opcodes.LONG;
+            break;
+        case 5:
+            frame[index] = Opcodes.NULL;
+            break;
+        case 6:
+            frame[index] = Opcodes.UNINITIALIZED_THIS;
+            break;
+        case 7: // Object
+            frame[index] = constantPool.readClass(ByteArray.readUnsignedShort(b, v));
+            v += 2;
+            break;
+        default: { // Uninitialized
+            int offset = ByteArray.readUnsignedShort(b, v);
+            Label label = getLabelAt(labelsByOffset, offset);
+            frame[index] = label;
+            v += 2;
+        }
+        }
+        return v;
+    }
+
+    private static Label getLabelAt(Label[] labelsByOffset, int offset) {
+        Label l = labelsByOffset[offset];
+        if (l == null) {
+            l = new Label();
+            labelsByOffset[offset] = l;
+        }
+        return l;
+    }
+
     /**
      * Compute flowgraph from code.
      */

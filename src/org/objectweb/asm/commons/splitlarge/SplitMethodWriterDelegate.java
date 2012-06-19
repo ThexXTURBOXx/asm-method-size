@@ -121,6 +121,9 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     @Override
     public void visitEnd() {
+        if ((version & 0xFFFF) < Opcodes.V1_6) {
+            throw new RuntimeException("JVM version < 1.6 not supported");
+        }
         constantPool = new ConstantPool(pool, poolSize, cw.bootstrapMethods, cw.bootstrapMethodsCount);
         thisName = constantPool.readUTF8Item(name);
         cv = cw.getFirstVisitor();
@@ -134,7 +137,19 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.blocksByOffset = computeBlocksByOffset(blocks);
         this.labelsByOffset = new Label[code.length];
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
-        parseStackMap();
+        Object[] frameLocal = new Object[maxLocals];
+        int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, access, this.descriptor, frameLocal);
+        FrameData[] frameDataByOffset = new FrameData[code.length + 1];
+        BasicBlock.parseStackMap(stackMap, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
+        {
+            int i = 0;
+            while (i <= code.length) {
+                if ((frameDataByOffset[i] != null) && (blocksByOffset[i] != null)) {
+                    blocksByOffset[i].frameData = frameDataByOffset[i];
+                }
+                ++i;
+            }
+        }
         HashMap<Label, String> labelTypes = computeFrames();
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
@@ -153,126 +168,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         }
         transferAnnotations();
         transferNonstandardAttributes();
-    }
-
-    private void parseStackMap() {
-        if ((version & 0xFFFF) < Opcodes.V1_6) {
-            throw new RuntimeException("JVM version < 1.6 not supported");
-        }
-        Object[] frameLocal = new Object[maxLocals];
-        int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, access, this.descriptor, frameLocal);
-        int frameStackCount = 0;
-        Object[] frameStack = new Object[maxStack];
-
-        blocksByOffset[0].frameData =
-            new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
-
-        /*
-         * for the first explicit frame the offset is not
-         * offset_delta + 1 but only offset_delta; setting the
-         * implicit frame offset to -1 allow the use of the
-         * "offset_delta + 1" rule in all cases
-         */
-        int frameOffset = -1;
-        int v = 0;
-        byte[] b = (stackMap != null) ? stackMap.data : new byte[0];
-        int count = 0;
-        while (count < frameCount) {
-            int tag = b[v++] & 0xFF;
-            int delta;
-            if (tag < MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME) {
-                delta = tag;
-            } else if (tag < MethodWriter.RESERVED) {
-                delta = tag - MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME;
-                v = readFrameType(frameStack, 0, v);
-                frameStackCount = 1;
-
-            } else {
-                delta = ByteArray.readUnsignedShort(b, v);
-                v += 2;
-                if (tag == MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED) {
-                    v = readFrameType(frameStack, 0, v);
-                    frameStackCount = 1;
-                } else if (tag >= MethodWriter.CHOP_FRAME
-                           && tag < MethodWriter.SAME_FRAME_EXTENDED) {
-                    frameLocalCount -= MethodWriter.SAME_FRAME_EXTENDED - tag;
-                    frameStackCount = 0;
-                } else if (tag == MethodWriter.SAME_FRAME_EXTENDED) {
-                    frameStackCount = 0;
-                } else if (tag < MethodWriter.FULL_FRAME) {
-                    int j = frameLocalCount;
-                    for (int k = tag - MethodWriter.SAME_FRAME_EXTENDED; k > 0; k--) {
-                        v = readFrameType(frameLocal, j++, v);
-                    }
-                    frameLocalCount += tag - MethodWriter.SAME_FRAME_EXTENDED;
-                    frameStackCount = 0;
-                } else { // if (tag == FULL_FRAME) {
-                    {
-                        int n = frameLocalCount = ByteArray.readUnsignedShort(b, v);
-                        v += 2;
-                        for (int j = 0; n > 0; n--) {
-                            v = readFrameType(frameLocal, j++, v);
-                        }
-                    }
-                    {
-                        int n = frameStackCount = ByteArray.readUnsignedShort(b, v);
-                        v += 2;
-                        for (int j = 0; n > 0; n--) {
-                            v = readFrameType(frameStack, j++, v);
-                        }
-                    }
-                }
-            }
-            frameOffset += delta + 1;
-
-            BasicBlock block = blocksByOffset[frameOffset];
-            if (block != null) {
-                block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
-            }
-
-            ++count;
-        }
-    }
-
-    private int readFrameType(final Object[] frame,
-                              final int index,
-                              int v) {
-        byte[] b = stackMap.data;
-        int type = b[v++] & 0xFF;
-        switch (type) {
-        case 0:
-            frame[index] = Opcodes.TOP;
-            break;
-        case 1:
-            frame[index] = Opcodes.INTEGER;
-            break;
-        case 2:
-            frame[index] = Opcodes.FLOAT;
-            break;
-        case 3:
-            frame[index] = Opcodes.DOUBLE;
-            break;
-        case 4:
-            frame[index] = Opcodes.LONG;
-            break;
-        case 5:
-            frame[index] = Opcodes.NULL;
-            break;
-        case 6:
-            frame[index] = Opcodes.UNINITIALIZED_THIS;
-            break;
-        case 7: // Object
-            frame[index] = constantPool.readClass(ByteArray.readUnsignedShort(b, v));
-            v += 2;
-            break;
-        default: { // Uninitialized
-            int offset = ByteArray.readUnsignedShort(b, v);
-            Label label = getLabelAt(offset);
-            frame[index] = label;
-            v += 2;
-        }
-        }
-        return v;
     }
 
     /**
@@ -1744,13 +1639,17 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     
 
-    private Label getLabelAt(int offset) {
+    private static Label getLabelAt(Label[] labelsByOffset, int offset) {
         Label l = labelsByOffset[offset];
         if (l == null) {
             l = new Label();
             labelsByOffset[offset] = l;
         }
         return l;
+    }
+
+    private Label getLabelAt(int offset) {
+        return getLabelAt(labelsByOffset, offset);
     }
 
     /**
