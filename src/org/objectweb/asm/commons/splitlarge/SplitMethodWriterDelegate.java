@@ -127,6 +127,11 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         thisName = constantPool.readUTF8Item(name);
         cv = cw.getFirstVisitor();
 
+        Object[] frameLocal = new Object[maxLocals];
+        int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, access, this.descriptor, frameLocal);
+        FrameData[] frameDataByOffset = new FrameData[code.length + 1];
+        this.labelsByOffset = new Label[code.length];
+        BasicBlock.parseStackMap(stackMap, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
         this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
         TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, firstHandler, largeBranchTargets,
                                                                  maxStack, maxLocals, maxMethodLength);
@@ -134,12 +139,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.blocksByOffset = computeBlocksByOffset(blocks);
-        this.labelsByOffset = new Label[code.length];
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
-        Object[] frameLocal = new Object[maxLocals];
-        int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, access, this.descriptor, frameLocal);
-        FrameData[] frameDataByOffset = new FrameData[code.length + 1];
-        BasicBlock.parseStackMap(stackMap, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
         {
             int i = 0;
             while (i <= code.length) {
