@@ -842,19 +842,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     // Utility methods: low level parsing
     // ------------------------------------------------------------------------
 
-
-    /**
-     * Reads a byte value in {@link #b b}. <i>This method is intended for
-     * {@link Attribute} sub classes, and is normally not needed by class
-     * generators or adapters.</i>
-     *
-     * @param index the start index of the value to be read in {@link #b b}.
-     * @return the read value.
-     */
-    public int readByte(final int index) {
-        return ByteArray.readByte(code.data, index);
-    }
-
     /**
      * Reads an unsigned short value in {@link #b b}. <i>This method is
      * intended for {@link Attribute} sub classes, and is normally not needed by
@@ -889,18 +876,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
      */
     public int readInt(final int index) {
         return ByteArray.readInt(code.data, index);
-    }
-
-    /**
-     * Reads a signed long value in {@link #b b}. <i>This method is intended
-     * for {@link Attribute} sub classes, and is normally not needed by class
-     * generators or adapters.</i>
-     *
-     * @param index the start index of the value to be read in {@link #b b}.
-     * @return the read value.
-     */
-    public long readLong(final int index) {
-        return ByteArray.readLong(code.data, index);
     }
 
 }
