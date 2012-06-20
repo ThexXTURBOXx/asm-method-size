@@ -1122,6 +1122,9 @@ class BasicBlock implements Comparable<BasicBlock> {
             while (v < code.length) {
                 int exitCount = 1;
                 int opcode = b[v] & 0xFF;
+                if (opcode > 201) {
+                    opcode = opcode < 218 ? opcode - 49 : opcode - 20;
+                }
                 switch (ClassWriter.TYPE[opcode]) {
                 case ClassWriter.NOARG_INSN:
                 case ClassWriter.IMPLVAR_INSN:
@@ -1132,19 +1135,9 @@ class BasicBlock implements Comparable<BasicBlock> {
                     if (opcode == Opcodes.JSR)
                         throw new UnsupportedOperationException("JSR instruction not supported yet");
                     int label;
-                    /*
-                     * converts temporary opcodes 202 to 217, 218 and
-                     * 219 to IFEQ ... JSR (inclusive), IFNULL and
-                     * IFNONNULL
-                     */
-                    if (opcode > 201) {
-                        opcode = opcode < 218 ? opcode - 49 : opcode - 20;
-                        Label l = largeBranchTargets[v + 1];
-                        if (l != null) {
-                            label = l.position;
-                        } else {
-                            label = v + ByteArray.readUnsignedShort(b, v + 1);
-                        }
+                    Label l = largeBranchTargets[v + 1];
+                    if (l != null) {
+                        label = l.position;
                     } else {
                         label = v + ByteArray.readShort(b, v + 1);
                     }
