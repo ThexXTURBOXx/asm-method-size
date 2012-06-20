@@ -336,9 +336,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                 v += 1;
                 break;
             case Opcodes.BIPUSH:
-            case Opcodes.SIPUSH:
                 frameStack[frameStackCount++] = Opcodes.INTEGER;
                 v += 2;
+                break;
+            case Opcodes.SIPUSH:
+                frameStack[frameStackCount++] = Opcodes.INTEGER;
+                v += 3;
                 break;
             case Opcodes.LCONST_0:
             case Opcodes.LCONST_1:
