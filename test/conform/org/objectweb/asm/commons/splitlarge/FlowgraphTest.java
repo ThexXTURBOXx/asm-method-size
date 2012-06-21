@@ -34,6 +34,8 @@ import org.objectweb.asm.*;
 
 import java.util.Set;
 import java.util.HashSet;
+import java.util.TreeSet;
+import java.util.HashMap;
 
 import junit.framework.TestCase;
 
@@ -78,17 +80,24 @@ public class FlowgraphTest extends TestCase {
         assertEquals(s, set);
     }
 
-    private BasicBlock[] endMethod() {
+    private BasicBlock[] endMethod(int maxStack, int maxLocals) {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
         ByteVector code = mw.getCode();
-        return BasicBlock.computeFlowgraph(code,
-                                           mw.getFirstHandler(),
-                                           new Label[code.length],
-                                           0, 0, 65536,
-                                           new BasicBlock[code.length + 1])
-            .toArray(new BasicBlock[0]);
+        TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
+        HashMap<Label, String> labelTypes = new HashMap<Label, String>();
+        ConstantPool constantPool = new ConstantPool(cw.getConstantPool(), cw.getConstantPoolSize());
+        BasicBlock.computeFlowgraph(code, mw.getFirstHandler(), new Label[code.length],
+                                    constantPool, cw.thisName,
+                                    maxStack, maxLocals,
+                                    new FrameData[code.length + 1],
+                                    65536,
+                                    blocks,
+                                    new BasicBlock[code.length + 1],
+                                    new Label[code.length + 2],
+                                    labelTypes);
+        return blocks.toArray(new BasicBlock[0]);
     }
 
     private void LABEL(final Label l) {
@@ -118,7 +127,7 @@ public class FlowgraphTest extends TestCase {
     public void testZero() {
         startMethod();
         NOP();
-        BasicBlock[] blocks = endMethod();
+        BasicBlock[] blocks = endMethod(0, 0);
         assertEquals(1, blocks.length);
     }
 
@@ -130,7 +139,7 @@ public class FlowgraphTest extends TestCase {
         startMethod();
         LABEL(l1);
         GOTO(l1);
-        BasicBlock[] blocks = endMethod();
+        BasicBlock[] blocks = endMethod(0, 0);
         assertEquals(1, blocks.length);
     }
 
@@ -151,7 +160,7 @@ public class FlowgraphTest extends TestCase {
         IFNE(l1);
         LABEL(l4); // 1
 
-        BasicBlock[] blocks = endMethod();
+        BasicBlock[] blocks = endMethod(1, 0);
         assertEquals(2, blocks.length);
         
         BasicBlock b0 = blocks[0];
@@ -183,7 +192,7 @@ public class FlowgraphTest extends TestCase {
         IFNE(l1);
         LABEL(l5); // 3
 
-        BasicBlock[] blocks = endMethod();
+        BasicBlock[] blocks = endMethod(1, 0);
         assertEquals(4, blocks.length);
         
         BasicBlock b0 = blocks[0];
@@ -222,7 +231,7 @@ public class FlowgraphTest extends TestCase {
         IFNE(l4);
         // 2
 
-        BasicBlock[] blocks = endMethod();
+        BasicBlock[] blocks = endMethod(1, 0);
         assertEquals(3, blocks.length);
         
         BasicBlock b0 = blocks[0];
@@ -254,7 +263,7 @@ public class FlowgraphTest extends TestCase {
         IFNE(l3);
         // 4
 
-        BasicBlock[] blocks = endMethod();
+        BasicBlock[] blocks = endMethod(1, 0);
         assertEquals(5, blocks.length);
         
         BasicBlock b0 = blocks[0];

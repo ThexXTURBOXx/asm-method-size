@@ -34,6 +34,7 @@ import org.objectweb.asm.*;
 
 import java.util.Set;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.TreeSet;
 
 import junit.framework.TestCase;
@@ -84,8 +85,18 @@ public class ClassWriterSCCTest extends TestCase {
         this.mw.visitEnd();
         this.cw.visitEnd();
         ByteVector code = mw.getCode();
-        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, null, new Label[code.length + 1], maxStack, maxLocals, 65536,
-                                                                 new BasicBlock[code.length + 2]);
+        TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
+        HashMap<Label, String> labelTypes = new HashMap<Label, String>();
+        ConstantPool constantPool = new ConstantPool(cw.getConstantPool(), cw.getConstantPoolSize());
+        BasicBlock.computeFlowgraph(code, null, new Label[code.length + 1], 
+                                    constantPool, cw.thisName,
+                                    maxStack, maxLocals, 
+                                    new FrameData[code.length + 1],
+                                    65536,
+                                    blocks,
+                                    new BasicBlock[code.length + 2],
+                                    new Label[code.length + 2],
+                                    labelTypes);
         Scc root = Scc.stronglyConnectedComponents(blocks);
         root.initializeAll();
         return root;

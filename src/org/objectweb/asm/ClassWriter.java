@@ -975,6 +975,24 @@ public class ClassWriter extends ClassVisitor {
         return out.data;
     }
 
+    /**
+     * Gets the constant pool; for testing.
+     *
+     * @return constant pool
+     */
+    public ByteVector getConstantPool() {
+        return pool;
+    }
+
+    /**
+     * Gets size of the the constant pool; for testing.
+     *
+     * @return size of the constant pool
+     */
+    public int getConstantPoolSize() {
+        return index;
+    }
+
     // ------------------------------------------------------------------------
     // Utility methods: constant pool management
     // ------------------------------------------------------------------------

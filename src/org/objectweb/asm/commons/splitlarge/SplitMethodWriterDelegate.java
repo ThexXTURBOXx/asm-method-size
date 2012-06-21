@@ -134,9 +134,16 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         BasicBlock.parseStackMap(stackMap, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
         this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
         this.blocksByOffset = new BasicBlock[code.length + 2];
-        TreeSet<BasicBlock> blocks = BasicBlock.computeFlowgraph(code, firstHandler, largeBranchTargets,
-                                                                 maxStack, maxLocals, maxMethodLength,
-                                                                 blocksByOffset);
+        TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
+        HashMap<Label, String> labelTypes = new HashMap<Label, String>();
+        BasicBlock.computeFlowgraph(code, firstHandler, largeBranchTargets,
+                                    constantPool, cw.thisName,
+                                    maxStack, maxLocals,
+                                    frameDataByOffset,
+                                    maxMethodLength,
+                                    blocks,
+                                    blocksByOffset, labelsByOffset,
+                                    labelTypes);
         CycleEquivalence.compute(blocks);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
@@ -150,7 +157,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 ++i;
             }
         }
-        HashMap<Label, String> labelTypes = BasicBlock.computeFrames(code, constantPool, cw.thisName, maxLocals, maxStack, blocksByOffset, labelsByOffset);
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
         this.scc.computeSplitPoints();

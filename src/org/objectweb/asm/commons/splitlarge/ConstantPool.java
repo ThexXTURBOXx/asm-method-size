@@ -118,6 +118,10 @@ final public class ConstantPool {
         }
     }
 
+    public ConstantPool(ByteVector pool, int poolSize) {
+        this(pool, poolSize, null, 0);
+    }
+
     //
     // Constant pool
     //

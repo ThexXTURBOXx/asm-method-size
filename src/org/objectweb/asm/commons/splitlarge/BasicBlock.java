@@ -257,773 +257,6 @@ class BasicBlock implements Comparable<BasicBlock> {
         return v;
     }
 
-    /**
-     * Compute frames for all basic blocks.
-     */
-    public static HashMap<Label, String> computeFrames(ByteVector code, ConstantPool constantPool, String thisName, int maxLocals, int maxStack, BasicBlock[] blocksByOffset, Label[] labelsByOffset) {
-        int v = 0;
-        byte[] b = code.data;
-        int frameLocalCount = 0;
-        int frameStackCount = 0;
-        Object[] frameLocal = new Object[maxLocals];
-        Arrays.fill(frameLocal, Opcodes.TOP);
-        Object[] frameStack = new Object[maxStack];
-        Arrays.fill(frameStack, Opcodes.TOP);
-        // map labels of NEW instructions to their types
-        HashMap<Label, String> labelTypes = new HashMap<Label, String>();
-        while (v < code.length) {
-            BasicBlock block = blocksByOffset[v];
-            if (block != null) {
-                FrameData fd = block.frameData;
-                if (fd == null) {
-                    block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
-                } else {
-                    frameLocalCount = fd.frameLocal.length;
-                    System.arraycopy(fd.frameLocal, 0, frameLocal, 0, frameLocalCount);
-                    frameStackCount = fd.frameStack.length;
-                    System.arraycopy(fd.frameStack, 0, frameStack, 0, frameStackCount);
-                }
-            }
-            int opcode = b[v] & 0xFF;
-            if (opcode > 201) {
-                /*
-                 * Convert temporary opcodes 202 to 217, 218 and 219
-                 * to IFEQ ... JSR (inclusive), IFNULL and
-                 * IFNONNULL. (The label targets themselves aren't
-                 * relevant here.)
-                 */
-                opcode = opcode < 218 ? opcode - 49 : opcode - 20;
-            }
-            switch (opcode) {
-            case Opcodes.NOP:
-            case Opcodes.INEG:
-            case Opcodes.LNEG:
-            case Opcodes.FNEG:
-            case Opcodes.DNEG:
-            case Opcodes.I2B:
-            case Opcodes.I2C:
-            case Opcodes.I2S:
-                v += 1;
-                break;
-            case Opcodes.GOTO:
-                frameLocalCount = frameStackCount = 0;
-                v += 3;
-                break;
-            case 200: // GOTO_W
-                frameLocalCount = frameStackCount = 0;
-                v += 5;
-                break;
-            case Opcodes.IRETURN:
-            case Opcodes.FRETURN:
-            case Opcodes.ARETURN:
-            case Opcodes.ATHROW:
-            case Opcodes.RETURN:
-                frameLocalCount = frameStackCount = 0;
-                v += 1;
-                break;
-            case Opcodes.ACONST_NULL:
-                frameStack[frameStackCount++] = Opcodes.NULL;
-                v += 1;
-                break;
-            case Opcodes.ICONST_M1:
-            case Opcodes.ICONST_0:
-            case Opcodes.ICONST_1:
-            case Opcodes.ICONST_2:
-            case Opcodes.ICONST_3:
-            case Opcodes.ICONST_4:
-            case Opcodes.ICONST_5:
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 1;
-                break;
-            case Opcodes.BIPUSH:
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 2;
-                break;
-            case Opcodes.SIPUSH:
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 3;
-                break;
-            case Opcodes.LCONST_0:
-            case Opcodes.LCONST_1:
-                frameStack[frameStackCount++] = Opcodes.LONG;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.FCONST_0:
-            case Opcodes.FCONST_1:
-            case Opcodes.FCONST_2:
-                frameStack[frameStackCount++] = Opcodes.FLOAT;
-                v += 1;
-                break;
-            case Opcodes.DCONST_0:
-            case Opcodes.DCONST_1:
-                frameStack[frameStackCount++] = Opcodes.DOUBLE;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.ILOAD:
-            case Opcodes.FLOAD:
-            case Opcodes.ALOAD:
-                frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
-                v += 2;
-                break;
-
-                // ILOAD_n
-            case 26:
-            case 27:
-            case 28:
-            case 29:
-                frameStack[frameStackCount++] = frameLocal[opcode - 26];
-                v += 1;
-                break;
-                
-                // LLOAD_n
-            case 30:
-            case 31:
-            case 32:
-            case 33:
-                frameStack[frameStackCount++] = frameLocal[opcode - 30];
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-
-                // FLOAD_n
-            case 34:
-            case 35:
-            case 36:
-            case 37:
-                frameStack[frameStackCount++] = frameLocal[opcode - 34];
-                v += 1;
-                break;
-
-                // DLOAD_n
-            case 38:
-            case 39:
-            case 40:
-            case 41:
-                frameStack[frameStackCount++] = frameLocal[opcode - 38];
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-
-                // ALOAD_n
-            case 42:
-            case 43:
-            case 44:
-            case 45:
-                frameStack[frameStackCount++] = frameLocal[opcode - 42];
-                v += 1;
-                break;
-
-            case Opcodes.LLOAD:
-            case Opcodes.DLOAD:
-                frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 2;
-                break;
-            case Opcodes.IALOAD:
-            case Opcodes.BALOAD:
-            case Opcodes.CALOAD:
-            case Opcodes.SALOAD:
-                frameStackCount -= 2;
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 1;
-                break;
-            case Opcodes.LALOAD:
-            case Opcodes.D2L:
-                frameStackCount -= 2;
-                frameStack[frameStackCount++] = Opcodes.LONG;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.FALOAD:
-                frameStackCount -= 2;
-                frameStack[frameStackCount++] = Opcodes.FLOAT;
-                v += 1;
-                break;
-            case Opcodes.DALOAD:
-            case Opcodes.L2D:
-                frameStackCount -= 2;
-                frameStack[frameStackCount++] = Opcodes.DOUBLE;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.AALOAD: {
-                frameStackCount -= 2;
-                Object t = frameStack[frameStackCount];
-                if (t instanceof String) {
-                    frameStackCount = pushDesc(frameStack, frameStackCount, ((String) t).substring(1));
-                } else {
-                    frameStack[frameStackCount++] =  "java/lang/Object";
-                }
-                v += 1;
-                break;
-            }
-            case Opcodes.ISTORE:
-            case Opcodes.FSTORE:
-            case Opcodes.ASTORE: {
-                int n = b[v + 1] & 0xFF;
-                frameLocal[n] = frameStack[--frameStackCount];
-                frameLocalCount = Math.max(frameLocalCount, n + 1);
-                invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 2;
-                break;
-            }
-                // ISTORE_n
-            case 59:
-            case 60:
-            case 61:
-            case 62: {
-                int n = opcode - 59;
-                frameLocal[n] = frameStack[--frameStackCount];
-                frameLocalCount = Math.max(frameLocalCount, n + 1);
-                invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 1;
-                break;
-            }
-                // LSTORE_n
-            case 63:
-            case 64:
-            case 65:
-            case 66: {
-                int n = opcode - 63;
-                frameLocal[n] = frameStack[--frameStackCount];
-                frameLocal[n + 1] = Opcodes.TOP;
-                frameLocalCount = Math.max(frameLocalCount, n + 2);
-                invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 1;
-                break;
-            }
-
-                // FSTORE_n
-            case 67:
-            case 68:
-            case 69:
-            case 70: {
-                int n = opcode - 67;
-                frameLocal[n] = frameStack[--frameStackCount];
-                frameLocalCount = Math.max(frameLocalCount, n + 1);
-                invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 1;
-                break;
-            }
-
-                // DSTORE_n
-            case 71:
-            case 72:
-            case 73:
-            case 74: {
-                int n = opcode - 71;
-                frameLocal[n] = frameStack[--frameStackCount];
-                frameLocal[n + 1] = Opcodes.TOP;
-                frameLocalCount = Math.max(frameLocalCount, n + 2);
-                invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 1;
-                break;
-            }
-                // ASTORE_n
-            case 75:
-            case 76:
-            case 77:
-            case 78: {
-                int n = opcode - 75;
-                frameLocal[n] = frameStack[--frameStackCount];
-                frameLocalCount = Math.max(frameLocalCount, n + 1);
-                invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 1;
-                break;
-            }
-
-            case Opcodes.LSTORE:
-            case Opcodes.DSTORE: {
-                int n = b[v + 1] & 0xFF;
-                frameLocal[n] = frameStack[--frameStackCount];
-                frameLocal[n + 1] = Opcodes.TOP;
-                frameLocalCount = Math.max(frameLocalCount, n + 2);
-                invalidateTwoWordLocal(frameLocal, n - 1);
-                v += 2;
-                break;
-            }
-            case Opcodes.IASTORE:
-            case Opcodes.BASTORE:
-            case Opcodes.CASTORE:
-            case Opcodes.SASTORE:
-            case Opcodes.FASTORE:
-            case Opcodes.AASTORE:
-                frameStackCount -= 3;
-                v += 1;
-                break;
-            case Opcodes.LASTORE:
-            case Opcodes.DASTORE:
-                frameStackCount -= 4;
-                v += 1;
-                break;
-            case Opcodes.POP:
-                --frameStackCount;
-                v += 1;
-                break;
-            case Opcodes.IFEQ:
-            case Opcodes.IFNE:
-            case Opcodes.IFLT:
-            case Opcodes.IFGE:
-            case Opcodes.IFGT:
-            case Opcodes.IFLE:
-            case Opcodes.IFNULL:
-            case Opcodes.IFNONNULL:
-                --frameStackCount;
-                v += 3;
-                break;
-            case Opcodes.MONITORENTER:
-            case Opcodes.MONITOREXIT:
-                --frameStackCount;
-                v += 1;
-                break;
-            case Opcodes.TABLESWITCH:
-                frameStackCount = frameLocalCount = 0;
-                // skips 0 to 3 padding bytes
-                v = v + 4 - (v & 3);
-                v += 12 + 4 * (ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1);
-                break;
-            case Opcodes.LOOKUPSWITCH:
-                frameStackCount = frameLocalCount = 0;
-                // skips 0 to 3 padding bytes
-                v = v + 4 - (v & 3);
-                v += 8 + v + (ByteArray.readInt(b, v + 4) * 8);
-                break;
-            case Opcodes.POP2:
-                frameStackCount -= 2;
-                v += 1;
-                break;
-            case Opcodes.IF_ICMPEQ:
-            case Opcodes.IF_ICMPNE:
-            case Opcodes.IF_ICMPLT:
-            case Opcodes.IF_ICMPGE:
-            case Opcodes.IF_ICMPGT:
-            case Opcodes.IF_ICMPLE:
-            case Opcodes.IF_ACMPEQ:
-            case Opcodes.IF_ACMPNE:
-                frameStackCount -= 2;
-                v += 3;
-                break;
-            case Opcodes.LRETURN:
-            case Opcodes.DRETURN:
-                frameStackCount -= 2;
-                v += 1;
-                break;
-            case Opcodes.DUP: {
-                Object t = frameStack[--frameStackCount];
-                frameStack[frameStackCount++] = t;
-                frameStack[frameStackCount++] = t;
-                v += 1;
-                break;
-            }
-            case Opcodes.DUP_X1: {
-                Object t1 = frameStack[--frameStackCount];
-                Object t2 = frameStack[--frameStackCount];
-                frameStack[frameStackCount++] = t1;
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                v += 1;
-                break;
-            }
-            case Opcodes.DUP_X2: {
-                Object t1 = frameStack[--frameStackCount];
-                Object t2 = frameStack[--frameStackCount];
-                Object t3 = frameStack[--frameStackCount];
-                frameStack[frameStackCount++] = t1;
-                frameStack[frameStackCount++] = t3;
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                v += 1;
-                break;
-            }
-            case Opcodes.DUP2: {
-                Object t1 = frameStack[--frameStackCount];
-                Object t2 = frameStack[--frameStackCount];
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                v += 1;
-                break;
-            }
-            case Opcodes.DUP2_X1: {
-                Object t1 = frameStack[--frameStackCount];
-                Object t2 = frameStack[--frameStackCount];
-                Object t3 = frameStack[--frameStackCount];
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                frameStack[frameStackCount++] = t3;
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                v += 1;
-                break;
-            }
-            case Opcodes.DUP2_X2: {
-                Object t1 = frameStack[--frameStackCount];
-                Object t2 = frameStack[--frameStackCount];
-                Object t3 = frameStack[--frameStackCount];
-                Object t4 = frameStack[--frameStackCount];
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                frameStack[frameStackCount++] = t4;
-                frameStack[frameStackCount++] = t3;
-                frameStack[frameStackCount++] = t2;
-                frameStack[frameStackCount++] = t1;
-                v += 1;
-                break;
-            }
-            case Opcodes.SWAP: {
-                Object t1 = frameStack[--frameStackCount];
-                Object t2 = frameStack[--frameStackCount];
-                frameStack[frameStackCount++] = t1;
-                frameStack[frameStackCount++] = t2;
-                v += 1;
-                break;
-            }
-            case Opcodes.IADD:
-            case Opcodes.ISUB:
-            case Opcodes.IMUL:
-            case Opcodes.IDIV:
-            case Opcodes.IREM:
-            case Opcodes.IAND:
-            case Opcodes.IOR:
-            case Opcodes.IXOR:
-            case Opcodes.ISHL:
-            case Opcodes.ISHR:
-            case Opcodes.IUSHR:
-            case Opcodes.L2I:
-            case Opcodes.D2I:
-            case Opcodes.FCMPL:
-            case Opcodes.FCMPG:
-                frameStackCount -= 2;
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 1;
-                break;
-            case Opcodes.LADD:
-            case Opcodes.LSUB:
-            case Opcodes.LMUL:
-            case Opcodes.LDIV:
-            case Opcodes.LREM:
-            case Opcodes.LAND:
-            case Opcodes.LOR:
-            case Opcodes.LXOR:
-                frameStackCount -= 4;
-                frameStack[frameStackCount++] = Opcodes.LONG;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.FADD:
-            case Opcodes.FSUB:
-            case Opcodes.FMUL:
-            case Opcodes.FDIV:
-            case Opcodes.FREM:
-            case Opcodes.L2F:
-            case Opcodes.D2F:
-                frameStackCount -= 2;
-                frameStack[frameStackCount++] = Opcodes.FLOAT;
-                v += 1;
-                break;
-            case Opcodes.DADD:
-            case Opcodes.DSUB:
-            case Opcodes.DMUL:
-            case Opcodes.DDIV:
-            case Opcodes.DREM:
-                frameStackCount -= 4;
-                frameStack[frameStackCount++] = Opcodes.DOUBLE;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.LSHL:
-            case Opcodes.LSHR:
-            case Opcodes.LUSHR:
-                frameStackCount -= 3;
-                frameStack[frameStackCount++] = Opcodes.LONG;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.IINC: {
-                int n = b[v + 1] & 0xFF;
-                frameLocal[n] = Opcodes.INTEGER;
-                frameLocalCount = Math.max(frameLocalCount, n + 1);
-                v += 3;
-                break;
-            }
-            case Opcodes.I2L:
-            case Opcodes.F2L:
-                --frameStackCount;
-                frameStack[frameStackCount++] = Opcodes.LONG;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.I2F:
-                --frameStackCount;
-                frameStack[frameStackCount++] = Opcodes.FLOAT;
-                v += 1;
-                break;
-            case Opcodes.I2D:
-            case Opcodes.F2D:
-                --frameStackCount;
-                frameStack[frameStackCount++] = Opcodes.DOUBLE;
-                frameStack[frameStackCount++] = Opcodes.TOP;
-                v += 1;
-                break;
-            case Opcodes.F2I:
-            case Opcodes.ARRAYLENGTH:
-                --frameStackCount;
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 1;
-                break;
-            case Opcodes.INSTANCEOF:
-                --frameStackCount;
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 3;
-                break;
-            case Opcodes.LCMP:
-            case Opcodes.DCMPL:
-            case Opcodes.DCMPG:
-                frameStackCount -= 4;
-                frameStack[frameStackCount++] = Opcodes.INTEGER;
-                v += 1;
-                break;
-            case Opcodes.JSR:
-            case 201: // JSR_W
-            case Opcodes.RET:
-                throw new RuntimeException("JSR/RET are not supported");
-            case Opcodes.GETSTATIC: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
-                v += 3;
-                break;
-            }
-            case Opcodes.PUTSTATIC: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = popDesc(frameStackCount, sr.desc);
-                v += 3;
-                break;
-            }
-            case Opcodes.GETFIELD: {
-                --frameStackCount;
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
-                v += 3;
-                break;
-            }
-            case Opcodes.PUTFIELD: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = popDesc(frameStackCount, sr.desc);
-                --frameStackCount;
-                v += 3;
-                break;
-            }
-            case Opcodes.INVOKEVIRTUAL: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = popDesc(frameStackCount, sr.desc);
-                --frameStackCount;
-                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
-                v += 3;
-                break;
-            }
-            case Opcodes.INVOKESPECIAL: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = popDesc(frameStackCount, sr.desc);
-                Object t = frameStack[--frameStackCount];
-                if (sr.name.charAt(0) == '<') {
-                    Object u;
-                    if (t == Opcodes.UNINITIALIZED_THIS) {
-                        u = thisName;
-                    } else {
-                        u = labelTypes.get(t);
-                    }
-                    for (int i = 0; i < frameLocalCount; ++i) {
-                        if (frameLocal[i] == t) {
-                            frameLocal[i] = u;
-                        }
-                    }
-                    for (int i = 0; i < frameStackCount; ++i) {
-                        if (frameStack[i] == t) {
-                            frameStack[i] = u;
-                        }
-                    }
-                }
-                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
-                v += 3;
-                break;
-            }
-            case Opcodes.INVOKESTATIC: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = popDesc(frameStackCount, sr.desc);
-                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
-                v += 3;
-                break;
-            }
-            case Opcodes.INVOKEINTERFACE: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = popDesc(frameStackCount, sr.desc);
-                --frameStackCount;
-                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
-                v += 5;
-                break;
-            }
-            case Opcodes.INVOKEDYNAMIC: {
-                ConstantPool.DynamicSymRef sr = constantPool.parseDynamicSymRef(ByteArray.readUnsignedShort(b, v + 1));
-                frameStackCount = popDesc(frameStackCount, sr.desc);
-                frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
-                v += 5;
-                break;
-            }
-            case Opcodes.LDC:
-            case 19: // LDC_W
-            case 20: { // LDC2_W
-                int itemIndex = (opcode == Opcodes.LDC) ? (b[v + 1] & 0xFF) : ByteArray.readUnsignedShort(b, v + 1);
-                Object cst = constantPool.readConst(itemIndex);
-                if (cst instanceof Integer) {
-                    frameStack[frameStackCount++] = Opcodes.INTEGER;
-                } else if (cst instanceof Long) {
-                    frameStack[frameStackCount++] = Opcodes.LONG;
-                    frameStack[frameStackCount++] = Opcodes.TOP;
-                } else if (cst instanceof Float) {
-                    frameStack[frameStackCount++] = Opcodes.FLOAT;
-                } else if (cst instanceof Double) {
-                    frameStack[frameStackCount++] = Opcodes.DOUBLE;
-                    frameStack[frameStackCount++] = Opcodes.TOP;
-                } else if (cst instanceof String) {
-                    frameStack[frameStackCount++] = "java/lang/String";
-                } else if (cst instanceof Type) {
-                    int sort = ((Type) cst).getSort();
-                    if (sort == Type.OBJECT || sort == Type.ARRAY) {
-                        frameStack[frameStackCount++] = "java/lang/Class";
-                    } else if (sort == Type.METHOD) {
-                        frameStack[frameStackCount++] = "java/lang/invoke/MethodType";
-                    } else {
-                        throw new IllegalArgumentException();
-                    }
-                } else if (cst instanceof Handle) {
-                    frameStack[frameStackCount++] = "java/lang/invoke/MethodHandle";
-                } else {
-                    throw new IllegalArgumentException();
-                }
-                
-                if (opcode == Opcodes.LDC) {
-                    v += 2;
-                } else {
-                    v += 3;
-                }
-                break;
-            }
-            case Opcodes.NEW: {
-                Label l = getLabelAt(labelsByOffset, v);
-                frameStack[frameStackCount++] = l;
-                String clazz = constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1));
-                labelTypes.put(l, clazz);
-                v += 3;
-                break;
-            }
-            case Opcodes.NEWARRAY:
-                --frameStackCount;
-                switch (b[v + 1]) {
-                case Opcodes.T_BOOLEAN:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[Z");
-                    break;
-                case Opcodes.T_CHAR:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[C");
-                    break;
-                case Opcodes.T_BYTE:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[B");
-                    break;
-                case Opcodes.T_SHORT:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[S");
-                    break;
-                case Opcodes.T_INT:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[I");
-                    break;
-                case Opcodes.T_FLOAT:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[F");
-                    break;
-                case Opcodes.T_DOUBLE:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[D");
-                    break;
-                    // case Opcodes.T_LONG:
-                default:
-                    frameStackCount = pushDesc(frameStack, frameStackCount, "[J");
-                    break;
-                }
-                v += 2;
-                break;
-            case Opcodes.ANEWARRAY: {
-                --frameStackCount;
-                frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           "[" + Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))));
-                v += 3;
-                break;
-            }
-            case Opcodes.CHECKCAST: {
-                --frameStackCount;
-                frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
-                v += 3;
-                break;
-            }
-                
-            case Opcodes.MULTIANEWARRAY: {
-                frameStackCount -= b[v + 3] & 0xFF;
-                frameStackCount = pushDesc(frameStack, frameStackCount,
-                                           Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
-                v += 4;
-                break;
-            }
-            case 196: // WIDE
-                opcode = b[v + 1] & 0xFF;
-                switch (opcode) {
-                case Opcodes.ILOAD:
-                case Opcodes.FLOAD:
-                case Opcodes.ALOAD:
-                    frameStack[frameStackCount++] = frameLocal[ByteArray.readUnsignedShort(b, v + 2)];
-                    v += 4;
-                    break;
-                case Opcodes.LLOAD:
-                case Opcodes.DLOAD:
-                    frameStack[frameStackCount++] = frameLocal[ByteArray.readUnsignedShort(b, v + 2)];
-                    frameStack[frameStackCount++] = Opcodes.TOP;
-                    v += 4;
-                    break;
-                case Opcodes.ISTORE:
-                case Opcodes.FSTORE:
-                case Opcodes.ASTORE: {
-                    int n = ByteArray.readUnsignedShort(b, v + 2);
-                    frameLocal[n] = frameStack[--frameStackCount];
-                    frameLocalCount = Math.max(frameLocalCount, n + 1);
-                    invalidateTwoWordLocal(frameLocal, n - 1);
-                    v += 4;
-                    break;
-                }
-                case Opcodes.LSTORE:
-                case Opcodes.DSTORE: {
-                    int n = ByteArray.readUnsignedShort(b, v + 2);
-                    frameLocal[n] = frameStack[--frameStackCount];
-                    frameLocal[n + 1] = Opcodes.TOP;
-                    frameLocalCount = Math.max(frameLocalCount, n + 2);
-                    invalidateTwoWordLocal(frameLocal, n - 1);
-                    v += 1;
-                    break;
-                }
-                case Opcodes.IINC: {
-                    int n = ByteArray.readUnsignedShort(b, v + 2);
-                    frameLocal[n] = Opcodes.INTEGER;
-                    frameLocalCount = Math.max(frameLocalCount, n + 1);
-                    v += 6;
-                    break;
-                }
-                }
-                break;
-            default: {
-                throw new RuntimeException("unhandled opcode " + opcode);
-            }
-            }
-        }
-        return labelTypes;
-    }
-
     private static Label getLabelAt(Label[] labelsByOffset, int offset) {
         Label l = labelsByOffset[offset];
         if (l == null) {
@@ -1108,22 +341,24 @@ class BasicBlock implements Comparable<BasicBlock> {
     /**
      * Compute flowgraph from code.
      */
-    public static TreeSet<BasicBlock> computeFlowgraph(ByteVector code, Handler firstHandler, Label[] largeBranchTargets,
-                                                       int maxStack, int maxLocals, int maxBlockSize,
-                                                       BasicBlock[] blocksByOffset) {
+    public static void computeFlowgraph(ByteVector code, Handler firstHandler, Label[] largeBranchTargets,
+                                        ConstantPool constantPool, String className,
+                                        int maxStack, int maxLocals, 
+                                        FrameData[] frameDataByOffset,
+                                        int maxBlockSize,
+                                        TreeSet<BasicBlock> blocks,                     
+                                        BasicBlock[] blocksByOffset,
+                                        Label[] labelsByOffset,
+                                        // map labels of NEW instructions to their types
+                                        HashMap<Label, String> labelTypes) {
         byte[] b = code.data;
-        TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
         final int exitOverhead = visitInvocationMaxSize(maxStack, maxLocals);
         final int stackOverhead = reconstructStackMaxSize(maxStack, maxLocals);
         // first, collect all the blocks
         {
             getBasicBlock(0, blocksByOffset, blocks);
             int v = 0;
-            int previousV = v;
-            int s = 0; // block size
-            int previousS = s;
             while (v < code.length) {
-                int exitCount = 1;
                 int opcode = b[v] & 0xFF;
                 if (opcode > 201) {
                     opcode = opcode < 218 ? opcode - 49 : opcode - 20;
@@ -1132,7 +367,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.NOARG_INSN:
                 case ClassWriter.IMPLVAR_INSN:
                     v += 1;
-                    s += 1;
                     break;
                 case ClassWriter.LABEL_INSN: {
                     if (opcode == Opcodes.JSR)
@@ -1146,10 +380,8 @@ class BasicBlock implements Comparable<BasicBlock> {
                     }
                     getBasicBlock(label, blocksByOffset, blocks);
                     v += 3;
-                    s += 8;
                     if (opcode != Opcodes.GOTO) {  // the rest are conditional branches
                         getBasicBlock(v, blocksByOffset, blocks);
-                        ++exitCount;
                     }
                     break;
                 }
@@ -1158,10 +390,8 @@ class BasicBlock implements Comparable<BasicBlock> {
                         throw new UnsupportedOperationException("JSR_W instruction not supported yet");
                     getBasicBlock(v + ByteArray.readInt(b, v + 1), blocksByOffset, blocks);
                     v += 5;
-                    s += 8;
                     if (opcode != 200) { // GOTO_W; the rest are conditional branches
                         getBasicBlock(v, blocksByOffset, blocks);
-                        ++exitCount;
                     }
                     break;
                 }
@@ -1169,26 +399,20 @@ class BasicBlock implements Comparable<BasicBlock> {
                     opcode = b[v + 1] & 0xFF;
                     if (opcode == Opcodes.IINC) {
                         v += 6;
-                        s += 6;
                     } else {
                         v += 4;
-                        s += 4;
                     }
                     break;
                 case ClassWriter.TABL_INSN: {
                     // skips 0 to 3 padding bytes*
                     int start = v;
                     v = v + 4 - (v & 3);
-                    s += 3;
                     getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
-                    exitCount = j;
                     v += 12;
-                    s += 12;
                     for (; j > 0; --j) {
                         getBasicBlock(start + ByteArray.readInt(b, v), blocksByOffset, blocks);
                         v += 4;
-                        s += 4;
                     }
                     getBasicBlock(v, blocksByOffset, blocks);
                     break;
@@ -1197,16 +421,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                     // skips 0 to 3 padding bytes
                     int start = v;
                     v = v + 4 - (v & 3);
-                    s += 3;
                     getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 4);
-                    exitCount = j;
                     v += 8;
-                    s += 8;
                     for (; j > 0; --j) {
                         getBasicBlock(start + ByteArray.readInt(b, v + 4), blocksByOffset, blocks);
                         v += 8;
-                        s += 8;
                     }
                     getBasicBlock(v, blocksByOffset, blocks);
                     break;
@@ -1217,7 +437,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.SBYTE_INSN:
                 case ClassWriter.LDC_INSN:
                     v += 2;
-                    s += 2;
                     break;
                 case ClassWriter.SHORT_INSN:
                 case ClassWriter.LDCW_INSN:
@@ -1225,28 +444,16 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.TYPE_INSN:
                 case ClassWriter.IINC_INSN:
                     v += 3;
-                    s += 3;
                     break;
                 case ClassWriter.ITFMETH_INSN:
                 case ClassWriter.INDYMETH_INSN:
                     v += 5;
-                    s += 5;
                     break;
                     // case MANA_INSN:
                 default:
                     v += 4;
-                    s += 4;
                     break;
                 }
-                if (s + (exitCount * exitOverhead) + stackOverhead > maxBlockSize) {
-                    getBasicBlock(previousV, blocksByOffset, blocks);
-                    s = (s - previousS);
-                }
-                if (blocksByOffset[v] != null) {
-                    s = exitOverhead;
-                }
-                previousV = v;
-                previousS = s;
             }
         }
 
@@ -1264,6 +471,881 @@ class BasicBlock implements Comparable<BasicBlock> {
                 handler.kind = Kind.EXCEPTION_HANDLER;
                 h = h.next;
             }
+        }
+
+        // Next, add frames and split too-large blocks
+        {
+            int frameLocalCount = 0;
+            int frameStackCount = 0;
+            Object[] frameLocal = new Object[maxLocals];
+            Arrays.fill(frameLocal, Opcodes.TOP);
+            Object[] frameStack = new Object[maxStack];
+            Arrays.fill(frameStack, Opcodes.TOP);
+            int v = 0;
+            int previousV = v;
+            int s = 0; // block size
+            int previousS = s;
+            while (v < code.length) {
+                int exitCount = 1;
+                {
+                    FrameData fd = frameDataByOffset[v];
+                    if (fd != null) {
+                        frameLocalCount = fd.frameLocal.length;
+                        System.arraycopy(fd.frameLocal, 0, frameLocal, 0, frameLocalCount);
+                        frameStackCount = fd.frameStack.length;
+                        System.arraycopy(fd.frameStack, 0, frameStack, 0, frameStackCount);
+                    }
+                }
+                {
+                    BasicBlock block = blocksByOffset[v];
+                    if (block != null) {
+                        FrameData fd = block.frameData;
+                        if (fd == null) {
+                            block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
+                        }
+                    }
+                }
+                int opcode = b[v] & 0xFF;
+                if (opcode > 201) {
+                    /*
+                     * Convert temporary opcodes 202 to 217, 218 and 219
+                     * to IFEQ ... JSR (inclusive), IFNULL and
+                     * IFNONNULL. (The label targets themselves aren't
+                     * relevant here.)
+                     */
+                    opcode = opcode < 218 ? opcode - 49 : opcode - 20;
+                }
+                switch (opcode) {
+                case Opcodes.NOP:
+                case Opcodes.INEG:
+                case Opcodes.LNEG:
+                case Opcodes.FNEG:
+                case Opcodes.DNEG:
+                case Opcodes.I2B:
+                case Opcodes.I2C:
+                case Opcodes.I2S:
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.GOTO:
+                    frameLocalCount = frameStackCount = 0;
+                    v += 3;
+                    s += 8;
+                    break;
+                case 200: // GOTO_W
+                    frameLocalCount = frameStackCount = 0;
+                    v += 5;
+                    s += 8;
+                    break;
+                case Opcodes.IRETURN:
+                case Opcodes.FRETURN:
+                case Opcodes.ARETURN:
+                case Opcodes.ATHROW:
+                case Opcodes.RETURN:
+                    frameLocalCount = frameStackCount = 0;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.ACONST_NULL:
+                    frameStack[frameStackCount++] = Opcodes.NULL;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.ICONST_M1:
+                case Opcodes.ICONST_0:
+                case Opcodes.ICONST_1:
+                case Opcodes.ICONST_2:
+                case Opcodes.ICONST_3:
+                case Opcodes.ICONST_4:
+                case Opcodes.ICONST_5:
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.BIPUSH:
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 2;
+                    s += 2;
+                    break;
+                case Opcodes.SIPUSH:
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 3;
+                    s += 3;
+                    break;
+                case Opcodes.LCONST_0:
+                case Opcodes.LCONST_1:
+                    frameStack[frameStackCount++] = Opcodes.LONG;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.FCONST_0:
+                case Opcodes.FCONST_1:
+                case Opcodes.FCONST_2:
+                    frameStack[frameStackCount++] = Opcodes.FLOAT;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.DCONST_0:
+                case Opcodes.DCONST_1:
+                    frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.ILOAD:
+                case Opcodes.FLOAD:
+                case Opcodes.ALOAD:
+                    frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
+                    v += 2;
+                    s += 2;
+                    break;
+
+                    // ILOAD_n
+                case 26:
+                case 27:
+                case 28:
+                case 29:
+                    frameStack[frameStackCount++] = frameLocal[opcode - 26];
+                    v += 1;
+                    s += 1;
+                    break;
+                
+                    // LLOAD_n
+                case 30:
+                case 31:
+                case 32:
+                case 33:
+                    frameStack[frameStackCount++] = frameLocal[opcode - 30];
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+
+                    // FLOAD_n
+                case 34:
+                case 35:
+                case 36:
+                case 37:
+                    frameStack[frameStackCount++] = frameLocal[opcode - 34];
+                    v += 1;
+                    s += 1;
+                    break;
+
+                    // DLOAD_n
+                case 38:
+                case 39:
+                case 40:
+                case 41:
+                    frameStack[frameStackCount++] = frameLocal[opcode - 38];
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+
+                    // ALOAD_n
+                case 42:
+                case 43:
+                case 44:
+                case 45:
+                    frameStack[frameStackCount++] = frameLocal[opcode - 42];
+                    v += 1;
+                    s += 1;
+                    break;
+
+                case Opcodes.LLOAD:
+                case Opcodes.DLOAD:
+                    frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 2;
+                    s += 2;
+                    break;
+                case Opcodes.IALOAD:
+                case Opcodes.BALOAD:
+                case Opcodes.CALOAD:
+                case Opcodes.SALOAD:
+                    frameStackCount -= 2;
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.LALOAD:
+                case Opcodes.D2L:
+                    frameStackCount -= 2;
+                    frameStack[frameStackCount++] = Opcodes.LONG;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.FALOAD:
+                    frameStackCount -= 2;
+                    frameStack[frameStackCount++] = Opcodes.FLOAT;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.DALOAD:
+                case Opcodes.L2D:
+                    frameStackCount -= 2;
+                    frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.AALOAD: {
+                    frameStackCount -= 2;
+                    Object t = frameStack[frameStackCount];
+                    if (t instanceof String) {
+                        frameStackCount = pushDesc(frameStack, frameStackCount, ((String) t).substring(1));
+                    } else {
+                        frameStack[frameStackCount++] =  "java/lang/Object";
+                    }
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.ISTORE:
+                case Opcodes.FSTORE:
+                case Opcodes.ASTORE: {
+                    int n = b[v + 1] & 0xFF;
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocalCount = Math.max(frameLocalCount, n + 1);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 2;
+                    s += 2;
+                    break;
+                }
+                    // ISTORE_n
+                case 59:
+                case 60:
+                case 61:
+                case 62: {
+                    int n = opcode - 59;
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocalCount = Math.max(frameLocalCount, n + 1);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                    // LSTORE_n
+                case 63:
+                case 64:
+                case 65:
+                case 66: {
+                    int n = opcode - 63;
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocal[n + 1] = Opcodes.TOP;
+                    frameLocalCount = Math.max(frameLocalCount, n + 2);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+
+                    // FSTORE_n
+                case 67:
+                case 68:
+                case 69:
+                case 70: {
+                    int n = opcode - 67;
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocalCount = Math.max(frameLocalCount, n + 1);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+
+                    // DSTORE_n
+                case 71:
+                case 72:
+                case 73:
+                case 74: {
+                    int n = opcode - 71;
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocal[n + 1] = Opcodes.TOP;
+                    frameLocalCount = Math.max(frameLocalCount, n + 2);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                    // ASTORE_n
+                case 75:
+                case 76:
+                case 77:
+                case 78: {
+                    int n = opcode - 75;
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocalCount = Math.max(frameLocalCount, n + 1);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+
+                case Opcodes.LSTORE:
+                case Opcodes.DSTORE: {
+                    int n = b[v + 1] & 0xFF;
+                    frameLocal[n] = frameStack[--frameStackCount];
+                    frameLocal[n + 1] = Opcodes.TOP;
+                    frameLocalCount = Math.max(frameLocalCount, n + 2);
+                    invalidateTwoWordLocal(frameLocal, n - 1);
+                    v += 2;
+                    s += 2;
+                    break;
+                }
+                case Opcodes.IASTORE:
+                case Opcodes.BASTORE:
+                case Opcodes.CASTORE:
+                case Opcodes.SASTORE:
+                case Opcodes.FASTORE:
+                case Opcodes.AASTORE:
+                    frameStackCount -= 3;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.LASTORE:
+                case Opcodes.DASTORE:
+                    frameStackCount -= 4;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.POP:
+                    --frameStackCount;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.IFEQ:
+                case Opcodes.IFNE:
+                case Opcodes.IFLT:
+                case Opcodes.IFGE:
+                case Opcodes.IFGT:
+                case Opcodes.IFLE:
+                case Opcodes.IFNULL:
+                case Opcodes.IFNONNULL:
+                    --frameStackCount;
+                    ++exitCount;
+                    v += 3;
+                    s += 8;
+                    break;
+                case Opcodes.MONITORENTER:
+                case Opcodes.MONITOREXIT:
+                    --frameStackCount;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.TABLESWITCH: {
+                    frameStackCount = frameLocalCount = 0;
+                    // skips 0 to 3 padding bytes
+                    v = v + 4 - (v & 3);
+                    s += 3;
+                    int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
+                    exitCount = j;
+                    int o = 12 + 4 * j;
+                    v += o;
+                    s += o;
+                    break;
+                }
+                case Opcodes.LOOKUPSWITCH: {
+                    frameStackCount = frameLocalCount = 0;
+                    // skips 0 to 3 padding bytes
+                    v = v + 4 - (v & 3);
+                    int j = ByteArray.readInt(b, v + 4);
+                    exitCount = j;
+                    int o = 8 + v + (j * 8);
+                    v += o;
+                    s += o;
+                    break;
+                }
+                case Opcodes.POP2:
+                    frameStackCount -= 2;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.IF_ICMPEQ:
+                case Opcodes.IF_ICMPNE:
+                case Opcodes.IF_ICMPLT:
+                case Opcodes.IF_ICMPGE:
+                case Opcodes.IF_ICMPGT:
+                case Opcodes.IF_ICMPLE:
+                case Opcodes.IF_ACMPEQ:
+                case Opcodes.IF_ACMPNE:
+                    frameStackCount -= 2;
+                    ++exitCount;
+                    v += 3;
+                    s += 8;
+                    break;
+                case Opcodes.LRETURN:
+                case Opcodes.DRETURN:
+                    frameStackCount -= 2;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.DUP: {
+                    Object t = frameStack[--frameStackCount];
+                    frameStack[frameStackCount++] = t;
+                    frameStack[frameStackCount++] = t;
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.DUP_X1: {
+                    Object t1 = frameStack[--frameStackCount];
+                    Object t2 = frameStack[--frameStackCount];
+                    frameStack[frameStackCount++] = t1;
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.DUP_X2: {
+                    Object t1 = frameStack[--frameStackCount];
+                    Object t2 = frameStack[--frameStackCount];
+                    Object t3 = frameStack[--frameStackCount];
+                    frameStack[frameStackCount++] = t1;
+                    frameStack[frameStackCount++] = t3;
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.DUP2: {
+                    Object t1 = frameStack[--frameStackCount];
+                    Object t2 = frameStack[--frameStackCount];
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.DUP2_X1: {
+                    Object t1 = frameStack[--frameStackCount];
+                    Object t2 = frameStack[--frameStackCount];
+                    Object t3 = frameStack[--frameStackCount];
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    frameStack[frameStackCount++] = t3;
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.DUP2_X2: {
+                    Object t1 = frameStack[--frameStackCount];
+                    Object t2 = frameStack[--frameStackCount];
+                    Object t3 = frameStack[--frameStackCount];
+                    Object t4 = frameStack[--frameStackCount];
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    frameStack[frameStackCount++] = t4;
+                    frameStack[frameStackCount++] = t3;
+                    frameStack[frameStackCount++] = t2;
+                    frameStack[frameStackCount++] = t1;
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.SWAP: {
+                    Object t1 = frameStack[--frameStackCount];
+                    Object t2 = frameStack[--frameStackCount];
+                    frameStack[frameStackCount++] = t1;
+                    frameStack[frameStackCount++] = t2;
+                    v += 1;
+                    s += 1;
+                    break;
+                }
+                case Opcodes.IADD:
+                case Opcodes.ISUB:
+                case Opcodes.IMUL:
+                case Opcodes.IDIV:
+                case Opcodes.IREM:
+                case Opcodes.IAND:
+                case Opcodes.IOR:
+                case Opcodes.IXOR:
+                case Opcodes.ISHL:
+                case Opcodes.ISHR:
+                case Opcodes.IUSHR:
+                case Opcodes.L2I:
+                case Opcodes.D2I:
+                case Opcodes.FCMPL:
+                case Opcodes.FCMPG:
+                    frameStackCount -= 2;
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.LADD:
+                case Opcodes.LSUB:
+                case Opcodes.LMUL:
+                case Opcodes.LDIV:
+                case Opcodes.LREM:
+                case Opcodes.LAND:
+                case Opcodes.LOR:
+                case Opcodes.LXOR:
+                    frameStackCount -= 4;
+                    frameStack[frameStackCount++] = Opcodes.LONG;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.FADD:
+                case Opcodes.FSUB:
+                case Opcodes.FMUL:
+                case Opcodes.FDIV:
+                case Opcodes.FREM:
+                case Opcodes.L2F:
+                case Opcodes.D2F:
+                    frameStackCount -= 2;
+                    frameStack[frameStackCount++] = Opcodes.FLOAT;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.DADD:
+                case Opcodes.DSUB:
+                case Opcodes.DMUL:
+                case Opcodes.DDIV:
+                case Opcodes.DREM:
+                    frameStackCount -= 4;
+                    frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.LSHL:
+                case Opcodes.LSHR:
+                case Opcodes.LUSHR:
+                    frameStackCount -= 3;
+                    frameStack[frameStackCount++] = Opcodes.LONG;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.IINC: {
+                    int n = b[v + 1] & 0xFF;
+                    frameLocal[n] = Opcodes.INTEGER;
+                    frameLocalCount = Math.max(frameLocalCount, n + 1);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.I2L:
+                case Opcodes.F2L:
+                    --frameStackCount;
+                    frameStack[frameStackCount++] = Opcodes.LONG;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.I2F:
+                    --frameStackCount;
+                    frameStack[frameStackCount++] = Opcodes.FLOAT;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.I2D:
+                case Opcodes.F2D:
+                    --frameStackCount;
+                    frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                    frameStack[frameStackCount++] = Opcodes.TOP;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.F2I:
+                case Opcodes.ARRAYLENGTH:
+                    --frameStackCount;
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.INSTANCEOF:
+                    --frameStackCount;
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 3;
+                    s += 3;
+                    break;
+                case Opcodes.LCMP:
+                case Opcodes.DCMPL:
+                case Opcodes.DCMPG:
+                    frameStackCount -= 4;
+                    frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    v += 1;
+                    s += 1;
+                    break;
+                case Opcodes.JSR:
+                case 201: // JSR_W
+                case Opcodes.RET:
+                    throw new RuntimeException("JSR/RET are not supported");
+                case Opcodes.GETSTATIC: {
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.PUTSTATIC: {
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = popDesc(frameStackCount, sr.desc);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.GETFIELD: {
+                    --frameStackCount;
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.PUTFIELD: {
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = popDesc(frameStackCount, sr.desc);
+                    --frameStackCount;
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.INVOKEVIRTUAL: {
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = popDesc(frameStackCount, sr.desc);
+                    --frameStackCount;
+                    frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.INVOKESPECIAL: {
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = popDesc(frameStackCount, sr.desc);
+                    Object t = frameStack[--frameStackCount];
+                    if (sr.name.charAt(0) == '<') {
+                        Object u;
+                        if (t == Opcodes.UNINITIALIZED_THIS) {
+                            u = className;
+                        } else {
+                            u = labelTypes.get(t);
+                        }
+                        for (int i = 0; i < frameLocalCount; ++i) {
+                            if (frameLocal[i] == t) {
+                                frameLocal[i] = u;
+                            }
+                        }
+                        for (int i = 0; i < frameStackCount; ++i) {
+                            if (frameStack[i] == t) {
+                                frameStack[i] = u;
+                            }
+                        }
+                    }
+                    frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.INVOKESTATIC: {
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = popDesc(frameStackCount, sr.desc);
+                    frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.INVOKEINTERFACE: {
+                    ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = popDesc(frameStackCount, sr.desc);
+                    --frameStackCount;
+                    frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                    v += 5;
+                    s += 5;
+                    break;
+                }
+                case Opcodes.INVOKEDYNAMIC: {
+                    ConstantPool.DynamicSymRef sr = constantPool.parseDynamicSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                    frameStackCount = popDesc(frameStackCount, sr.desc);
+                    frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
+                    v += 5;
+                    s += 5;
+                    break;
+                }
+                case Opcodes.LDC:
+                case 19: // LDC_W
+                case 20: { // LDC2_W
+                    int itemIndex = (opcode == Opcodes.LDC) ? (b[v + 1] & 0xFF) : ByteArray.readUnsignedShort(b, v + 1);
+                    Object cst = constantPool.readConst(itemIndex);
+                    if (cst instanceof Integer) {
+                        frameStack[frameStackCount++] = Opcodes.INTEGER;
+                    } else if (cst instanceof Long) {
+                        frameStack[frameStackCount++] = Opcodes.LONG;
+                        frameStack[frameStackCount++] = Opcodes.TOP;
+                    } else if (cst instanceof Float) {
+                        frameStack[frameStackCount++] = Opcodes.FLOAT;
+                    } else if (cst instanceof Double) {
+                        frameStack[frameStackCount++] = Opcodes.DOUBLE;
+                        frameStack[frameStackCount++] = Opcodes.TOP;
+                    } else if (cst instanceof String) {
+                        frameStack[frameStackCount++] = "java/lang/String";
+                    } else if (cst instanceof Type) {
+                        int sort = ((Type) cst).getSort();
+                        if (sort == Type.OBJECT || sort == Type.ARRAY) {
+                            frameStack[frameStackCount++] = "java/lang/Class";
+                        } else if (sort == Type.METHOD) {
+                            frameStack[frameStackCount++] = "java/lang/invoke/MethodType";
+                        } else {
+                            throw new IllegalArgumentException();
+                        }
+                    } else if (cst instanceof Handle) {
+                        frameStack[frameStackCount++] = "java/lang/invoke/MethodHandle";
+                    } else {
+                        throw new IllegalArgumentException();
+                    }
+                
+                    if (opcode == Opcodes.LDC) {
+                        v += 2;
+                        s += 2;
+                    } else {
+                        v += 3;
+                        s += 3;
+                    }
+                    break;
+                }
+                case Opcodes.NEW: {
+                    Label l = getLabelAt(labelsByOffset, v);
+                    frameStack[frameStackCount++] = l;
+                    String clazz = constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1));
+                    labelTypes.put(l, clazz);
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.NEWARRAY:
+                    --frameStackCount;
+                    switch (b[v + 1]) {
+                    case Opcodes.T_BOOLEAN:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[Z");
+                        break;
+                    case Opcodes.T_CHAR:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[C");
+                        break;
+                    case Opcodes.T_BYTE:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[B");
+                        break;
+                    case Opcodes.T_SHORT:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[S");
+                        break;
+                    case Opcodes.T_INT:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[I");
+                        break;
+                    case Opcodes.T_FLOAT:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[F");
+                        break;
+                    case Opcodes.T_DOUBLE:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[D");
+                        break;
+                        // case Opcodes.T_LONG:
+                    default:
+                        frameStackCount = pushDesc(frameStack, frameStackCount, "[J");
+                        break;
+                    }
+                    v += 2;
+                    s += 2;
+                    break;
+                case Opcodes.ANEWARRAY: {
+                    --frameStackCount;
+                    frameStackCount = pushDesc(frameStack, frameStackCount,
+                                               "[" + Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))));
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                case Opcodes.CHECKCAST: {
+                    --frameStackCount;
+                    frameStackCount = pushDesc(frameStack, frameStackCount,
+                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
+                    v += 3;
+                    s += 3;
+                    break;
+                }
+                
+                case Opcodes.MULTIANEWARRAY: {
+                    frameStackCount -= b[v + 3] & 0xFF;
+                    frameStackCount = pushDesc(frameStack, frameStackCount,
+                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
+                    v += 4;
+                    s += 4;
+                    break;
+                }
+                case 196: // WIDE
+                    opcode = b[v + 1] & 0xFF;
+                    switch (opcode) {
+                    case Opcodes.ILOAD:
+                    case Opcodes.FLOAD:
+                    case Opcodes.ALOAD:
+                        frameStack[frameStackCount++] = frameLocal[ByteArray.readUnsignedShort(b, v + 2)];
+                        v += 4;
+                        s += 4;
+                        break;
+                    case Opcodes.LLOAD:
+                    case Opcodes.DLOAD:
+                        frameStack[frameStackCount++] = frameLocal[ByteArray.readUnsignedShort(b, v + 2)];
+                        frameStack[frameStackCount++] = Opcodes.TOP;
+                        v += 4;
+                        s += 4;
+                        break;
+                    case Opcodes.ISTORE:
+                    case Opcodes.FSTORE:
+                    case Opcodes.ASTORE: {
+                        int n = ByteArray.readUnsignedShort(b, v + 2);
+                        frameLocal[n] = frameStack[--frameStackCount];
+                        frameLocalCount = Math.max(frameLocalCount, n + 1);
+                        invalidateTwoWordLocal(frameLocal, n - 1);
+                        v += 4;
+                        s += 4;
+                        break;
+                    }
+                    case Opcodes.LSTORE:
+                    case Opcodes.DSTORE: {
+                        int n = ByteArray.readUnsignedShort(b, v + 2);
+                        frameLocal[n] = frameStack[--frameStackCount];
+                        frameLocal[n + 1] = Opcodes.TOP;
+                        frameLocalCount = Math.max(frameLocalCount, n + 2);
+                        invalidateTwoWordLocal(frameLocal, n - 1);
+                        v += 4;
+                        s += 4;
+                        break;
+                    }
+                    case Opcodes.IINC: {
+                        int n = ByteArray.readUnsignedShort(b, v + 2);
+                        frameLocal[n] = Opcodes.INTEGER;
+                        frameLocalCount = Math.max(frameLocalCount, n + 1);
+                        v += 6;
+                        s += 6;
+                        break;
+                    }
+                    }
+                    break;
+                default: {
+                    throw new RuntimeException("unhandled opcode " + opcode);
+                }
+                }
+                if (s + (exitCount * exitOverhead) + stackOverhead > maxBlockSize) {
+                    BasicBlock block = getBasicBlock(previousV, blocksByOffset, blocks);
+                    FrameData fd = block.frameData;
+                    if (fd == null) {
+                        block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
+                    }
+                    s = (s - previousS);
+                }
+                if (blocksByOffset[v] != null) {
+                    s = exitOverhead;
+                }
+                previousV = v;
+                previousS = s;
+             }
         }
 
         // now insert edges
@@ -1391,8 +1473,6 @@ class BasicBlock implements Comparable<BasicBlock> {
             previous = block;
         }
         blocks.last().subsequent = null;
-
-        return blocks;
     }
 
 
