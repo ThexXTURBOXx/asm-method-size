@@ -404,7 +404,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             case ClassWriter.FIELDORMETH_INSN:
             case ClassWriter.ITFMETH_INSN: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(v + 1);
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
                 if (opcode < Opcodes.INVOKEVIRTUAL) {
                     mv.visitFieldInsn(opcode, sr.owner, sr.name, sr.desc);
                 } else {
