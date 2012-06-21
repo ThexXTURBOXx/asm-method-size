@@ -55,21 +55,22 @@ public final class FrameData {
      * elements, <code>false</code> otherwise,
      */
     public boolean isFullyDefined() {
-        for (Object el: frameLocal) {
-            if (!isElementFullyDefined(el)) {
-                return false;
-            }
-        }
-        for (Object el: frameStack) {
-            if (!isElementFullyDefined(el)) {
-                return false;
-            }
-        }
-        return true;
-        
+        return isFrameFullyDefined(frameLocal, frameLocal.length)
+            && isFrameFullyDefined(frameStack, frameStack.length);
     }
 
-    private boolean isElementFullyDefined(Object el) {
+    public static boolean isFrameFullyDefined(Object[] elements, int size) {
+        int i = 0;
+        while (i < size) {
+            if (!isElementFullyDefined(elements[i])) {
+                return false;
+            }
+            ++i;
+        }
+        return true;
+    }
+
+    private static boolean isElementFullyDefined(Object el) {
         return (el != Opcodes.UNINITIALIZED_THIS)
             && !(el instanceof Label);
     }

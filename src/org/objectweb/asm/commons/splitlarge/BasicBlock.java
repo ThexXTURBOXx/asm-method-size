@@ -352,13 +352,14 @@ class BasicBlock implements Comparable<BasicBlock> {
                                         // map labels of NEW instructions to their types
                                         HashMap<Label, String> labelTypes) {
         byte[] b = code.data;
-        final int exitOverhead = visitInvocationMaxSize(maxStack, maxLocals);
-        final int stackOverhead = reconstructStackMaxSize(maxStack, maxLocals);
+        // upper bound for size of each instruction in generated code
+        int[] sizes = new int[code.length];
         // first, collect all the blocks
         {
             getBasicBlock(0, blocksByOffset, blocks);
             int v = 0;
             while (v < code.length) {
+                int start = v;
                 int opcode = b[v] & 0xFF;
                 if (opcode > 201) {
                     opcode = opcode < 218 ? opcode - 49 : opcode - 20;
@@ -367,6 +368,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.NOARG_INSN:
                 case ClassWriter.IMPLVAR_INSN:
                     v += 1;
+                    sizes[start] = 1;
                     break;
                 case ClassWriter.LABEL_INSN: {
                     if (opcode == Opcodes.JSR)
@@ -380,6 +382,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     }
                     getBasicBlock(label, blocksByOffset, blocks);
                     v += 3;
+                    sizes[start] = 8;
                     if (opcode != Opcodes.GOTO) {  // the rest are conditional branches
                         getBasicBlock(v, blocksByOffset, blocks);
                     }
@@ -390,6 +393,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                         throw new UnsupportedOperationException("JSR_W instruction not supported yet");
                     getBasicBlock(v + ByteArray.readInt(b, v + 1), blocksByOffset, blocks);
                     v += 5;
+                    sizes[start] = 5;
                     if (opcode != 200) { // GOTO_W; the rest are conditional branches
                         getBasicBlock(v, blocksByOffset, blocks);
                     }
@@ -399,35 +403,43 @@ class BasicBlock implements Comparable<BasicBlock> {
                     opcode = b[v + 1] & 0xFF;
                     if (opcode == Opcodes.IINC) {
                         v += 6;
+                        sizes[start] = 6;
                     } else {
                         v += 4;
+                        sizes[start] = 4;
                     }
                     break;
                 case ClassWriter.TABL_INSN: {
                     // skips 0 to 3 padding bytes*
-                    int start = v;
                     v = v + 4 - (v & 3);
+                    int s = 3;
                     getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                     v += 12;
+                    s += 12;
                     for (; j > 0; --j) {
                         getBasicBlock(start + ByteArray.readInt(b, v), blocksByOffset, blocks);
                         v += 4;
+                        s += 4;
                     }
+                    sizes[start] = s;
                     getBasicBlock(v, blocksByOffset, blocks);
                     break;
                 }
                 case ClassWriter.LOOK_INSN: {
                     // skips 0 to 3 padding bytes
-                    int start = v;
                     v = v + 4 - (v & 3);
+                    int s = 3;
                     getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 4);
                     v += 8;
+                    s += 8;
                     for (; j > 0; --j) {
                         getBasicBlock(start + ByteArray.readInt(b, v + 4), blocksByOffset, blocks);
                         v += 8;
+                        s += 8;
                     }
+                    sizes[start] = s;
                     getBasicBlock(v, blocksByOffset, blocks);
                     break;
                 }
@@ -437,6 +449,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.SBYTE_INSN:
                 case ClassWriter.LDC_INSN:
                     v += 2;
+                    sizes[start] = 2;
                     break;
                 case ClassWriter.SHORT_INSN:
                 case ClassWriter.LDCW_INSN:
@@ -444,14 +457,17 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case ClassWriter.TYPE_INSN:
                 case ClassWriter.IINC_INSN:
                     v += 3;
+                    sizes[start] = 3;
                     break;
                 case ClassWriter.ITFMETH_INSN:
                 case ClassWriter.INDYMETH_INSN:
                     v += 5;
+                    sizes[start] = 5;
                     break;
                     // case MANA_INSN:
                 default:
                     v += 4;
+                    sizes[start] = 4;
                     break;
                 }
             }
@@ -475,21 +491,34 @@ class BasicBlock implements Comparable<BasicBlock> {
 
         // Next, add frames and split too-large blocks
         {
+            final int invocationOverhead = visitInvocationMaxSize(maxStack, maxLocals);
+            final int stackOverhead = reconstructStackMaxSize(maxStack, maxLocals);
             int frameLocalCount = 0;
             int frameStackCount = 0;
             Object[] frameLocal = new Object[maxLocals];
             Arrays.fill(frameLocal, Opcodes.TOP);
             Object[] frameStack = new Object[maxStack];
             Arrays.fill(frameStack, Opcodes.TOP);
+            // These hold copies of frameLocal and frameStack from
+            // when it was last fully defined, just before it went
+            // partially undefined.
+            Object[] lastDefinedFrameLocal = null;
+            Object[] lastDefinedFrameStack = null;
+            int lastDefinedV = 0;
+            int lastDefinedS = 0;
             int v = 0;
-            int previousV = v;
             int s = 0; // block size
-            int previousS = s;
             while (v < code.length) {
-                int exitCount = 1;
                 {
                     FrameData fd = frameDataByOffset[v];
                     if (fd != null) {
+                        // transitioning from possibly-defined to undefined
+                        if (!fd.isFullyDefined()) {
+                            lastDefinedFrameLocal = Arrays.copyOf(frameLocal, frameLocalCount);
+                            lastDefinedFrameStack = Arrays.copyOf(frameStack, frameStackCount);
+                            lastDefinedV = v;
+                            lastDefinedS = s;
+                        }
                         frameLocalCount = fd.frameLocal.length;
                         System.arraycopy(fd.frameLocal, 0, frameLocal, 0, frameLocalCount);
                         frameStackCount = fd.frameStack.length;
@@ -503,8 +532,30 @@ class BasicBlock implements Comparable<BasicBlock> {
                         if (fd == null) {
                             block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
                         }
+                        lastDefinedFrameLocal = lastDefinedFrameStack = null;
+                        s = stackOverhead;
+                    } else {
+                        // the next instruction would put it over the top, so put in a potential split point
+                        if (s + sizes[v] + invocationOverhead > maxBlockSize) {
+                            if (FrameData.isFrameFullyDefined(frameLocal, frameLocalCount)
+                                && FrameData.isFrameFullyDefined(frameStack, frameStackCount)) {
+                                // current frame is fully defined, so it's OK to split here
+                                BasicBlock split = getBasicBlock(v, blocksByOffset, blocks);
+                                split.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
+                                s = stackOverhead;
+                            } else if (lastDefinedFrameLocal != null) {
+                                // current frame is not fully defined, so split just before it became undefined
+                                BasicBlock split = getBasicBlock(lastDefinedV, blocksByOffset, blocks);
+                                split.frameData = new FrameData(lastDefinedFrameLocal, lastDefinedFrameStack);
+                                lastDefinedFrameLocal = lastDefinedFrameStack = null;
+                                // code between the split point and here is the new size
+                                s = s - lastDefinedS;
+                            }
+                            // else we'll die later ...
+                        }
                     }
                 }
+                int start = v;
                 int opcode = b[v] & 0xFF;
                 if (opcode > 201) {
                     /*
@@ -525,17 +576,14 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.I2C:
                 case Opcodes.I2S:
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.GOTO:
                     frameLocalCount = frameStackCount = 0;
                     v += 3;
-                    s += 8;
                     break;
                 case 200: // GOTO_W
                     frameLocalCount = frameStackCount = 0;
                     v += 5;
-                    s += 8;
                     break;
                 case Opcodes.IRETURN:
                 case Opcodes.FRETURN:
@@ -544,12 +592,10 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.RETURN:
                     frameLocalCount = frameStackCount = 0;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.ACONST_NULL:
                     frameStack[frameStackCount++] = Opcodes.NULL;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.ICONST_M1:
                 case Opcodes.ICONST_0:
@@ -560,45 +606,38 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.ICONST_5:
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.BIPUSH:
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 2;
-                    s += 2;
                     break;
                 case Opcodes.SIPUSH:
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 3;
-                    s += 3;
                     break;
                 case Opcodes.LCONST_0:
                 case Opcodes.LCONST_1:
                     frameStack[frameStackCount++] = Opcodes.LONG;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.FCONST_0:
                 case Opcodes.FCONST_1:
                 case Opcodes.FCONST_2:
                     frameStack[frameStackCount++] = Opcodes.FLOAT;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.DCONST_0:
                 case Opcodes.DCONST_1:
                     frameStack[frameStackCount++] = Opcodes.DOUBLE;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.ILOAD:
                 case Opcodes.FLOAD:
                 case Opcodes.ALOAD:
                     frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
                     v += 2;
-                    s += 2;
                     break;
 
                     // ILOAD_n
@@ -608,7 +647,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case 29:
                     frameStack[frameStackCount++] = frameLocal[opcode - 26];
                     v += 1;
-                    s += 1;
                     break;
                 
                     // LLOAD_n
@@ -619,7 +657,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = frameLocal[opcode - 30];
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
 
                     // FLOAD_n
@@ -629,7 +666,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case 37:
                     frameStack[frameStackCount++] = frameLocal[opcode - 34];
                     v += 1;
-                    s += 1;
                     break;
 
                     // DLOAD_n
@@ -640,7 +676,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = frameLocal[opcode - 38];
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
 
                     // ALOAD_n
@@ -650,7 +685,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case 45:
                     frameStack[frameStackCount++] = frameLocal[opcode - 42];
                     v += 1;
-                    s += 1;
                     break;
 
                 case Opcodes.LLOAD:
@@ -658,7 +692,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = frameLocal[b[v + 1] & 0xFF];
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 2;
-                    s += 2;
                     break;
                 case Opcodes.IALOAD:
                 case Opcodes.BALOAD:
@@ -667,7 +700,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount -= 2;
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.LALOAD:
                 case Opcodes.D2L:
@@ -675,13 +707,11 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = Opcodes.LONG;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.FALOAD:
                     frameStackCount -= 2;
                     frameStack[frameStackCount++] = Opcodes.FLOAT;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.DALOAD:
                 case Opcodes.L2D:
@@ -689,7 +719,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = Opcodes.DOUBLE;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.AALOAD: {
                     frameStackCount -= 2;
@@ -700,7 +729,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                         frameStack[frameStackCount++] =  "java/lang/Object";
                     }
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.ISTORE:
@@ -711,7 +739,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameLocalCount = Math.max(frameLocalCount, n + 1);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 2;
-                    s += 2;
                     break;
                 }
                     // ISTORE_n
@@ -724,7 +751,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameLocalCount = Math.max(frameLocalCount, n + 1);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 1;
-                    s += 1;
                     break;
                 }
                     // LSTORE_n
@@ -738,7 +764,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 1;
-                    s += 1;
                     break;
                 }
 
@@ -752,7 +777,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameLocalCount = Math.max(frameLocalCount, n + 1);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 1;
-                    s += 1;
                     break;
                 }
 
@@ -767,7 +791,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 1;
-                    s += 1;
                     break;
                 }
                     // ASTORE_n
@@ -780,7 +803,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameLocalCount = Math.max(frameLocalCount, n + 1);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 1;
-                    s += 1;
                     break;
                 }
 
@@ -792,7 +814,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 2;
-                    s += 2;
                     break;
                 }
                 case Opcodes.IASTORE:
@@ -803,18 +824,15 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.AASTORE:
                     frameStackCount -= 3;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.LASTORE:
                 case Opcodes.DASTORE:
                     frameStackCount -= 4;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.POP:
                     --frameStackCount;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.IFEQ:
                 case Opcodes.IFNE:
@@ -825,26 +843,19 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.IFNULL:
                 case Opcodes.IFNONNULL:
                     --frameStackCount;
-                    ++exitCount;
                     v += 3;
-                    s += 8;
                     break;
                 case Opcodes.MONITORENTER:
                 case Opcodes.MONITOREXIT:
                     --frameStackCount;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.TABLESWITCH: {
                     frameStackCount = frameLocalCount = 0;
                     // skips 0 to 3 padding bytes
                     v = v + 4 - (v & 3);
-                    s += 3;
                     int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
-                    exitCount = j;
-                    int o = 12 + 4 * j;
-                    v += o;
-                    s += o;
+                    v += 12 + 4 * j;
                     break;
                 }
                 case Opcodes.LOOKUPSWITCH: {
@@ -852,16 +863,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                     // skips 0 to 3 padding bytes
                     v = v + 4 - (v & 3);
                     int j = ByteArray.readInt(b, v + 4);
-                    exitCount = j;
-                    int o = 8 + v + (j * 8);
-                    v += o;
-                    s += o;
+                    v += 8 + v + (j * 8);
                     break;
                 }
                 case Opcodes.POP2:
                     frameStackCount -= 2;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.IF_ICMPEQ:
                 case Opcodes.IF_ICMPNE:
@@ -872,22 +879,18 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.IF_ACMPEQ:
                 case Opcodes.IF_ACMPNE:
                     frameStackCount -= 2;
-                    ++exitCount;
                     v += 3;
-                    s += 8;
                     break;
                 case Opcodes.LRETURN:
                 case Opcodes.DRETURN:
                     frameStackCount -= 2;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.DUP: {
                     Object t = frameStack[--frameStackCount];
                     frameStack[frameStackCount++] = t;
                     frameStack[frameStackCount++] = t;
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.DUP_X1: {
@@ -897,7 +900,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = t2;
                     frameStack[frameStackCount++] = t1;
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.DUP_X2: {
@@ -909,7 +911,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = t2;
                     frameStack[frameStackCount++] = t1;
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.DUP2: {
@@ -920,7 +921,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = t2;
                     frameStack[frameStackCount++] = t1;
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.DUP2_X1: {
@@ -933,7 +933,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = t2;
                     frameStack[frameStackCount++] = t1;
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.DUP2_X2: {
@@ -948,7 +947,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = t2;
                     frameStack[frameStackCount++] = t1;
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.SWAP: {
@@ -957,7 +955,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = t1;
                     frameStack[frameStackCount++] = t2;
                     v += 1;
-                    s += 1;
                     break;
                 }
                 case Opcodes.IADD:
@@ -978,7 +975,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount -= 2;
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.LADD:
                 case Opcodes.LSUB:
@@ -992,7 +988,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = Opcodes.LONG;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.FADD:
                 case Opcodes.FSUB:
@@ -1004,7 +999,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount -= 2;
                     frameStack[frameStackCount++] = Opcodes.FLOAT;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.DADD:
                 case Opcodes.DSUB:
@@ -1015,7 +1009,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = Opcodes.DOUBLE;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.LSHL:
                 case Opcodes.LSHR:
@@ -1024,14 +1017,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = Opcodes.LONG;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.IINC: {
                     int n = b[v + 1] & 0xFF;
                     frameLocal[n] = Opcodes.INTEGER;
                     frameLocalCount = Math.max(frameLocalCount, n + 1);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.I2L:
@@ -1040,13 +1031,11 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = Opcodes.LONG;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.I2F:
                     --frameStackCount;
                     frameStack[frameStackCount++] = Opcodes.FLOAT;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.I2D:
                 case Opcodes.F2D:
@@ -1054,20 +1043,17 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStack[frameStackCount++] = Opcodes.DOUBLE;
                     frameStack[frameStackCount++] = Opcodes.TOP;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.F2I:
                 case Opcodes.ARRAYLENGTH:
                     --frameStackCount;
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.INSTANCEOF:
                     --frameStackCount;
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 3;
-                    s += 3;
                     break;
                 case Opcodes.LCMP:
                 case Opcodes.DCMPL:
@@ -1075,7 +1061,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount -= 4;
                     frameStack[frameStackCount++] = Opcodes.INTEGER;
                     v += 1;
-                    s += 1;
                     break;
                 case Opcodes.JSR:
                 case 201: // JSR_W
@@ -1085,14 +1070,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                     ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
                     frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.PUTSTATIC: {
                     ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
                     frameStackCount = popDesc(frameStackCount, sr.desc);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.GETFIELD: {
@@ -1100,7 +1083,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
                     frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.PUTFIELD: {
@@ -1108,7 +1090,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount = popDesc(frameStackCount, sr.desc);
                     --frameStackCount;
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.INVOKEVIRTUAL: {
@@ -1117,7 +1098,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     --frameStackCount;
                     frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.INVOKESPECIAL: {
@@ -1144,7 +1124,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     }
                     frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.INVOKESTATIC: {
@@ -1152,7 +1131,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount = popDesc(frameStackCount, sr.desc);
                     frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.INVOKEINTERFACE: {
@@ -1161,7 +1139,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     --frameStackCount;
                     frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                     v += 5;
-                    s += 5;
                     break;
                 }
                 case Opcodes.INVOKEDYNAMIC: {
@@ -1169,7 +1146,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount = popDesc(frameStackCount, sr.desc);
                     frameStackCount = pushDesc(frameStack, frameStackCount, sr.desc);
                     v += 5;
-                    s += 5;
                     break;
                 }
                 case Opcodes.LDC:
@@ -1206,20 +1182,25 @@ class BasicBlock implements Comparable<BasicBlock> {
                 
                     if (opcode == Opcodes.LDC) {
                         v += 2;
-                        s += 2;
                     } else {
                         v += 3;
-                        s += 3;
                     }
                     break;
                 }
                 case Opcodes.NEW: {
+                    // transitioning from possibly-defined to undefined
+                    if (FrameData.isFrameFullyDefined(frameLocal, frameLocalCount)
+                        && FrameData.isFrameFullyDefined(frameStack, frameStackCount)) {
+                        lastDefinedFrameLocal = Arrays.copyOf(frameLocal, frameLocalCount);
+                        lastDefinedFrameStack = Arrays.copyOf(frameStack, frameStackCount);
+                        lastDefinedV = v;
+                        lastDefinedS = s;
+                    }
                     Label l = getLabelAt(labelsByOffset, v);
                     frameStack[frameStackCount++] = l;
                     String clazz = constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1));
                     labelTypes.put(l, clazz);
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.NEWARRAY:
@@ -1252,14 +1233,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                         break;
                     }
                     v += 2;
-                    s += 2;
                     break;
                 case Opcodes.ANEWARRAY: {
                     --frameStackCount;
                     frameStackCount = pushDesc(frameStack, frameStackCount,
                                                "[" + Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))));
                     v += 3;
-                    s += 3;
                     break;
                 }
                 case Opcodes.CHECKCAST: {
@@ -1267,7 +1246,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount = pushDesc(frameStack, frameStackCount,
                                                Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
                     v += 3;
-                    s += 3;
                     break;
                 }
                 
@@ -1276,7 +1254,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount = pushDesc(frameStack, frameStackCount,
                                                Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
                     v += 4;
-                    s += 4;
                     break;
                 }
                 case 196: // WIDE
@@ -1287,14 +1264,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                     case Opcodes.ALOAD:
                         frameStack[frameStackCount++] = frameLocal[ByteArray.readUnsignedShort(b, v + 2)];
                         v += 4;
-                        s += 4;
                         break;
                     case Opcodes.LLOAD:
                     case Opcodes.DLOAD:
                         frameStack[frameStackCount++] = frameLocal[ByteArray.readUnsignedShort(b, v + 2)];
                         frameStack[frameStackCount++] = Opcodes.TOP;
                         v += 4;
-                        s += 4;
                         break;
                     case Opcodes.ISTORE:
                     case Opcodes.FSTORE:
@@ -1304,7 +1279,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                         frameLocalCount = Math.max(frameLocalCount, n + 1);
                         invalidateTwoWordLocal(frameLocal, n - 1);
                         v += 4;
-                        s += 4;
                         break;
                     }
                     case Opcodes.LSTORE:
@@ -1315,7 +1289,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                         frameLocalCount = Math.max(frameLocalCount, n + 2);
                         invalidateTwoWordLocal(frameLocal, n - 1);
                         v += 4;
-                        s += 4;
                         break;
                     }
                     case Opcodes.IINC: {
@@ -1323,7 +1296,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                         frameLocal[n] = Opcodes.INTEGER;
                         frameLocalCount = Math.max(frameLocalCount, n + 1);
                         v += 6;
-                        s += 6;
                         break;
                     }
                     }
@@ -1332,19 +1304,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     throw new RuntimeException("unhandled opcode " + opcode);
                 }
                 }
-                if (s + (exitCount * exitOverhead) + stackOverhead > maxBlockSize) {
-                    BasicBlock block = getBasicBlock(previousV, blocksByOffset, blocks);
-                    FrameData fd = block.frameData;
-                    if (fd == null) {
-                        block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
-                    }
-                    s = (s - previousS);
-                }
-                if (blocksByOffset[v] != null) {
-                    s = exitOverhead;
-                }
-                previousV = v;
-                previousS = s;
+                s += sizes[start];
              }
         }
 
