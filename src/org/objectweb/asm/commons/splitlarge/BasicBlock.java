@@ -1237,14 +1237,14 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.ANEWARRAY: {
                     --frameStackCount;
                     frameStackCount = pushDesc(frameStack, frameStackCount,
-                                               "[" + Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))));
+                                               "[" + constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1)));
                     v += 3;
                     break;
                 }
                 case Opcodes.CHECKCAST: {
                     --frameStackCount;
                     frameStackCount = pushDesc(frameStack, frameStackCount,
-                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
+                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getInternalName());
                     v += 3;
                     break;
                 }
@@ -1252,7 +1252,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.MULTIANEWARRAY: {
                     frameStackCount -= b[v + 3] & 0xFF;
                     frameStackCount = pushDesc(frameStack, frameStackCount,
-                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getDescriptor());
+                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getInternalName());
                     v += 4;
                     break;
                 }
