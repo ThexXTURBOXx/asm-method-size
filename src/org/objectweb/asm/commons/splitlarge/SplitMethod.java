@@ -40,11 +40,6 @@ class SplitMethod {
      */
     BasicBlock entry;
 
-    /**
-     * Name of the main method.
-     */
-    String mainMethodName;
-
     int access;
 
     /**
@@ -58,7 +53,6 @@ class SplitMethod {
     MethodVisitor writer;
 
     public SplitMethod(String name, int access, BasicBlock entry) {
-        this.mainMethodName = mainMethodName;
         this.access = access;
         this.name = name;
         this.entry = entry;
