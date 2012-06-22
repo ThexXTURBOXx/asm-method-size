@@ -148,15 +148,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
-        {
-            int i = 0;
-            while (i <= code.length) {
-                if ((frameDataByOffset[i] != null) && (blocksByOffset[i] != null)) {
-                    blocksByOffset[i].frameData = frameDataByOffset[i];
-                }
-                ++i;
-            }
-        }
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
         this.scc.computeSplitPoints();
