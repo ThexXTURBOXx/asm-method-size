@@ -1481,12 +1481,12 @@ class BasicBlock implements Comparable<BasicBlock> {
             case ClassWriter.TABL_INSN:
                 // skips instruction
                 size += 3; // very coarse
-                u = u & ~3;
+                u = u + 4 - (u & 3);
                 u += 12 + 4 * (ByteArray.readInt(b, u + 8) - ByteArray.readInt(b, u + 4) + 1);
                 break;
             case ClassWriter.LOOK_INSN:
                 size += 3;
-                u = u & ~3;
+                u = u + 4 - (u & 3);
                 u += 8 + u + (ByteArray.readInt(b, u + 4) * 8);
                 break;
             case ClassWriter.WIDE_INSN:
