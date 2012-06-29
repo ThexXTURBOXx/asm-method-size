@@ -334,10 +334,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             case ClassWriter.TABL_INSN: {
                 int start = v;
-                // skips 0 to 3 padding bytes
-                v = v & ~3;
-                // reads instruction
-                int label = v + readInt(v);
+                v = v + 4 - (v & 3);
+                int label = start + readInt(v);
                 int min = readInt(v + 4);
                 int max = readInt(v + 8);
                 v += 12;
@@ -355,9 +353,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             }
             case ClassWriter.LOOK_INSN: {
                 int start = v;
-                // skips 0 to 3 padding bytes
-                v = v & ~3;
-                // reads instruction
+                v = v + 4 - (v & 3);
                 int label = v + readInt(v);
                 int size = readInt(v + 4);
                 v += 8;

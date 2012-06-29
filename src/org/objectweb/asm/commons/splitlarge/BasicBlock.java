@@ -410,10 +410,9 @@ class BasicBlock implements Comparable<BasicBlock> {
                     }
                     break;
                 case ClassWriter.TABL_INSN: {
-                    // skips 0 to 3 padding bytes*
                     v = v + 4 - (v & 3);
                     int s = 3;
-                    getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
+                    getBasicBlock(start + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                     v += 12;
                     s += 12;
@@ -430,7 +429,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     // skips 0 to 3 padding bytes
                     v = v + 4 - (v & 3);
                     int s = 3;
-                    getBasicBlock(v + ByteArray.readInt(b, v), blocksByOffset, blocks);
+                    getBasicBlock(start + ByteArray.readInt(b, v), blocksByOffset, blocks);
                     int j = ByteArray.readInt(b, v + 4);
                     v += 8;
                     s += 8;
@@ -1355,7 +1354,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 // skips 0 to 3 padding bytes
                 v = v + 4 - (v & 3);
                 // reads instruction
-                currentBlock.addEdge(blocksByOffset[v + ByteArray.readInt(b, v)]);
+                currentBlock.addEdge(blocksByOffset[start + ByteArray.readInt(b, v)]);
                 int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                 v += 12;
                 for (; j > 0; --j) {
@@ -1479,7 +1478,6 @@ class BasicBlock implements Comparable<BasicBlock> {
                 u += 5;
                 break;
             case ClassWriter.TABL_INSN:
-                // skips instruction
                 size += 3; // very coarse
                 u = u + 4 - (u & 3);
                 u += 12 + 4 * (ByteArray.readInt(b, u + 8) - ByteArray.readInt(b, u + 4) + 1);
