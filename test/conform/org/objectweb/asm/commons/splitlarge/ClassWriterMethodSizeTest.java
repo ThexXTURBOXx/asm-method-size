@@ -126,6 +126,11 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitVarInsn(Opcodes.ISTORE, var);
     }
 
+
+    private void TABLESWITCH(int min, int max, 
+                             Label dflt, Label... labels) {
+        this.mv.visitTableSwitchInsn(min, max, dflt, labels);
+    }
     
     /**
      * Method with one huge basic block of NOPs
@@ -481,5 +486,37 @@ public class ClassWriterMethodSizeTest extends TestCase {
         endMethod();
     }
 
+    /**
+     * Method split at a tableswitch.
+     */
+    public void testTableSwitch1() {
+        startMethod("Three1", Opcodes.ACC_PUBLIC, 100);
+        PUSH();
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+        }
+        Label dflt = new Label();
+        Label l0 = new Label();
+        Label l1 = new Label();
+        TABLESWITCH(0, 1, dflt, l0, l1);
+        LABEL(dflt);
+        {
+            int i = 0;
+            while (i < 70) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+        LABEL(l0);
+        RETURN();
+        LABEL(l1);
+        RETURN();
+        endMethod();
+    }
 
 }
