@@ -336,37 +336,46 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 int start = v;
                 v = v + 4 - (v & 3);
                 int label = start + readInt(v);
+                BasicBlock defaultBlock = blocksByOffset[label];
                 int min = readInt(v + 4);
                 int max = readInt(v + 8);
                 v += 12;
                 int size = max - min + 1;
-                Label[] table = new Label[size];
+                BasicBlock[] targetBlocks = new BasicBlock[size];
                 for (int j = 0; j < size; ++j) {
-                    table[j] = blocksByOffset[start + readInt(v)].getStartLabel();
+                    targetBlocks[j] = blocksByOffset[start + readInt(v)];
                     v += 4;
                 }
-                mv.visitTableSwitchInsn(min,
-                                        max,
-                                        blocksByOffset[label].getStartLabel(),
-                                        table);
+                Label[] targetLabels = new Label[size];
+                Label defaultLabel = generateSwitchLabels(currentBlock,
+                                                          defaultBlock, targetBlocks,
+                                                          targetLabels);
+                mv.visitTableSwitchInsn(min, max, defaultLabel, targetLabels);
+                generateSwitchPostlude(mv, currentBlock,
+                                       defaultBlock, defaultLabel, targetBlocks, targetLabels);
                 break;
             }
             case ClassWriter.LOOK_INSN: {
                 int start = v;
                 v = v + 4 - (v & 3);
-                int label = v + readInt(v);
+                int label = start + readInt(v);
+                BasicBlock defaultBlock = blocksByOffset[label];
                 int size = readInt(v + 4);
                 v += 8;
                 int[] keys = new int[size];
-                Label[] values = new Label[size];
+                BasicBlock[] targetBlocks = new BasicBlock[size];
                 for (int j = 0; j < size; ++j) {
                     keys[j] = readInt(v);
-                    values[j] = blocksByOffset[start + readInt(v + 4)].getStartLabel();
+                    targetBlocks[j] = blocksByOffset[start + readInt(v + 4)];
                     v += 8;
                 }
-                mv.visitLookupSwitchInsn(blocksByOffset[label].getStartLabel(),
-                                         keys,
-                                         values);
+                Label[] targetLabels = new Label[size];
+                Label defaultLabel = generateSwitchLabels(currentBlock,
+                                                          defaultBlock, targetBlocks,
+                                                          targetLabels);
+                mv.visitLookupSwitchInsn(defaultLabel, keys, targetLabels);
+                generateSwitchPostlude(mv, currentBlock,
+                                       defaultBlock, defaultLabel, targetBlocks, targetLabels);
                 break;
             }
             case ClassWriter.VAR_INSN:
@@ -491,8 +500,46 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     private void jumpToMethod(MethodVisitor mv, BasicBlock target) {
         target.sccRoot.splitMethod.visitJumpTo(cw, mv);
     }
-                                           
 
+    private Label generateSwitchLabels(BasicBlock currentBlock,
+                                       BasicBlock defaultBlock, BasicBlock[] targetBlocks,
+                                       Label[] targetLabels) {
+        
+        Label dflt;
+        if (defaultBlock.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+            dflt = new Label();
+        } else {
+            dflt = defaultBlock.getStartLabel();
+        }
+        int size = targetBlocks.length;
+        for (int j = 0; j < size; ++j) {
+            BasicBlock target = targetBlocks[j];
+            if (target.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+                targetLabels[j] = new Label();
+            } else {
+                targetLabels[j] = target.getStartLabel();
+            }
+        }
+        return dflt;
+    }
+
+    private void generateSwitchPostlude(MethodVisitor mv, BasicBlock currentBlock,
+                                        BasicBlock defaultBlock, Label defaultLabel,
+                                        BasicBlock[] targetBlocks,
+                                        Label[] targetLabels) {
+        if (defaultBlock.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+            mv.visitLabel(defaultLabel);
+            jumpToMethod(mv, defaultBlock);
+        }
+        int size = targetBlocks.length;
+        for (int j = 0; j < size; ++j) {
+            BasicBlock target = targetBlocks[j];
+            if (target.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+                mv.visitLabel(targetLabels[j]);
+                jumpToMethod(mv, target);
+            }
+        }
+    }
 
     private int reverseBranch(int opcode) {
         int reverse = -1;

@@ -862,7 +862,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     // skips 0 to 3 padding bytes
                     v = v + 4 - (v & 3);
                     int j = ByteArray.readInt(b, v + 4);
-                    v += 8 + v + (j * 8);
+                    v += 8 + (j * 8);
                     break;
                 }
                 case Opcodes.POP2:
@@ -1364,6 +1364,7 @@ class BasicBlock implements Comparable<BasicBlock> {
             case ClassWriter.LOOK_INSN: {
                 int start = v;
                 v = v + 4 - (v & 3);
+                currentBlock.addEdge(blocksByOffset[start + ByteArray.readInt(b, v)]);
                 int j = ByteArray.readInt(b, v + 4);
                 v += 8;
                 for (; j > 0; --j) {

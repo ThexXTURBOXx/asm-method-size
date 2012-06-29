@@ -131,6 +131,10 @@ public class ClassWriterMethodSizeTest extends TestCase {
                              Label dflt, Label... labels) {
         this.mv.visitTableSwitchInsn(min, max, dflt, labels);
     }
+
+    private void LOOKUPSWITCH(Label dflt, int[] keys, Label[] labels) {
+        this.mv.visitLookupSwitchInsn(dflt, keys, labels);
+    }
     
     /**
      * Method with one huge basic block of NOPs
@@ -490,7 +494,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      * Method split at a tableswitch.
      */
     public void testTableSwitch1() {
-        startMethod("Three1", Opcodes.ACC_PUBLIC, 100);
+        startMethod("tableSwitch1", Opcodes.ACC_PUBLIC, 100);
         PUSH();
         {
             int i = 0;
@@ -503,6 +507,43 @@ public class ClassWriterMethodSizeTest extends TestCase {
         Label l0 = new Label();
         Label l1 = new Label();
         TABLESWITCH(0, 1, dflt, l0, l1);
+        LABEL(dflt);
+        {
+            int i = 0;
+            while (i < 70) {
+                NOP();
+                ++i;
+            }
+        }
+        RETURN();
+        LABEL(l0);
+        RETURN();
+        LABEL(l1);
+        RETURN();
+        endMethod();
+    }
+
+    /**
+     * Method split at a lookupswitch.
+     */
+    public void testLookupSwitch1() {
+        startMethod("LookupSwitch1", Opcodes.ACC_PUBLIC, 100);
+        PUSH();
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+        }
+        Label dflt = new Label();
+        Label l0 = new Label();
+        Label l1 = new Label();
+        int[] keys = { 0, 1 };
+        Label[] labels = new Label[2];
+        labels[0] = l0;
+        labels[1] = l1;
+        LOOKUPSWITCH(dflt, keys, labels);
         LABEL(dflt);
         {
             int i = 0;
