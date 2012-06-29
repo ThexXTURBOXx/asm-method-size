@@ -1351,9 +1351,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 break;
             case ClassWriter.TABL_INSN: {
                 int start = v;
-                // skips 0 to 3 padding bytes
                 v = v + 4 - (v & 3);
-                // reads instruction
                 currentBlock.addEdge(blocksByOffset[start + ByteArray.readInt(b, v)]);
                 int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
                 v += 12;
@@ -1365,9 +1363,7 @@ class BasicBlock implements Comparable<BasicBlock> {
             }
             case ClassWriter.LOOK_INSN: {
                 int start = v;
-                // skips 0 to 3 padding bytes
                 v = v + 4 - (v & 3);
-                // reads instruction
                 int j = ByteArray.readInt(b, v + 4);
                 v += 8;
                 for (; j > 0; --j) {
