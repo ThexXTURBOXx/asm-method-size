@@ -759,6 +759,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case 66: {
                     int n = opcode - 63;
                     frameLocal[n] = frameStack[--frameStackCount];
+                    --frameStackCount;
                     frameLocal[n + 1] = Opcodes.TOP;
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
@@ -787,6 +788,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     int n = opcode - 71;
                     frameLocal[n] = frameStack[--frameStackCount];
                     frameLocal[n + 1] = Opcodes.TOP;
+                    --frameStackCount;
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 1;
@@ -810,6 +812,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     int n = b[v + 1] & 0xFF;
                     frameLocal[n] = frameStack[--frameStackCount];
                     frameLocal[n + 1] = Opcodes.TOP;
+                    --frameStackCount;
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 2;
@@ -1285,6 +1288,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                         int n = ByteArray.readUnsignedShort(b, v + 2);
                         frameLocal[n] = frameStack[--frameStackCount];
                         frameLocal[n + 1] = Opcodes.TOP;
+                        --frameStackCount;
                         frameLocalCount = Math.max(frameLocalCount, n + 2);
                         invalidateTwoWordLocal(frameLocal, n - 1);
                         v += 4;
@@ -1296,6 +1300,9 @@ class BasicBlock implements Comparable<BasicBlock> {
                         frameLocalCount = Math.max(frameLocalCount, n + 1);
                         v += 6;
                         break;
+                    }
+                    default: {
+                        throw new RuntimeException("unhandled wide opcode " + opcode);
                     }
                     }
                     break;
