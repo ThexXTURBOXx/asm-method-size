@@ -716,7 +716,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 typeTable[--k] = ByteArray.readUnsignedShort(b, w + 8); // index
                 typeTable[--k] = ByteArray.readUnsignedShort(b, w); // start
                 w += 10;
-            }        }
+            }        
+        }
         {
             byte[] b = localVar.data;
             int k = localVarCount;
