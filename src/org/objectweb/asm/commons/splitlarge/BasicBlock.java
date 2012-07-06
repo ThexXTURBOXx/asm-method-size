@@ -297,13 +297,15 @@ class BasicBlock implements Comparable<BasicBlock> {
                 frame[frameCount++] = desc.substring(index, desc.length());
             }
             break;
-            // case 'L':
-        default:
+        case 'L':
             if (index == 0) {
                 frame[frameCount++] = desc.substring(1, desc.length() - 1);
             } else {
                 frame[frameCount++] = desc.substring(index + 1, desc.length() - 1);
             }
+            break;
+        default:
+            throw new RuntimeException("unexpected descriptor");
         }
         return frameCount;
     }
@@ -723,7 +725,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                     frameStackCount -= 2;
                     Object t = frameStack[frameStackCount];
                     if (t instanceof String) {
-                        frameStackCount = pushDesc(frameStack, frameStackCount, ((String) t).substring(1));
+                        frameStack[frameStackCount++] = ((String) t).substring(1);
                     } else {
                         frameStack[frameStackCount++] =  "java/lang/Object";
                     }
@@ -1209,52 +1211,49 @@ class BasicBlock implements Comparable<BasicBlock> {
                     --frameStackCount;
                     switch (b[v + 1]) {
                     case Opcodes.T_BOOLEAN:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[Z");
+                        frameStack[frameStackCount++] = "[Z";
                         break;
                     case Opcodes.T_CHAR:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[C");
+                        frameStack[frameStackCount++] = "[C";
                         break;
                     case Opcodes.T_BYTE:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[B");
+                        frameStack[frameStackCount++] = "[B";
                         break;
                     case Opcodes.T_SHORT:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[S");
+                        frameStack[frameStackCount++] = "[S";
                         break;
                     case Opcodes.T_INT:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[I");
+                        frameStack[frameStackCount++] = "[I";
                         break;
                     case Opcodes.T_FLOAT:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[F");
+                        frameStack[frameStackCount++] = "[F";
                         break;
                     case Opcodes.T_DOUBLE:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[D");
+                        frameStack[frameStackCount++] = "[D";
                         break;
                         // case Opcodes.T_LONG:
                     default:
-                        frameStackCount = pushDesc(frameStack, frameStackCount, "[J");
+                        frameStack[frameStackCount++] = "[J";
                         break;
                     }
                     v += 2;
                     break;
                 case Opcodes.ANEWARRAY: {
                     --frameStackCount;
-                    frameStackCount = pushDesc(frameStack, frameStackCount,
-                                               "[" + constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1)));
+                    frameStack[frameStackCount++] = "[" + constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1));
                     v += 3;
                     break;
                 }
                 case Opcodes.CHECKCAST: {
                     --frameStackCount;
-                    frameStackCount = pushDesc(frameStack, frameStackCount,
-                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getInternalName());
+                    frameStack[frameStackCount++] = constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1));
                     v += 3;
                     break;
                 }
                 
                 case Opcodes.MULTIANEWARRAY: {
                     frameStackCount -= b[v + 3] & 0xFF;
-                    frameStackCount = pushDesc(frameStack, frameStackCount,
-                                               Type.getObjectType(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1))).getInternalName());
+                    frameStack[frameStackCount++] = constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1));
                     v += 4;
                     break;
                 }
