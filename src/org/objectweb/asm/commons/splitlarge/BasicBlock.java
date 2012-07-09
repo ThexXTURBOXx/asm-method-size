@@ -550,7 +550,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                                 split.frameData = new FrameData(lastDefinedFrameLocal, lastDefinedFrameStack);
                                 lastDefinedFrameLocal = lastDefinedFrameStack = null;
                                 // code between the split point and here is the new size
-                                s = s - lastDefinedS;
+                                s = s - lastDefinedS + stackOverhead;
                             }
                             // else we'll die later ...
                         }
