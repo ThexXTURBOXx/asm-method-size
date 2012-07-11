@@ -145,12 +145,14 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                                     blocksByOffset, labelsByOffset,
                                     labelTypes);
         CycleEquivalence.compute(blocks);
+        BasicBlock.computeLocalsReads(code, blocks);
+        BasicBlock.computeInvocationSizes(blocks);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
+        this.scc.computeSplitPoints();
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
-        this.scc.computeSplitPoints();
         this.splitMethods = scc.split(thisName, access, maxMethodLength, nameGenerator);
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {
@@ -617,7 +619,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     private void startSplitMethods() {
         for (SplitMethod m : splitMethods) {
             m.writer.visitCode();
-            m.entry.frameData.reconstructStack(m.writer); // FIXME: intermediate methods, maybe 2
+            m.reconstructFrame();
         }
         mainMethodVisitor.visitCode();
     }
@@ -746,34 +748,27 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     
     private void visitLocalVariable(String name, String desc, String signature,
                                     int start, int length, int index) {
-        HashMap<MethodVisitor, Label> startLabels = new HashMap<MethodVisitor, Label>();
-        HashMap<MethodVisitor, Label> endLabels = new HashMap<MethodVisitor, Label>();
+        // null means it's the main method
+        HashMap<SplitMethod, Label> startLabels = new HashMap<SplitMethod, Label>();
+        HashMap<SplitMethod, Label> endLabels = new HashMap<SplitMethod, Label>();
 
         // first search backwards for the basic block we're in
-        MethodVisitor mv = null;
+        SplitMethod method = null;
         BasicBlock currentBlock = null;
         {
             int i = start;
             while (i >= 0) {
                 BasicBlock b = blocksByOffset[i];
                 if (b != null) {
-                    SplitMethod m = b.sccRoot.splitMethod;
-                    if (m != null) {
-                        mv = m.writer;
-                    } else {
-                        mv = mainMethodVisitor;
-                    }
+                    method = b.sccRoot.splitMethod;
                     currentBlock = b;
                     break;
                 }
                 --i;
             }
         }
-        if (mv == null) {
-            mv = mainMethodVisitor;
-        }
-
-        startLabels.put(mv, labelsByOffset[start]);
+        startLabels.put(method, labelsByOffset[start]);
+        SplitMethod firstMethod = method;
 
         // ... then move forward
         int v = start;
@@ -783,33 +778,37 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             if (b != null) {
                 // push the end forward
                 if (currentBlock != null) {
-                    endLabels.put(mv, currentBlock.getEndLabel());
+                    endLabels.put(method, currentBlock.getEndLabel());
                 }
-                SplitMethod m = b.sccRoot.splitMethod;
-                if (m != null) {
-                    mv = m.writer;
-                } else {
-                    mv = mainMethodVisitor;
-                }
-                Label startLabel = startLabels.get(mv);
+                method = b.sccRoot.splitMethod;
+                Label startLabel = startLabels.get(method);
                 if (startLabel == null) {
-                    startLabels.put(mv, b.getStartLabel());
+                    startLabels.put(method, b.getStartLabel());
                 }
                 currentBlock = b;
             }
             ++v;
         }
         // final end
-        endLabels.put(mv, upwardLabelsByOffset[end]);
+        endLabels.put(method, upwardLabelsByOffset[end]);
                 
-        for (Map.Entry<MethodVisitor, Label> entry : startLabels.entrySet()) {
-            mv = entry.getKey();
+        for (Map.Entry<SplitMethod, Label> entry : startLabels.entrySet()) {
+            SplitMethod m = entry.getKey();
+            MethodVisitor mv;
+            if (m == null) {
+                mv = mainMethodVisitor;
+            } else {
+                mv = m.writer;
+            }
             Label startLabel = entry.getValue();
-            Label endLabel = endLabels.get(mv);
+            Label endLabel = endLabels.get(m);
             assert endLabel != null;
-            mv.visitLocalVariable(name, desc, signature, startLabel, endLabel, index);
+            assert endLabel.position >= startLabel.position;
+            if ((m == null) || (m == firstMethod)
+                || !m.entry.sparseInvocation || m.entry.localsReadTransitive.get(index)) {
+                mv.visitLocalVariable(name, desc, signature, startLabel, endLabel, index);
+            }
         }
-        
     }
 
     

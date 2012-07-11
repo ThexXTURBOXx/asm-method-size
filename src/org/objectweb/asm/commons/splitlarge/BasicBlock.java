@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.HashMap;
 import java.util.TreeSet;
 import java.util.Arrays;
+import java.util.BitSet;
 
 /**
  * Basic block in flowgraph.
@@ -96,11 +97,40 @@ class BasicBlock implements Comparable<BasicBlock> {
      */
     FrameData frameData;
 
+    /**
+     * Frame indices of local variables that this basic block reads.
+     */
+    BitSet localsRead;
+
+    /**
+     * Frame indices of local variables that this basic block writes.
+     */
+    BitSet localsWritten;
+
+    /**
+     * Frame indices of local variables that this block and its
+     * successor read, transitively.
+     */
+    BitSet localsReadTransitive;
+
     public enum Kind {
         EXCEPTION_HANDLER, REGULAR
     };
 
     Kind kind;
+
+    /**
+     * Says whether this block should be invoked sparsely or not.
+     */
+    boolean sparseInvocation;
+    int invocationSize;
+    int reconstructFrameSize;
+    
+    /**
+     * If a frame has at least this many locals, we'll assume that
+     * we'll use a sparse frames transfer.
+     */
+    public static int SPARSE_FRAME_TRANSFER_THRESHOLD = 100;
 
     public BasicBlock(int position) {
         this.sccIndex = -1;
@@ -492,8 +522,6 @@ class BasicBlock implements Comparable<BasicBlock> {
 
         // Next, add frames and split too-large blocks
         {
-            final int invocationOverhead = visitInvocationMaxSize(maxStack, maxLocals);
-            final int stackOverhead = reconstructStackMaxSize(maxStack, maxLocals);
             int frameLocalCount = 0;
             int frameStackCount = 0;
             Object[] frameLocal = new Object[maxLocals];
@@ -534,23 +562,23 @@ class BasicBlock implements Comparable<BasicBlock> {
                             block.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
                         }
                         lastDefinedFrameLocal = lastDefinedFrameStack = null;
-                        s = stackOverhead;
+                        s = reconstructFrameMaxSize(frameStackCount, frameLocalCount);
                     } else {
                         // the next instruction would put it over the top, so put in a potential split point
-                        if (s + sizes[v] + invocationOverhead > maxBlockSize) {
+                        if (s + sizes[v] + invocationMaxSize(frameStackCount, frameLocalCount) > maxBlockSize) {
                             if (FrameData.isFrameFullyDefined(frameLocal, frameLocalCount)
                                 && FrameData.isFrameFullyDefined(frameStack, frameStackCount)) {
                                 // current frame is fully defined, so it's OK to split here
                                 BasicBlock split = getBasicBlock(v, blocksByOffset, blocks);
                                 split.frameData = new FrameData(frameLocalCount, frameLocal, frameStackCount, frameStack);
-                                s = stackOverhead;
+                                s = reconstructFrameMaxSize(frameStackCount, frameLocalCount);
                             } else if (lastDefinedFrameLocal != null) {
                                 // current frame is not fully defined, so split just before it became undefined
                                 BasicBlock split = getBasicBlock(lastDefinedV, blocksByOffset, blocks);
                                 split.frameData = new FrameData(lastDefinedFrameLocal, lastDefinedFrameStack);
-                                lastDefinedFrameLocal = lastDefinedFrameStack = null;
                                 // code between the split point and here is the new size
-                                s = s - lastDefinedS + stackOverhead;
+                                s = s - lastDefinedS + reconstructFrameMaxSize(lastDefinedFrameStack.length, lastDefinedFrameLocal.length);
+                                lastDefinedFrameLocal = lastDefinedFrameStack = null;
                             }
                             // else we'll die later ...
                         }
@@ -1457,18 +1485,18 @@ class BasicBlock implements Comparable<BasicBlock> {
     public void computeSize(ByteVector code) {
         int end = (subsequent != null) ? subsequent.position : code.length;
         int size = end - position;
-        int u = position;
+        int v = position;
         byte[] b = code.data;
-        while (u < end) {
-            int opcode = b[u] & 0xFF; // opcode of current instruction
+        while (v < end) {
+            int opcode = b[v] & 0xFF; // opcode of current instruction
 
             switch (ClassWriter.TYPE[opcode]) {
             case ClassWriter.NOARG_INSN:
             case ClassWriter.IMPLVAR_INSN:
-                u += 1;
+                v += 1;
                 break;
             case ClassWriter.LABEL_INSN:
-                u += 3;
+                v += 3;
                 // five additional bytes will be required to
                 // replace this IFxxx <l> instruction with
                 // IFNOTxxx <l'> GOTO_W <l>, where IFNOTxxx
@@ -1478,56 +1506,56 @@ class BasicBlock implements Comparable<BasicBlock> {
                 size += 5;
                 break;
             case ClassWriter.LABELW_INSN:
-                u += 5;
+                v += 5;
                 break;
             case ClassWriter.TABL_INSN:
                 size += 3; // very coarse
-                u = u + 4 - (u & 3);
-                u += 12 + 4 * (ByteArray.readInt(b, u + 8) - ByteArray.readInt(b, u + 4) + 1);
+                v = v + 4 - (v & 3);
+                v += 12 + 4 * (ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1);
                 break;
             case ClassWriter.LOOK_INSN:
                 size += 3;
-                u = u + 4 - (u & 3);
-                u += 8 + u + (ByteArray.readInt(b, u + 4) * 8);
+                v = v + 4 - (v & 3);
+                v += 8 + v + (ByteArray.readInt(b, v + 4) * 8);
                 break;
             case ClassWriter.WIDE_INSN:
-                opcode = b[u + 1] & 0xFF;
+                opcode = b[v + 1] & 0xFF;
                 if (opcode == Opcodes.IINC) {
-                    u += 6;
+                    v += 6;
                 } else {
-                    u += 4;
+                    v += 4;
                 }
                 break;
             case ClassWriter.VAR_INSN:
             case ClassWriter.SBYTE_INSN:
             case ClassWriter.LDC_INSN:
-                u += 2;
+                v += 2;
                 break;
             case ClassWriter.SHORT_INSN:
             case ClassWriter.LDCW_INSN:
             case ClassWriter.FIELDORMETH_INSN:
             case ClassWriter.TYPE_INSN:
             case ClassWriter.IINC_INSN:
-                u += 3;
+                v += 3;
                 break;
             case ClassWriter.ITFMETH_INSN:
             case ClassWriter.INDYMETH_INSN:
-                u += 5;
+                v += 5;
                 break;
                 // case ClassWriter.MANA_INSN:
             default:
-                u += 4;
+                v += 4;
                 break;
             }
         }
 
         if (sccRoot.splitPoint == this) {
             // compute what it takes to restore this frame
-            size += reconstructStackSize();
+            size += reconstructFrameSize;
         }
         for (BasicBlock s : successors) {
             if (s.sccRoot.splitPoint == s) {
-                size += s.visitInvocationSize();
+                size += s.invocationSize;
             }
         }
         this.size = size;
@@ -1539,20 +1567,47 @@ class BasicBlock implements Comparable<BasicBlock> {
         }
     }
 
+    public void pushFrameArguments(MethodVisitor mv, boolean isStatic) {
+        frameData.pushFrameArguments(mv, isStatic, sparseInvocation ? localsReadTransitive : null);
+    }
+
+    public void reconstructFrame(MethodVisitor mv, boolean isStatic) {
+        if (sparseInvocation) {
+            frameData.reconstructFrameSparse(mv, isStatic, localsReadTransitive);
+        } else {
+            frameData.reconstructFrame(mv);
+        }
+    }
+
     /**
      * Calculcate the size of the code needed to invoke this basic
      * block as the entry point of a split method.
      */
-    public int visitInvocationSize() {
-        return frameData.visitPushFrameArgumentsSize() 
+    private int invocationRegularSize() {
+        return frameData.pushFrameArgumentsSize(null)
             + 3 // INVOKESTATIC or INVOKEVIRTUAL
             + 1; // RETURN
     }
 
-    public static int visitInvocationMaxSize(int maxStack, int maxLocals) {
-        return FrameData.visitPushFrameArgumentsMaxSize(maxStack, maxLocals)
+    private int invocationSparseSize() {
+        return frameData.pushFrameArgumentsSize(localsReadTransitive)
             + 3 // INVOKESTATIC or INVOKEVIRTUAL
             + 1; // RETURN
+    }
+
+    public static int invocationMaxSize(int maxStack, int maxLocals) {
+        int push = (maxLocals < SPARSE_FRAME_TRANSFER_THRESHOLD)
+            ? FrameData.pushFrameArgumentsMaxSize(maxStack, maxLocals)
+            :  FrameData.pushFrameArgumentsSparseMaxSize(maxStack, maxLocals);
+        return push
+            + 3 // INVOKESTATIC or INVOKEVIRTUAL
+            + 1; // RETURN
+    }
+
+    public String getDescriptor(final String methodDescriptor, final boolean isStatic, HashMap<Label, String> labelTypes) {
+        return frameData.getDescriptor(methodDescriptor, isStatic,
+                                       sparseInvocation ? localsReadTransitive : null,
+                                       labelTypes);
     }
 
     public boolean hasFullyDefinedFrame() {
@@ -1562,16 +1617,200 @@ class BasicBlock implements Comparable<BasicBlock> {
     /**
      * Calculate code size needed to reconstruct the stack from the parameters.
      */
-    public int reconstructStackSize() {
-        return frameData.reconstructStackSize();
+    private int reconstructFrameRegularSize() {
+        return frameData.reconstructFrameSize();
+    }
+
+    private int reconstructFrameSparseSize() {
+        return frameData.reconstructFrameSparseSize(localsReadTransitive);
+    }
+
+    private void computeInvocationSize() {
+        int irs = invocationRegularSize();
+        int rrs = reconstructFrameRegularSize();
+        if (frameData.frameLocal.length < SPARSE_FRAME_TRANSFER_THRESHOLD) {
+            sparseInvocation = false;
+            invocationSize = irs;
+            reconstructFrameSize = rrs;
+            return;
+        }
+
+        int iss = invocationSparseSize();
+        int rss = reconstructFrameSparseSize();
+        int pc = predecessors.size();
+        if (((pc * irs) + rrs) <= (pc * iss) + rss) {
+            sparseInvocation = false;
+            invocationSize = irs;
+            reconstructFrameSize = rrs;
+        } else {
+            sparseInvocation = true;
+            invocationSize = iss;
+            reconstructFrameSize = rss;
+        }
+    }
+
+    public static void computeInvocationSizes(TreeSet<BasicBlock> blocks) {
+        for (BasicBlock b : blocks) {
+            b.computeInvocationSize();
+        }
     }
 
     /**
      * Calculate maximum code size needed to reconstruct the stack from the parameters.
      */
-    public static int reconstructStackMaxSize(int maxStack, int maxLocals) {
-        return FrameData.reconstructStackMaxSize(maxStack, maxLocals);
+    public static int reconstructFrameMaxSize(int maxStack, int maxLocals) {
+        return FrameData.reconstructFrameMaxSize(maxStack, maxLocals);
     }
+
+    public static int reconstructFrameSparseMaxSize(int maxStack, int maxLocals) {
+        return FrameData.reconstructFrameSparseMaxSize(maxStack, maxLocals);
+    }
+
+    /**
+     * Set the {@link #localsRead} member to a bitset indexed by the
+     * frame offset of the local variables.
+     *
+     * Also, initialize {@link #localsReadTransitive} to a copy of
+     * {@link #localsRead}.
+     */
+    private void computeLocalsRead(ByteVector code) {
+        // locals to which we've written aren't relevant anymore
+        if (frameData == null) {
+            localsRead = new BitSet(0);
+            localsWritten = new BitSet(0);
+        } else {
+            localsRead = new BitSet(frameData.frameLocal.length);
+            localsWritten = new BitSet(frameData.frameLocal.length); // at least
+        }
+        int end = (subsequent != null) ? subsequent.position : code.length;
+        int v = position;
+        byte[] b = code.data;
+        while (v < end) {
+            int opcode = b[v] & 0xFF; // opcode of current instruction
+
+            switch (ClassWriter.TYPE[opcode]) {
+            case ClassWriter.NOARG_INSN:
+                v += 1;
+                break;
+            case ClassWriter.IMPLVAR_INSN:
+                if (opcode > Opcodes.ISTORE) {
+                    localsWritten.set((opcode - 59) & 0x3); // ISTORE_0
+                } else {
+                    int index = (opcode - 26) & 0x3; // ILOAD_0
+                    if (!localsWritten.get(index)) {
+                        localsRead.set(index);
+                    }
+                }
+                v += 1;
+                break;
+            case ClassWriter.LABEL_INSN:
+                v += 3;
+                break;
+            case ClassWriter.LABELW_INSN:
+                v += 5;
+                break;
+            case ClassWriter.TABL_INSN:
+                size += 3; // very coarse
+                v = v + 4 - (v & 3);
+                v += 12 + 4 * (ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1);
+                break;
+            case ClassWriter.LOOK_INSN:
+                size += 3;
+                v = v + 4 - (v & 3);
+                v += 8 + v + (ByteArray.readInt(b, v + 4) * 8);
+                break;
+            case ClassWriter.WIDE_INSN: {
+                opcode = b[v + 1] & 0xFF;
+                int index = ByteArray.readUnsignedShort(b, v + 2);
+                if (opcode == Opcodes.IINC) {
+                    if (!localsWritten.get(index)) {
+                        localsRead.set(index);
+                        localsWritten.set(index); // pedantic
+                    }
+                    v += 6;
+                } else {
+                    if (opcode >= Opcodes.ISTORE) {
+                        localsWritten.set(index);
+                    } else if (!localsWritten.get(index)) {
+                        localsRead.set(index);
+                    }
+                    v += 4;
+                }
+                break;
+            }
+            case ClassWriter.VAR_INSN: {
+                int index = b[v + 1] & 0xFF;
+                if (opcode >= Opcodes.ISTORE) {
+                    localsWritten.set(index);
+                } else if (!localsWritten.get(index)) {
+                    localsRead.set(index);
+                }
+                v += 2;
+                break;
+            }
+            case ClassWriter.SBYTE_INSN:
+            case ClassWriter.LDC_INSN:
+                v += 2;
+                break;
+            case ClassWriter.SHORT_INSN:
+            case ClassWriter.LDCW_INSN:
+            case ClassWriter.FIELDORMETH_INSN:
+            case ClassWriter.TYPE_INSN:
+                v += 3;
+                break;
+            case ClassWriter.IINC_INSN: {
+                int index = b[v + 1] & 0xFF;
+                if (!localsWritten.get(index)) {
+                    localsRead.set(index);
+                    localsWritten.set(index);
+                }
+                v += 3;
+                break;
+            }
+            case ClassWriter.ITFMETH_INSN:
+            case ClassWriter.INDYMETH_INSN:
+                v += 5;
+                break;
+                // case ClassWriter.MANA_INSN:
+            default:
+                v += 4;
+                break;
+            }
+        }
+        localsReadTransitive = (BitSet) localsRead.clone();
+    }
+
+    /**
+     * @returns true if the set changed
+     */
+    private boolean iterateLocalsReadTransitive() {
+        BitSet old = (BitSet) localsReadTransitive.clone();
+        for (BasicBlock b : successors) {
+            BitSet sread = (BitSet) b.localsReadTransitive.clone();
+            sread.andNot(localsWritten);
+            localsReadTransitive.or(sread);
+        }
+        return !old.equals(localsReadTransitive);
+    }
+    
+    public static void computeLocalsReads(ByteVector code, TreeSet<BasicBlock> blocks) {
+        for (BasicBlock b : blocks) {
+            b.computeLocalsRead(code);
+        }
+        // fixpoint iteration
+        for (;;) {
+            boolean same = true;
+            for (BasicBlock b : blocks) {
+                if (b.iterateLocalsReadTransitive()) {
+                    same = false;
+                }
+            }
+            if (same) {
+                break;
+            }
+        }
+    }
+
 
     @Override
     public String toString() {

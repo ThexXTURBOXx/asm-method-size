@@ -79,7 +79,7 @@ public final class FrameData {
      * @param methodDescriptor method descriptor of host method
      * @param isStatic says whether host method is static
      */
-    public String getDescriptor(final String methodDescriptor, final boolean isStatic, HashMap<Label, String> labelTypes) {
+    public String getDescriptor(final String methodDescriptor, final boolean isStatic, BitSet localsRead, HashMap<Label, String> labelTypes) {
         StringBuilder b = new StringBuilder();
 
         b.append("(");
@@ -87,7 +87,9 @@ public final class FrameData {
             // for non-static methods, this is the first local, and implicit
             int i = isStatic ? 0 : 1;
             while (i < frameLocal.length) {
-                appendFrameTypeDescriptor(b, frameLocal[i], labelTypes);
+                if ((localsRead == null) || localsRead.get(i)) {
+                    appendFrameTypeDescriptor(b, frameLocal[i], labelTypes);
+                }
                 ++i;
             }
         }
@@ -104,9 +106,10 @@ public final class FrameData {
     }
 
     /**
-     * Generate a jump to this method.
+     * Generate the code to pass the arguments before control transfer
+     * to this block.
      */
-    public void visitPushFrameArguments(ClassWriter cw, MethodVisitor mv) {
+    public void pushFrameArguments(MethodVisitor mv, boolean isStatic, BitSet localsRead) {
         /*
          * We'll want the locals first, so they get the same indices
          * in the target block.  Then we'll want the operands.
@@ -118,14 +121,16 @@ public final class FrameData {
         {
             int i = 0;
             while (i < frameStack.length) {
-                storeStackElement(mv, frameLocal.length + i, frameStack[frameStack.length - i - 1]);
+                storeValue(mv, frameLocal.length + i, frameStack[frameStack.length - i - 1]);
                 ++i;
             }
         }
         {
             int i = 0;
             while (i < frameLocal.length) {
-                loadFrameElement(mv, i, frameLocal[i]);
+                if ((localsRead == null) || (!isStatic && (i == 0)) || localsRead.get(i)) {
+                    loadValue(mv, i, frameLocal[i]);
+                }
                 ++i;
             }
         }
@@ -133,7 +138,7 @@ public final class FrameData {
             int i = 0;
             // now the relative frame indices correspond to the original stack indices
             while (i < frameStack.length) {
-                loadFrameElement(mv, frameLocal.length + frameStack.length - i - 1, frameStack[i]);
+                loadValue(mv, frameLocal.length + frameStack.length - i - 1, frameStack[i]);
                 ++i;
             }
         }
@@ -143,40 +148,46 @@ public final class FrameData {
      * Calculate the size of the code needed to push the current frame
      * in preparation for an invocation.
      */
-    public int visitPushFrameArgumentsSize() {
+    public int pushFrameArgumentsSize(BitSet localsRead) {
         int size = 0;
         {
             int i = 0;
             while (i < frameStack.length) {
-                size += storeStackElementSize(frameLocal.length + i, frameStack[frameStack.length - i - 1]);
+                size += storeValueSize(frameLocal.length + i, frameStack[frameStack.length - i - 1]);
                 ++i;
             }
         }
         {
             int i = 0;
             while (i < frameLocal.length) {
-                size += loadFrameElementSize(i, frameLocal[i]);
+                if ((localsRead == null) || localsRead.get(i)) {
+                    size += loadValueSize(i, frameLocal[i]);
+                }
                 ++i;
             }
         }
         {
             int i = 0;
             while (i < frameStack.length) {
-                size += loadFrameElementSize(frameLocal.length + frameStack.length -i - 1, frameStack[i]);
+                size += loadValueSize(frameLocal.length + frameStack.length -i - 1, frameStack[i]);
                 ++i;
             }
         }
         return size;
     }
 
-    public static int visitPushFrameArgumentsMaxSize(int maxStack, int maxLocals) {
+    public static int pushFrameArgumentsMaxSize(int maxStack, int maxLocals) {
         int size = 0;
-        size += frameLoadStoreMaxSize(maxLocals, maxLocals + maxStack) * 2;
-        size += frameLoadStoreMaxSize(0, maxLocals);
+        size += valueLoadStoreMaxSize(maxLocals, maxLocals + maxStack) * 2;
+        size += valueLoadStoreMaxSize(0, maxLocals);
         return size;
     }
 
-    private static void storeStackElement(MethodVisitor mv, int index, Object el) {
+    public static int pushFrameArgumentsSparseMaxSize(int maxStack, int maxLocals) {
+        return pushFrameArgumentsMaxSize(maxStack, maxLocals);
+    }
+
+    private static void storeValue(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
         } else if (el == Opcodes.INTEGER) {
@@ -200,7 +211,7 @@ public final class FrameData {
         }
     }
 
-    private static int storeStackElementSize(int index, Object el) {
+    private static int storeValueSize(int index, Object el) {
         if (el == Opcodes.TOP) {
             return 0; // nothing
         } else {
@@ -255,12 +266,12 @@ public final class FrameData {
     /**
      * In a split method, reconstruct the stack from the parameters.
      */
-    public void reconstructStack(MethodVisitor mw) {
+    public void reconstructFrame(MethodVisitor mv) {
         int localSize = frameLocal.length;
         int i = 0, size = frameStack.length;
         // the relative frame indices correspond to the original stack indices
         while (i < size) {
-            loadFrameElement(mw, localSize + i, frameStack[i]);
+            loadValue(mv, localSize + i, frameStack[i]);
             ++i;
         }
     }
@@ -268,22 +279,87 @@ public final class FrameData {
     /**
      * Calculate code size needed to reconstruct the stack from the parameters.
      */
-    public int reconstructStackSize() {
+    public int reconstructFrameSize() {
         int codeSize = 0;
         int localSize = frameLocal.length;
         int i = 0, size = frameStack.length;
         while (i < size) {
-            codeSize += loadFrameElementSize(i + localSize, frameStack[i]);
+            codeSize += loadValueSize(i + localSize, frameStack[i]);
             ++i;
         }
         return codeSize;
     }
 
-    public static int reconstructStackMaxSize(int maxStack, int maxLocals) {
-        return frameLoadStoreMaxSize(maxLocals, maxStack + maxLocals);
+    public static int reconstructFrameMaxSize(int maxStack, int maxLocals) {
+        return valueLoadStoreMaxSize(maxLocals, maxStack + maxLocals);
     }
 
-    private static void loadFrameElement(MethodVisitor mv, int index, Object el) {
+    /**
+     * In a split method with a sparse frame, reconstruct frame and
+     * stack from parameters.
+     */
+    public void reconstructFrameSparse(MethodVisitor mv, boolean isStatic, BitSet readLocals) {
+        int argsCount = readLocals.cardinality();
+        {
+            int i = frameLocal.length - 1;
+            int j = argsCount - 1;
+            int m = isStatic ? 0 : 1;
+            while (i >= m) {
+                if (readLocals.get(i)) {
+                    Object el = frameLocal[i];
+                    loadValue(mv, j, el);
+                    storeValue(mv, i, el);
+                    --j;
+                }
+                --i;
+            }
+        }
+        {
+            int i = 0, size = frameStack.length;
+            // the relative frame indices correspond to the original stack indices
+            while (i < size) {
+                loadValue(mv, argsCount + i, frameStack[i]);
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * In a split method with a sparse frame, calculate code size
+     * needed to reconstruct frame and stack from parameters.
+     */
+    public int reconstructFrameSparseSize(BitSet readLocals) {
+        int codeSize = 0;
+        {
+            int i = 0, j = 0;
+            while (i < frameLocal.length) {
+                if (readLocals.get(i)) {
+                    Object el = frameLocal[i];
+                    codeSize += loadValueSize(j, el);
+                    codeSize += storeValueSize(i, el);
+                    ++j;
+                }
+                ++i;
+            }
+        }
+        {
+            int argsCount = readLocals.cardinality();
+            int i = 0, size = frameStack.length;
+            // the relative frame indices correspond to the original stack indices
+            while (i < size) {
+                codeSize += loadValueSize(argsCount + i, frameStack[i]);
+                ++i;
+            }
+        }
+        return codeSize;
+    }
+
+    public static int reconstructFrameSparseMaxSize(int maxStack, int maxLocals) {
+        return valueLoadStoreMaxSize(0, maxLocals) * 2 // one for the loads, one for the stores
+            + valueLoadStoreMaxSize(maxLocals, maxStack + maxLocals);
+    }
+
+    private static void loadValue(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
             ; // nothing
         } else if (el == Opcodes.INTEGER) {
@@ -307,7 +383,7 @@ public final class FrameData {
         }
     }
 
-    private static int loadFrameElementSize(int index, Object el) {
+    private static int loadValueSize(int index, Object el) {
         if (el == Opcodes.TOP) {
             return 0; // nothing
         } else if ((el == Opcodes.NULL) || (el == Opcodes.UNINITIALIZED_THIS) || (el instanceof Label)) {
@@ -330,7 +406,7 @@ public final class FrameData {
      * @param start inclusive
      * @param end exclusive
      */
-    private static int frameLoadStoreMaxSize(int start, int end) {
+    private static int valueLoadStoreMaxSize(int start, int end) {
         int size = 0;
         if (start < 4) {
             int m = Math.min(4, end);

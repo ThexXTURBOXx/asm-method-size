@@ -51,9 +51,15 @@ public class ClassWriterMethodSizeTest extends TestCase {
 
     protected String className;
 
-    private void startMethod(String className, int access, int maxCodeLength) {
+    int oldMaxCodeLength;
+    int oldSparseThreshold;
+
+    private void startMethod(String className, int access, int maxCodeLength, int sparseThreshold) {
         this.className = className;
+        oldMaxCodeLength = ClassWriter.MAX_CODE_LENGTH;
+        oldSparseThreshold = BasicBlock.SPARSE_FRAME_TRANSFER_THRESHOLD;
         ClassWriter.MAX_CODE_LENGTH = maxCodeLength;
+        BasicBlock.SPARSE_FRAME_TRANSFER_THRESHOLD = sparseThreshold;
         this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, new SplitMethodWriterDelegate());
         TraceClassVisitor tcv = new TraceClassVisitor(cw, new java.io.PrintWriter(System.out));
         this.cv = tcv;
@@ -77,6 +83,10 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitCode();
     }
 
+    private void startMethod(String className, int access, int maxCodeLength) {
+        startMethod(className, access, maxCodeLength, BasicBlock.SPARSE_FRAME_TRANSFER_THRESHOLD);
+    }
+
     class MyClassLoader extends ClassLoader {
         public Class defineClass(String name, byte[] b) {
             return defineClass(name, b, 0, b.length);
@@ -84,18 +94,28 @@ public class ClassWriterMethodSizeTest extends TestCase {
     }
 
     private void endMethod() {
-        this.mv.visitMaxs(0, 0);
-        this.mv.visitEnd();
-        this.cv.visitEnd();
-        byte[] b = cw.toByteArray();
-        (new ClassReader(b)).accept(new CheckClassAdapter(new ClassNode(), true), ClassReader.SKIP_DEBUG);
-        // make sure this code may actually work
-        MyClassLoader myClassLoader = new MyClassLoader();
-        myClassLoader.defineClass(className, b);
+        try {
+            this.mv.visitMaxs(0, 0);
+            this.mv.visitEnd();
+            this.cv.visitEnd();
+            byte[] b = cw.toByteArray();
+            (new ClassReader(b)).accept(new CheckClassAdapter(new ClassNode(), true), ClassReader.SKIP_DEBUG);
+            // make sure this code may actually work
+            MyClassLoader myClassLoader = new MyClassLoader();
+            myClassLoader.defineClass(className, b);
+        }
+        finally {
+            ClassWriter.MAX_CODE_LENGTH = oldMaxCodeLength;
+            BasicBlock.SPARSE_FRAME_TRANSFER_THRESHOLD = oldSparseThreshold;
+        }
     }
 
     private void LABEL(final Label l) {
         this.mv.visitLabel(l);
+    }
+
+    private void POP() {
+        this.mv.visitInsn(Opcodes.POP);
     }
     
     private void NOP() {
@@ -149,6 +169,34 @@ public class ClassWriterMethodSizeTest extends TestCase {
         RETURN();
         endMethod();
     }
+
+    public void testBasicSparse() {
+        startMethod("BasicSparse", Opcodes.ACC_PUBLIC, 50, 0);
+        {
+            int i = 1;
+            while (i < 10) {
+                PUSH();
+                ISTORE(i);
+                ++i;
+            }
+        }
+        {
+            int i = 0;
+            while (i < 70) {
+                NOP();
+                ++i;
+            }
+            ILOAD(2);
+            POP();
+            ILOAD(3);
+            POP();
+            ILOAD(5);
+            POP();
+        }
+        RETURN();
+        endMethod();
+    }
+
     
     /**
      * Method with essentially two large basic blocks.
@@ -490,6 +538,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         endMethod();
     }
 
+
     /**
      * Method split at a tableswitch.
      */
@@ -498,7 +547,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         PUSH();
         {
             int i = 0;
-            while (i < 60) {
+            while (i < 50) {
                 NOP();
                 ++i;
             }
@@ -531,7 +580,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
         PUSH();
         {
             int i = 0;
-            while (i < 60) {
+            while (i < 50) {
                 NOP();
                 ++i;
             }

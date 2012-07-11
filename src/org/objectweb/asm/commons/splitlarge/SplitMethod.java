@@ -42,6 +42,8 @@ class SplitMethod {
 
     int access;
 
+    boolean isStatic;
+
     /**
      * Name of this method.
      */
@@ -54,6 +56,7 @@ class SplitMethod {
 
     public SplitMethod(String name, int access, BasicBlock entry) {
         this.access = access;
+        this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
         this.name = name;
         this.entry = entry;
     }
@@ -75,7 +78,7 @@ class SplitMethod {
                                      final String mainDescriptor,
                                      final String[] exceptions,
                                      final HashMap<Label, String> labelTypes) {
-        descriptor = entry.frameData.getDescriptor(mainDescriptor, (access & Opcodes.ACC_STATIC) != 0, labelTypes);
+        descriptor = entry.getDescriptor(mainDescriptor, isStatic, labelTypes);
         boolean computeMaxs = cw.computeMaxs;
         boolean computeFrames = cw.computeFrames;
         MethodWriterDelegate tooLargeDelegate = cw.tooLargeDelegate;
@@ -92,8 +95,12 @@ class SplitMethod {
         cw.tooLargeDelegate = tooLargeDelegate;
     }
 
+    public void reconstructFrame() {
+        entry.reconstructFrame(writer, isStatic);
+    }
+
     public void visitJumpTo(ClassWriter cw, MethodVisitor mv) {
-        entry.frameData.visitPushFrameArguments(cw, mv); // FIXME: intermediate method
+        entry.pushFrameArguments(mv, isStatic);
         mv.visitMethodInsn(((access & Opcodes.ACC_STATIC) != 0) ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL,
                            cw.thisName,
                            name,
