@@ -311,4 +311,39 @@ public abstract class MethodWriterDelegate {
      */
     public abstract void noteTooLargeOffset(Label label, int reference);
 
+    /**
+     * Note a call to {@link MethodWriter#visitLocalVariable}.
+     *
+     * This gives us a chance to track local variables even though the
+     * involved offsets and sizes exceed 16bits.
+     *
+     * @param name the name of a local variable.
+     * @param desc the type descriptor of this local variable.
+     * @param signature the type signature of this local variable. May be
+     *        <tt>null</tt> if the local variable type does not use generic
+     *        types.
+     * @param start the first instruction corresponding to the scope of this
+     *        local variable (inclusive).
+     * @param end the last instruction corresponding to the scope of this local
+     *        variable (exclusive).
+     * @param index the local variable's index.
+     */
+    public abstract void noteLocalVariable(String name,
+                                           String desc,
+                                           String signature,
+                                           Label start,
+                                           Label end,
+                                           int index);
+
+    /**
+     * Note a call to {@link MethodWriter#visitLineNumber}.
+     *
+     * This gives us a chance to track line numbers even though the
+     * involved offsets and sizes exceed 16bits.
+     *
+     * @param line a line number. This number refers to the source file from
+     *        which the class was compiled.
+     * @param start the first instruction corresponding to this line number.
+     */
+    public abstract void noteLineNumber(int line, Label start);
 }

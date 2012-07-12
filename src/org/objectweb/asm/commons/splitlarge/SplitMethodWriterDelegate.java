@@ -84,7 +84,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     ConstantPool constantPool;
 
-    class Branch {
+    static class Branch {
         public Label label;
         public int reference;
         public Branch(Label label, int reference) {
@@ -92,10 +92,37 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             this.reference = reference;
         }
     }
-        
     ArrayList<Branch> largeBranches;
 
     Label[] largeBranchTargets;
+
+    static class LocalVariable {
+        public String name;
+        public String desc;
+        public String signature;
+        public Label start;
+        public Label end;
+        public int index;
+        public LocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
+            this.name = name;
+            this.desc = desc;
+            this.signature = signature;
+            this.start = start;
+            this.end = end;
+            this.index = index;
+        }
+    }
+    ArrayList<LocalVariable> localVariables;
+
+    static class LineNumber {
+        public int line;
+        public Label start;
+        public LineNumber(int line, Label start) {
+            this.line = line;
+            this.start = start;
+        }
+    }
+    ArrayList<LineNumber> lineNumbers;
 
     public SplitMethodWriterDelegate(INameGenerator nameGenerator) {
         this.maxMethodLength = ClassWriter.MAX_CODE_LENGTH;
@@ -110,12 +137,25 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     @Override
     public void newMethod() {
         this.largeBranches = new ArrayList<Branch>();
+        this.localVariables = new ArrayList<LocalVariable>();
+        this.lineNumbers = new ArrayList<LineNumber>();
     }
-
 
     @Override
     public void noteTooLargeOffset(Label label, int reference) {
         largeBranches.add(new Branch(label, reference));
+    }
+
+    @Override
+    public void noteLocalVariable(String name, String desc, String signature,
+                                  Label start, Label end,
+                                  int index) {
+        localVariables.add(new LocalVariable(name, desc, signature, start, end, index));
+    }
+
+    @Override
+    public void noteLineNumber(int line, Label start) {
+        lineNumbers.add(new LineNumber(line, start));
     }
 
     @Override
@@ -683,67 +723,26 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     private void visitLineNumberLabels() {
-        int v = 0;
-        byte[] b = lineNumber.data;
-        while (v < lineNumber.length) {
-            int offset = ByteArray.readUnsignedShort(b, v);
-            Label l = getLabelAt(offset);
-            l.line = ByteArray.readUnsignedShort(b, v + 2);
-            v += 4;
+        for (LineNumber ln : lineNumbers) {
+            Label l = getLabelAt(ln.start.position);
+            l.line = ln.line;
         }
     }
 
     private void visitLocalVarLabels() {
-        int v = 0;
-        byte[] b = localVar.data;
-        while (v < localVar.length) {
-            int from = ByteArray.readUnsignedShort(b, v);
-            getLabelAt(from);
-            int to = from + ByteArray.readUnsignedShort(b, v + 2);
-            if (upwardLabelsByOffset[to] == null) {
-                upwardLabelsByOffset[to] = new Label();
+        for (LocalVariable lv : localVariables) {
+            getLabelAt(lv.start.position);
+            if (upwardLabelsByOffset[lv.end.position] == null) {
+                upwardLabelsByOffset[lv.end.position] = new Label();
             }
-            v += 10;
         }
     }
 
     private void visitLocalVars() {
-        int[] typeTable = null;
-        if (localVarType != null) {
-            byte[] b = localVarType.data;
-            int k = localVarTypeCount * 3;
-            int w = 0;
-            typeTable = new int[k];
-            while (k > 0) {
-                typeTable[--k] = ByteArray.readUnsignedShort(b, w + 6); // item index of signature
-                typeTable[--k] = ByteArray.readUnsignedShort(b, w + 8); // index
-                typeTable[--k] = ByteArray.readUnsignedShort(b, w); // start
-                w += 10;
-            }        
-        }
-        {
-            byte[] b = localVar.data;
-            int k = localVarCount;
-            int w = 0;
-            for (; k > 0; --k) {
-                int start = ByteArray.readUnsignedShort(b, w);
-                int length = ByteArray.readUnsignedShort(b, w + 2);
-                int index = ByteArray.readUnsignedShort(b, w + 8);
-                String vsignature = null;
-                if (typeTable != null) {
-                    for (int a = 0; a < typeTable.length; a += 3) {
-                        if ((typeTable[a] == start) && (typeTable[a + 1] == index)) {
-                            vsignature = constantPool.readUTF8Item(typeTable[a + 2]);
-                            break;
-                        }
-                    }
-                }
-                visitLocalVariable(constantPool.readUTF8Item(ByteArray.readUnsignedShort(b, w + 4)),
-                                   constantPool.readUTF8Item(ByteArray.readUnsignedShort(b, w + 6)),
-                                   vsignature,
-                                   start, length, index);
-                w += 10;
-            }
+        for (LocalVariable lv : localVariables) {
+            visitLocalVariable(lv.name, lv.desc, lv.signature,
+                               lv.start.position, lv.end.position - lv.start.position,
+                               lv.index);
         }
     }
     

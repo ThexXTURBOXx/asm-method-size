@@ -1290,6 +1290,9 @@ public class MethodWriter extends MethodVisitor {
                 maxLocals = n;
             }
         }
+        if (tooLargeDelegate != null) {
+            tooLargeDelegate.noteLocalVariable(name, desc, signature, start, end, index);
+        }
     }
 
     @Override
@@ -1300,6 +1303,9 @@ public class MethodWriter extends MethodVisitor {
         ++lineNumberCount;
         lineNumber.putShort(start.position);
         lineNumber.putShort(line);
+        if (tooLargeDelegate != null) {
+            tooLargeDelegate.noteLineNumber(line, start);
+        }
     }
 
     @Override
