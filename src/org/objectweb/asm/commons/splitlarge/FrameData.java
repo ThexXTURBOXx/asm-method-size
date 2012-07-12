@@ -126,9 +126,12 @@ public final class FrameData {
             }
         }
         {
-            int i = 0;
+            if (!isStatic) {
+                loadValue(mv, 0, frameLocal[0]); // this
+            }
+            int i = isStatic ? 0 : 1;
             while (i < frameLocal.length) {
-                if ((localsRead == null) || (!isStatic && (i == 0)) || localsRead.get(i)) {
+                if ((localsRead == null) || localsRead.get(i)) {
                     loadValue(mv, i, frameLocal[i]);
                 }
                 ++i;
@@ -299,15 +302,18 @@ public final class FrameData {
      * stack from parameters.
      */
     public void reconstructFrameSparse(MethodVisitor mv, boolean isStatic, BitSet readLocals) {
-        int argsCount = readLocals.cardinality();
+        int frameCount = readLocals.cardinality();
+        if (!isStatic && readLocals.get(0)) {
+            --frameCount; // remove "this" from the locals transferred
+        }
+        int m = isStatic ? 0 : 1;
         {
             int i = frameLocal.length - 1;
-            int j = isStatic ? (argsCount - 1) : argsCount;
-            int m = isStatic ? 0 : 1;
+            int j = frameCount - 1;
             while (i >= m) {
                 if (readLocals.get(i)) {
                     Object el = frameLocal[i];
-                    loadValue(mv, j, el);
+                    loadValue(mv, j + m, el);
                     storeValue(mv, i, el);
                     --j;
                 }
@@ -318,7 +324,7 @@ public final class FrameData {
             int i = 0, size = frameStack.length;
             // the relative frame indices correspond to the original stack indices
             while (i < size) {
-                loadValue(mv, argsCount + i, frameStack[i]);
+                loadValue(mv, frameCount + m + i, frameStack[i]);
                 ++i;
             }
         }
