@@ -1583,14 +1583,14 @@ class BasicBlock implements Comparable<BasicBlock> {
      * Calculcate the size of the code needed to invoke this basic
      * block as the entry point of a split method.
      */
-    private int invocationRegularSize() {
-        return frameData.pushFrameArgumentsSize(null)
+    private int invocationRegularSize(boolean isStatic) {
+        return frameData.pushFrameArgumentsSize(isStatic, null)
             + 3 // INVOKESTATIC or INVOKEVIRTUAL
             + 1; // RETURN
     }
 
-    private int invocationSparseSize() {
-        return frameData.pushFrameArgumentsSize(localsReadTransitive)
+    private int invocationSparseSize(boolean isStatic) {
+        return frameData.pushFrameArgumentsSize(isStatic, localsReadTransitive)
             + 3 // INVOKESTATIC or INVOKEVIRTUAL
             + 1; // RETURN
     }
@@ -1625,8 +1625,8 @@ class BasicBlock implements Comparable<BasicBlock> {
         return frameData.reconstructFrameSparseSize(localsReadTransitive);
     }
 
-    private void computeInvocationSize() {
-        int irs = invocationRegularSize();
+    private void computeInvocationSize(boolean isStatic) {
+        int irs = invocationRegularSize(isStatic);
         int rrs = reconstructFrameRegularSize();
         if (frameData.frameLocal.length < SPARSE_FRAME_TRANSFER_THRESHOLD) {
             sparseInvocation = false;
@@ -1635,7 +1635,7 @@ class BasicBlock implements Comparable<BasicBlock> {
             return;
         }
 
-        int iss = invocationSparseSize();
+        int iss = invocationSparseSize(isStatic);
         int rss = reconstructFrameSparseSize();
         int pc = predecessors.size();
         if (((pc * irs) + rrs) <= (pc * iss) + rss) {
@@ -1649,9 +1649,9 @@ class BasicBlock implements Comparable<BasicBlock> {
         }
     }
 
-    public static void computeInvocationSizes(TreeSet<BasicBlock> blocks) {
+    public static void computeInvocationSizes(boolean isStatic, TreeSet<BasicBlock> blocks) {
         for (BasicBlock b : blocks) {
-            b.computeInvocationSize();
+            b.computeInvocationSize(isStatic);
         }
     }
 

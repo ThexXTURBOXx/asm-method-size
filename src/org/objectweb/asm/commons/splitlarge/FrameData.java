@@ -148,7 +148,7 @@ public final class FrameData {
      * Calculate the size of the code needed to push the current frame
      * in preparation for an invocation.
      */
-    public int pushFrameArgumentsSize(BitSet localsRead) {
+    public int pushFrameArgumentsSize(boolean isStatic, BitSet localsRead) {
         int size = 0;
         {
             int i = 0;
@@ -160,7 +160,7 @@ public final class FrameData {
         {
             int i = 0;
             while (i < frameLocal.length) {
-                if ((localsRead == null) || localsRead.get(i)) {
+                if ((localsRead == null) || (!isStatic && (i == 0)) || localsRead.get(i)) {
                     size += loadValueSize(i, frameLocal[i]);
                 }
                 ++i;

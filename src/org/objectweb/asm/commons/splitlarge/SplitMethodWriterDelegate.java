@@ -147,7 +147,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                                     labelTypes);
         CycleEquivalence.compute(blocks);
         BasicBlock.computeLocalsReads(code, blocks);
-        BasicBlock.computeInvocationSizes(blocks);
+        BasicBlock.computeInvocationSizes(isStatic, blocks);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
