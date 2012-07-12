@@ -302,7 +302,7 @@ public final class FrameData {
         int argsCount = readLocals.cardinality();
         {
             int i = frameLocal.length - 1;
-            int j = argsCount - 1;
+            int j = isStatic ? (argsCount - 1) : argsCount;
             int m = isStatic ? 0 : 1;
             while (i >= m) {
                 if (readLocals.get(i)) {
