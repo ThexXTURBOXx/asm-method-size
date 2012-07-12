@@ -123,12 +123,13 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         if ((version & 0xFFFF) < Opcodes.V1_6) {
             throw new RuntimeException("JVM version < 1.6 not supported");
         }
+        boolean isStatic = (access & Opcodes.ACC_STATIC) == 0;
         constantPool = new ConstantPool(pool, poolSize, cw.bootstrapMethods, cw.bootstrapMethodsCount);
         thisName = constantPool.readUTF8Item(name);
         cv = cw.getFirstVisitor();
 
         Object[] frameLocal = new Object[maxLocals];
-        int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, access, this.descriptor, frameLocal);
+        int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, isStatic, this.descriptor, frameLocal);
         FrameData[] frameDataByOffset = new FrameData[code.length + 1];
         this.labelsByOffset = new Label[code.length];
         BasicBlock.parseStackMap(stackMap, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
@@ -174,9 +175,9 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
      * Creates the very first (implicit) frame from the method
      * descriptor.
      */
-    private static int computeMethodDescriptorFrame(String className, String methodName, int access, String desc, Object[] frameLocal) {
+    private static int computeMethodDescriptorFrame(String className, String methodName, boolean isStatic, String desc, Object[] frameLocal) {
         int local = 0;
-        if ((access & Opcodes.ACC_STATIC) == 0) {
+        if (isStatic) {
             if ("<init>".equals(methodName)) {
                 frameLocal[local++] = Opcodes.UNINITIALIZED_THIS;
             } else {

@@ -101,7 +101,7 @@ class SplitMethod {
 
     public void visitJumpTo(ClassWriter cw, MethodVisitor mv) {
         entry.pushFrameArguments(mv, isStatic);
-        mv.visitMethodInsn(((access & Opcodes.ACC_STATIC) != 0) ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL,
+        mv.visitMethodInsn(isStatic ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL,
                            cw.thisName,
                            name,
                            descriptor);
