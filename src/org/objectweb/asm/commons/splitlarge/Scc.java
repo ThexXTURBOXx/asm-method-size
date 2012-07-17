@@ -255,7 +255,7 @@ class Scc {
      * Compute the sizes of the transitive closures in all SCC
      * components that remain in the main method.
      */
-    private void computeTransitiveClosureSizes() {
+    public void computeTransitiveClosureSizes() {
         Scc root = this;
         while (root != null) {
             root.computeTransitiveClosureSize();

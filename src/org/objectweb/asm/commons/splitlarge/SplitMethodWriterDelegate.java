@@ -203,7 +203,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
-        this.splitMethods = scc.split(thisName, access, maxMethodLength, nameGenerator);
+        this.splitMethods = blocks.first().split(thisName, access, maxMethodLength, nameGenerator);
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {
             visitLineNumberLabels();

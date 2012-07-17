@@ -92,6 +92,8 @@ class BasicBlock implements Comparable<BasicBlock> {
      */
     final HashSet<BasicBlock> predecessors;
 
+    HashSet<BasicBlock> splitPointSuccessors;
+
     /**
      * Frame data needed to call {@link MethodWriter#visitFrame} on this block.
      */
@@ -137,6 +139,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         this.position = position;
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
+        this.splitPointSuccessors = null;
         this.startLabel = null;
         this.kind = Kind.REGULAR;
     }
@@ -1816,6 +1819,113 @@ class BasicBlock implements Comparable<BasicBlock> {
     public String toString() {
         return "@" + position;
     }
+
+    /**
+     * Traversal for building a tree of split points.
+     *
+     * @param sps successors we're currently adding split points to
+     * @param seen basic blocks we've already seen.
+     */
+    private void computeSplitPointSuccessors(HashSet<BasicBlock> sps, HashSet<BasicBlock> seen) {
+        if (seen.contains(this))
+            return;
+        seen.add(this);
+        if (sccRoot.splitPoint == this) {
+            sps.add(this);
+            sps = new HashSet<BasicBlock>();
+            splitPointSuccessors = sps;
+        }
+        for (BasicBlock b : successors) {
+            b.computeSplitPointSuccessors(sps, seen);
+        }
+    }
+
+    /**
+     * Build a tree of split points.  Sets the {@link
+     * #splitPointSuccessors} field.
+     */
+    public void computeSplitPointSuccessors() {
+        HashSet<BasicBlock> seen = new HashSet<BasicBlock>();
+        splitPointSuccessors = new HashSet<BasicBlock>();
+        computeSplitPointSuccessors(splitPointSuccessors, seen);
+    }
+
+    /**
+     * Find an appropriate split point that will diminish the size of
+     * a closure that's too big.  If this method returns
+     * <code>null</code>, that means that either that this node did
+     * not need splitting, or that it needed splitting, but that this
+     * wasn't possible.
+     *
+     * @return split method with info about the closure
+     */
+    public BasicBlock findSplitPoint() {
+        // Do a bottom-up pass, finding out if any of the successors
+        // need splitting.
+        for (BasicBlock b : splitPointSuccessors) {
+            BasicBlock m = b.findSplitPoint();
+            if (m != null)
+                return m;
+        }
+        // none have been split ...
+        if (sccRoot.transitiveClosureSize > ClassWriter.MAX_CODE_LENGTH) {
+            // ... but *we* need splitting
+            BasicBlock entry = lookMaxSizeSplitPointSuccessor();
+            if (entry == null) {
+                throw new RuntimeException("no split point was found");
+            } else {
+                return entry;
+            }
+        } else {
+            return null;
+        }
+    } 
+
+    /**
+     * Look for a successor of this component that we can split out.
+     *
+     * @return entry point of the component if found, null if not
+     */
+    public BasicBlock lookMaxSizeSplitPointSuccessor() {
+        int maxSize = 0;
+        BasicBlock maxEntry = null;
+        for (BasicBlock entry : splitPointSuccessors) {
+            Scc root = entry.sccRoot;
+            if (root.transitiveClosureSize > maxSize) {
+                maxSize = root.transitiveClosureSize;
+                maxEntry = entry;
+            }
+        }
+        return maxEntry;
+    }
+
+    public HashSet<SplitMethod> split(String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
+        computeSplitPointSuccessors();
+        HashSet<SplitMethod> set = new HashSet<SplitMethod>();
+        int id = 0;
+        sccRoot.computeTransitiveClosureSizes();
+        int totalSize = sccRoot.transitiveClosureSize;
+        for (;;) {
+            BasicBlock entry = findSplitPoint();
+            if (entry == null)
+                throw new RuntimeException("no split point found");
+
+            String name = nameGenerator.generateName(mainMethodName, id++);
+            SplitMethod m = new SplitMethod(name, access, entry);
+            for (Scc root : entry.sccRoot.transitiveClosure) {
+                if (root.splitMethod == null) {
+                    root.splitMethod = m;
+                }
+            }
+            set.add(m);
+            totalSize -= entry.sccRoot.transitiveClosureSize;
+            if (totalSize <= ClassWriter.MAX_CODE_LENGTH)
+                break;
+            sccRoot.computeTransitiveClosureSizes();
+        }
+        return set;
+    }
+
 
 }
 
