@@ -31,11 +31,14 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 
+import java.util.Map;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.HashSet;
 import java.util.TreeSet;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.LinkedList;
 
 final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
@@ -185,13 +188,19 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                                     blocks,
                                     blocksByOffset, labelsByOffset,
                                     labelTypes);
-        CycleEquivalence.compute(blocks);
+        HashSet<CycleEquivalence.Edge> terminalEdges = new HashSet<CycleEquivalence.Edge>();
+        CycleEquivalence.Node start = CycleEquivalence.computeSimpleUndigraph(blocks, terminalEdges);
+        CycleEquivalence.compute(start);
         BasicBlock.computeLocalsReads(code, blocks);
         BasicBlock.computeInvocationSizes(isStatic, blocks);
         this.scc = Scc.stronglyConnectedComponents(blocks);
         this.scc.initializeAll();
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
-        this.scc.computeSplitPoints();
+        // this.scc.computeSplitPoints();
+        // Collection<BasicBlock> splitPoints = new HashSet<BasicBlock>(this.scc.computeSplitPoints());
+        Collection<BasicBlock> splitPoints = new HashSet<BasicBlock>(computeSplitPoints(terminalEdges));
+        // splitPoints2.remove(blocks.first());
+
         BasicBlock.computeSizes(code, blocks);
         this.scc.computeSizes();
         this.splitMethods = scc.split(thisName, access, maxMethodLength, nameGenerator);
@@ -210,6 +219,38 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         transferNonstandardAttributes();
     }
 
+    public static Collection<BasicBlock> computeSplitPoints(Collection<CycleEquivalence.Edge> terminalEdges) {
+        LinkedList<BasicBlock> splitBlocks = new LinkedList<BasicBlock>();
+        for (CycleEquivalence.Edge terminal : terminalEdges) {
+            for (CycleEquivalence.Edge e : terminal.equivClass.edges) {
+                BasicBlock block1 = e.node1.block;
+                BasicBlock block2 = e.node2.block;
+                BasicBlock entry = null;
+                // get the edge destination
+                // FIXME: presumably, we could keep around the direction
+                if (block1 == null) {
+                    entry = block2;
+                } else if (block2 == null) {
+                    entry = block1;
+                } else {
+                    int c = block1.compareTo(block2);
+                    if (c < 0) {
+                        entry = block2;
+                    } else {
+                        assert c > 0;
+                        entry = block1;
+                    }
+                }
+                if ((entry != null)
+                    && (entry.kind != BasicBlock.Kind.EXCEPTION_HANDLER)
+                    && entry.hasFullyDefinedFrame()) {
+                    entry.sccRoot.splitPoint = entry;
+                    splitBlocks.add(entry);
+                }
+            }
+        } 
+        return splitBlocks;
+    }
    
     /**
      * Creates the very first (implicit) frame from the method

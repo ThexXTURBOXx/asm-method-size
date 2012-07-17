@@ -64,7 +64,7 @@ public class CycleEquivalenceTest extends TestCase {
         blocks.add(e);
         blocks.add(f);
         blocks.add(t);
-        CycleEquivalence.Node start = CycleEquivalence.computeUndigraph(blocks);
+        CycleEquivalence.Node start = CycleEquivalence.computeExpandedUndigraph(blocks);
         CycleEquivalence.Node aIn = findEdgeTo(start, a);
         assertNotNull(aIn);
         CycleEquivalence.Node aOut = findOutNode(aIn);

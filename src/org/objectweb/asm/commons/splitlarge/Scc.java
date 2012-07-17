@@ -31,9 +31,12 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.ClassWriter;
 
+import java.util.Stack;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.TreeSet;
-import java.util.Stack;
+import java.util.ArrayList;
+
 
 /**
  * Component of SCC graph.
@@ -219,12 +222,17 @@ class Scc {
     /**
      * Fills the {@link #splitPoint} fields of all roots.
      */
-    public void computeSplitPoints() {
+    public Collection<BasicBlock> computeSplitPoints() {
+        ArrayList<BasicBlock> splitBlocks = new ArrayList<BasicBlock>();
         Scc r = this;
         while (r != null) {
             r.computeSplitPoint();
+            if (r.splitPoint != null) {
+                splitBlocks.add(r.splitPoint);
+            }
             r = r.next;
         }
+        return splitBlocks;
     }
 
     /**

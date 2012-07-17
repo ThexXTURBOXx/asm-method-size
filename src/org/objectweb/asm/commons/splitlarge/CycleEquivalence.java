@@ -30,6 +30,7 @@
 package org.objectweb.asm.commons.splitlarge;
 
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.SortedSet;
@@ -48,6 +49,7 @@ public class CycleEquivalence {
     public static class EquivClass {
         /**
          * Topmost bracket; identifies the class.
+         * May be <code>null</code> for edges with no brackets.
          */
         Edge bracket;
 
@@ -57,13 +59,17 @@ public class CycleEquivalence {
         int size;
 
         Collection<Edge> edges;
-        Collection<Node> nodes;
+        Collection<Node> nodes; // FIXME: probably not needed
 
         public EquivClass(Edge bracket, int size) {
             this.bracket = bracket;
             this.size = size;
             this.edges = new ArrayList<Edge>();
             this.nodes = new ArrayList<Node>();
+        }
+
+        public EquivClass() {
+            this(null, 0);
         }
 
         public EquivClass(DList<Edge> bracketList) {
@@ -81,7 +87,11 @@ public class CycleEquivalence {
         }
         
         @Override public String toString() {
-            return "<" + this.bracket.toStringBase() + ", " + this.size + ">";
+            if (this.bracket == null) {
+                return "<>";
+            } else {
+                return "<" + this.bracket.toStringBase() + ", " + this.size + ">";
+            }
         }
     }
 
@@ -185,7 +195,7 @@ public class CycleEquivalence {
         final List<Edge> allEdges;
 
         /**
-         * <code>null</code> if this is an artifical edge
+         * <code>null</code> if this is an artifical node
          */
         BasicBlock block;
 
@@ -250,7 +260,7 @@ public class CycleEquivalence {
             }
         }
 
-        public void computeCycleEquivalence() {
+        public void computeCycleEquivalence(EquivClass boring) {
             // hi0 := min { t.dfsnum | (n, t) is a backedge } ;
             Node hi0 = null;
             for (Edge edge : this.backEdgesFrom) {
@@ -335,25 +345,29 @@ public class CycleEquivalence {
             Edge parent = this.parent;
             // if n is not the root of dfstree then
             if (parent != null) {
-                // let e be the tree edge from parent(n) to n :
-                // b := top(n.blist) ;
-                Edge edge = blist.getFirst();
-                // if b.recentSize != size(n.blist) then
-                int bsize = blist.size();
-                if (edge.recentSize != bsize) {
-                    // b.recentSize := size(n.bracketList) ;
-                    edge.recentSize = bsize;
-                    // b.recentEquivClass := new-class() ;
-                    edge.recentEquivClass = new EquivClass(blist);
-                }
-                // e.class := b.recentEquivClass ;
-                parent.equivClass = edge.recentEquivClass;
-            
-                /* check for e, b equivalence */
-                // if b.recentSize = 1 then
-                if (edge.recentSize == 1) {
-                    // b.class := e.class ;
-                    edge.equivClass = parent.equivClass;
+                if (blist.size() == 0) {
+                    parent.equivClass = boring;
+                } else {
+                    // let e be the tree edge from parent(n) to n :
+                    // b := top(n.blist) ;
+                    Edge edge = blist.getFirst();
+                    // if b.recentSize != size(n.blist) then
+                    int bsize = blist.size();
+                    if (edge.recentSize != bsize) {
+                        // b.recentSize := size(n.bracketList) ;
+                        edge.recentSize = bsize;
+                        // b.recentEquivClass := new-class() ;
+                        edge.recentEquivClass = new EquivClass(blist);
+                    }
+                    // e.class := b.recentEquivClass ;
+                    parent.equivClass = edge.recentEquivClass;
+                    
+                    /* check for e, b equivalence */
+                    // if b.recentSize = 1 then
+                    if (edge.recentSize == 1) {
+                        // b.class := e.class ;
+                        edge.equivClass = parent.equivClass;
+                    }
                 }
             }
         }
@@ -365,7 +379,7 @@ public class CycleEquivalence {
      * 
      * @return starting node
      */
-    public static Node computeUndigraph(SortedSet<BasicBlock> blocks) {
+    public static Node computeExpandedUndigraph(SortedSet<BasicBlock> blocks, Collection<Edge> terminalEdges) {
         // FIXME: stick the nodes in a field of BasicBlock
         HashMap<BasicBlock, Node> blockNodesIn = new HashMap<BasicBlock, Node>(blocks.size());
         ArrayList<Node> blockNodesOut = new ArrayList<Node>(blocks.size());
@@ -386,7 +400,7 @@ public class CycleEquivalence {
         Node start = new Node();
         Node firstNode = blockNodesIn.get(first);
         start.addEdge(firstNode);
-
+        
         Node end = new Node();
         end.addEdge(start);
 
@@ -399,15 +413,64 @@ public class CycleEquivalence {
             }
             if (block.successors.isEmpty()) { // leaf node
                 out.addEdge(end);
+                if (terminalEdges != null) {
+                    terminalEdges.add(out.representativeEdge);
+                }
             }
         }
         return start;
     }
 
+    public static Node computeExpandedUndigraph(SortedSet<BasicBlock> blocks) {
+        return computeExpandedUndigraph(blocks, null);
+    }
+
+    public static Node computeSimpleUndigraph(SortedSet<BasicBlock> blocks, Collection<Edge> terminalEdges) {
+        // FIXME: stick the nodes in a field of BasicBlock
+        HashMap<BasicBlock, Node> blockNodes = new HashMap<BasicBlock, Node>(blocks.size());
+        // add nodes
+        for (BasicBlock block : blocks) {
+            Node n = new Node(block);
+            blockNodes.put(block, n);
+        }
+
+        // create artifical nodes
+        BasicBlock first = blocks.first();
+        Node start = new Node();
+        Node firstNode = blockNodes.get(first);
+        start.addEdge(firstNode);
+        
+        Node end = new Node();
+        // FIXME? end.addEdge(start);
+
+        // add edges
+        for (Map.Entry<BasicBlock, Node> entry : blockNodes.entrySet()) {
+            BasicBlock block = entry.getKey();
+            Node n = entry.getValue();
+            for (BasicBlock b : block.successors) {
+                Node other = blockNodes.get(b);
+                n.addEdge(other);
+            }
+            if (block.successors.isEmpty()) { // leaf node
+                Edge terminal = n.addEdge(end);
+                if (terminalEdges != null) {
+                    terminalEdges.add(terminal);
+                }
+            }
+        }
+        return start;
+    }
+
+
+    public static Node computeSimpleUndigraph(SortedSet<BasicBlock> blocks) {
+        return computeSimpleUndigraph(blocks, null);
+    }
+
     public static void computeCycleEquivalence(ArrayList<Node> nodes) {
         int i = nodes.size() - 1;
+        EquivClass boring = new EquivClass();
         while (i >= 0) {
-            nodes.get(i).computeCycleEquivalence();
+            nodes.get(i).computeCycleEquivalence(boring);
             --i;
         }
         for (Node node : nodes) {
@@ -426,12 +489,20 @@ public class CycleEquivalence {
         }
     }
 
-    public static ArrayList<Node> compute(SortedSet<BasicBlock> blocks) {
-        Node start = computeUndigraph(blocks);
-        ArrayList<Node> nodes = new ArrayList<Node>(blocks.size() + 2);
+    public static ArrayList<Node> compute(Node start) {
+        ArrayList<Node> nodes = new ArrayList<Node>();
         start.computeSpanningTree(nodes);
         computeCycleEquivalence(nodes);
         return nodes;
+    }
+
+    public static void addEquivalentBlocks(EquivClass equiv, Collection<BasicBlock> blocks) {
+        for (Edge e : equiv.edges) {
+            Node n = e.represented;
+            if ((n != null) && (n.block != null)) {
+                blocks.add(n.block);
+            }
+        }
     }
 
     
