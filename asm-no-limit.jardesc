@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="MacRoman" standalone="no"?>
+<jardesc>
+    <jar path="star/lib/asm-all-nolimit.jar"/>
+    <options buildIfNeeded="true" compress="true" descriptionLocation="/asm3/asm-no-limit.jardesc" exportErrors="false" exportWarnings="true" includeDirectoryEntries="false" overwrite="true" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+    <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+    <selectedProjects/>
+    <manifest generateManifest="true" manifestLocation="/star/META-INF/MANIFEST.MF" manifestVersion="1.0" reuseManifest="false" saveManifest="false" usesManifest="true">
+        <sealing sealJar="false">
+            <packagesToSeal/>
+            <packagesToUnSeal/>
+        </sealing>
+    </manifest>
+    <selectedElements exportClassFiles="true" exportJavaFiles="true" exportOutputFolder="false">
+        <file path="/asm3/build.xml"/>
+        <javaElement handleIdentifier="=asm3/src"/>
+        <file path="/asm3/.classpath"/>
+        <file path="/asm3/LICENSE.txt"/>
+        <javaElement handleIdentifier="=asm3/test\/conform"/>
+        <file path="/asm3/build.config"/>
+        <file path="/asm3/.project"/>
+        <folder path="/asm3/doc"/>
+        <file path="/asm3/README.txt"/>
+        <file path="/asm3/build.properties"/>
+        <file path="/asm3/.hgignore"/>
+        <javaElement handleIdentifier="=asm3/test\/perf"/>
+    </selectedElements>
+</jardesc>
