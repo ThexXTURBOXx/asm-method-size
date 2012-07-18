@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.TreeSet;
+import java.util.SortedSet;
 
 import junit.framework.TestCase;
 
@@ -77,10 +78,10 @@ public class ClassWriterSCCTest extends TestCase {
         for (A l : p) {
             s.add(l);
         }
-        assertEquals(labels, s);
+        assertEquals(s, labels);
     }
 
-    private Scc endMethod(int maxStack, int maxLocals) {
+    private SortedSet<BasicBlock.StrongComponent> endMethod(int maxStack, int maxLocals) {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
@@ -97,9 +98,7 @@ public class ClassWriterSCCTest extends TestCase {
                                     new BasicBlock[code.length + 2],
                                     new Label[code.length + 2],
                                     labelTypes);
-        Scc root = Scc.stronglyConnectedComponents(blocks);
-        root.initializeAll();
-        return root;
+        return BasicBlock.computeTransitiveClosures(blocks);
     }
 
     private void LABEL(final Label l) {
@@ -130,14 +129,15 @@ public class ClassWriterSCCTest extends TestCase {
         startMethod();
         NOP();
 
-        Scc root = endMethod(0, 0);
+        SortedSet<BasicBlock.StrongComponent> scs = endMethod(0, 0);
 
-        assertNull(root.next);
-        assertEquals(1, root.blocks.size());
+        assertEquals(1, scs.size());
+        assertEquals(1, scs.first().members.size());
     }
     
     // for calling toArray
     private BasicBlock[] bbTag = new BasicBlock[0];
+    private BasicBlock.StrongComponent[] scTag = new BasicBlock.StrongComponent[0];
 
     /**
      * Method with one SCC.
@@ -148,14 +148,16 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l1);
         GOTO(l1);
 
-        Scc root = endMethod(0, 0);
+        SortedSet<BasicBlock.StrongComponent> scs = endMethod(0, 0);
 
-        assertNull(root.next);
-        BasicBlock[] blocks = root.blocks.toArray(bbTag);
+        assertEquals(1, scs.size());
+        BasicBlock[] blocks = scs.first().members.toArray(bbTag);
         assertEquals(1, blocks.length);
         BasicBlock[] successors = blocks[0].successors.toArray(bbTag);
         assertEquals(1, successors.length);
         assertEquals(blocks[0], successors[0]);
+
+        assertSet(scs.first().transitiveClosure, scs.first());
     }
 
     /**
@@ -175,12 +177,14 @@ public class ClassWriterSCCTest extends TestCase {
         IFNE(l1);
         LABEL(l4);
 
-        Scc root = endMethod(1, 0);
+        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
 
-        assertNotNull(root.next);
-        assertNull(root.next.next);
-        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
-        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
+        assertEquals(2, scs.size());
+
+        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
+
+        BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
+        BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);
 
         assertEquals(1, blocks0.length);
         assertEquals(1, blocks1.length);
@@ -190,6 +194,9 @@ public class ClassWriterSCCTest extends TestCase {
 
         assertEquals(2, successors0.length);
         assertEquals(0, successors1.length);
+
+        assertSet(scsa[0].transitiveClosure, scsa[0], scsa[1]);
+        assertSet(scsa[1].transitiveClosure, scsa[1]);
     }
 
 
@@ -215,16 +222,20 @@ public class ClassWriterSCCTest extends TestCase {
         IFNE(l1);
         LABEL(l5);
 
-        Scc root = endMethod(1, 0);
+        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
 
-        assertNotNull(root.next);
-        assertNull(root.next.next);
+        assertEquals(2, scs.size());
 
-        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
-        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
+        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
+
+        BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
+        BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);
 
         assertEquals(3, blocks0.length);
         assertEquals(1, blocks1.length);
+
+        assertSet(scsa[0].transitiveClosure, scsa[0], scsa[1]);
+        assertSet(scsa[1].transitiveClosure, scsa[1]);
     }
 
     /**
@@ -252,20 +263,23 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l6);
         IFNE(l4);
 
-        Scc root = endMethod(1, 0);
+        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
 
-        assertNotNull(root.next);
-        assertNotNull(root.next.next);
-        assertNull(root.next.next.next);
+        assertEquals(3, scs.size());
         
-        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
-        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
-        BasicBlock[] blocks2 = root.next.next.blocks.toArray(bbTag);
+        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
+
+        BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
+        BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);
+        BasicBlock[] blocks2 = scsa[2].members.toArray(bbTag);
 
         assertEquals(1, blocks0.length);
         assertEquals(1, blocks1.length);
         assertEquals(1, blocks2.length);
 
+        assertSet(scsa[0].transitiveClosure, scsa[0], scsa[1], scsa[2]);
+        assertSet(scsa[1].transitiveClosure, scsa[1], scsa[2]);
+        assertSet(scsa[2].transitiveClosure, scsa[2]);
     }
 
 
@@ -288,19 +302,24 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l4);
         IFNE(l3);
 
-        Scc root = endMethod(1, 0);
+        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
 
-        assertNotNull(root.next);
-        assertNotNull(root.next.next);
-        assertNull(root.next.next.next);
+        assertEquals(3, scs.size());
+
+        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
         
-        BasicBlock[] blocks0 = root.blocks.toArray(bbTag);
-        BasicBlock[] blocks1 = root.next.blocks.toArray(bbTag);
-        BasicBlock[] blocks2 = root.next.next.blocks.toArray(bbTag);
+        BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
+        BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);
+        BasicBlock[] blocks2 = scsa[2].members.toArray(bbTag);
 
         assertEquals(1, blocks0.length);
         assertEquals(3, blocks1.length);
         assertEquals(1, blocks2.length);
+
+        assertSet(scsa[0].transitiveClosure, scsa[0], scsa[1], scsa[2]);
+        assertSet(scsa[1].transitiveClosure, scsa[1], scsa[2]);
+        assertSet(scsa[2].transitiveClosure, scsa[2]);
+        
     }
 
 

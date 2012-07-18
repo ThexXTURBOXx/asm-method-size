@@ -36,6 +36,9 @@ import java.util.HashMap;
 import java.util.TreeSet;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.SortedSet;
+import java.util.Set;
+import java.util.Stack;
 
 /**
  * Basic block in flowgraph.
@@ -59,25 +62,6 @@ class BasicBlock implements Comparable<BasicBlock> {
     Label endLabel;
 
     /**
-     * The depth-first-search index for the SCC computation.
-     * -1 if undefined.
-     */
-    int sccIndex;
-
-    /**
-     * The depth-first low-link for the SCC comparison - equal to the
-     * smallest index of some node reachable from this, and always
-     * less than this.sccIndex, or equal to this.sccIndex if no other
-     * node is reachable from this.
-     */
-    int sccLowLink;
-
-    /**
-     * Root of this SCC component.
-     */
-    Scc sccRoot;
-
-    /**
      * Block that follows this one in the code, or null if this is the last one.
      */
     BasicBlock subsequent;
@@ -91,6 +75,92 @@ class BasicBlock implements Comparable<BasicBlock> {
      * Predecessors, i.e. inverse to {@link #successors}.
      */
     final HashSet<BasicBlock> predecessors;
+
+
+    /**
+     * Strongly-connected component.
+     */
+    public static class StrongComponent implements Comparable<StrongComponent> {
+        public final BasicBlock root;
+        public final TreeSet<BasicBlock> members;
+        public final TreeSet<StrongComponent> transitiveClosure;
+        /**
+         * Entry basic block if this is a split point, null if it isn't.
+         */
+        public BasicBlock splitPoint;
+        /**
+         * If this component is split out, this field references the
+         * corresponding {@link SplitMethod} object.
+         */
+        SplitMethod splitMethod;
+
+        /**
+         * Size of the basic blocks in the transitive closure of this
+         * component <i>that stay in the main method<i>.
+         */
+        int transitiveClosureSize;
+        
+        /**
+         * Combined size of all the basic blocks in this component.
+         */
+        int size = -1;
+        
+        public StrongComponent(BasicBlock root) {
+            this.root = root;
+            this.members = new TreeSet<BasicBlock>();
+            this.transitiveClosure = new TreeSet<StrongComponent>();
+            this.transitiveClosure.add(this);
+        }
+
+        /**
+         * Compute size of all basic blocks in this component and set
+         * the {@link #size} field to it.
+         */
+
+        private void computeSize() {
+            this.size = 0;
+            for (BasicBlock b : members) {
+                this.size += b.size;
+            }
+        }
+
+        public static void computeSizes(Set<StrongComponent> scs) {
+            for (StrongComponent sc : scs) {
+                sc.computeSize();
+            }
+        }
+
+        /**
+         * Compute code size of all basic blocks in the transitive closure
+         * of this component that remain in the main method.  Assumes the
+         * {@link #splitMethod} field is set.
+         */
+        private void recomputeTransitiveClosureSize() {
+            this.transitiveClosureSize = 0;
+            for (StrongComponent sc : transitiveClosure) {
+                if (sc.splitMethod == null)
+                    this.transitiveClosureSize += sc.size;
+            }
+        }
+
+        public static void recomputeTransitiveClosureSizes(Set<StrongComponent> scs) {
+            for (StrongComponent sc : scs) {
+                sc.recomputeTransitiveClosureSize();
+            }
+        }
+
+        public int compareTo(StrongComponent other) {
+            return this.root.compareTo(other.root);
+        }
+        @Override
+        public String toString() {
+            return "*" + this.root.toString() + this.members.toString();
+        }
+    }
+
+    BasicBlock strongRoot;
+    StrongComponent strongComponent;
+    int dfsIndex;
 
     HashSet<BasicBlock> splitPointSuccessors;
 
@@ -135,7 +205,7 @@ class BasicBlock implements Comparable<BasicBlock> {
     public static int SPARSE_FRAME_TRANSFER_THRESHOLD = 100;
 
     public BasicBlock(int position) {
-        this.sccIndex = -1;
+        this.dfsIndex = -1;
         this.position = position;
         this.successors = new HashSet<BasicBlock>();
         this.predecessors = new HashSet<BasicBlock>();
@@ -1480,8 +1550,8 @@ class BasicBlock implements Comparable<BasicBlock> {
     }
 
     /**
-     * This needs, for all basic blocks, the {@link #sccRoot} field to
-     * be set, and the {@link Scc#splitPoint} fields of that to be
+     * This needs, for all basic blocks, the {@link #strongComponent} field to
+     * be set, and the {@link StrongComponent#splitPoint} fields of that to be
      * set.  Also, we need the {@link #frameData} to be set.
      */
 
@@ -1552,12 +1622,12 @@ class BasicBlock implements Comparable<BasicBlock> {
             }
         }
 
-        if (sccRoot.splitPoint == this) {
+        if (this.strongComponent.splitPoint == this) {
             // compute what it takes to restore this frame
             size += reconstructFrameSize;
         }
         for (BasicBlock s : successors) {
-            if (s.sccRoot.splitPoint == s) {
+            if (s.strongComponent.splitPoint == s) {
                 size += s.invocationSize;
             }
         }
@@ -1815,11 +1885,6 @@ class BasicBlock implements Comparable<BasicBlock> {
     }
 
 
-    @Override
-    public String toString() {
-        return "@" + position;
-    }
-
     /**
      * Traversal for building a tree of split points.
      *
@@ -1830,7 +1895,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         if (seen.contains(this))
             return;
         seen.add(this);
-        if (sccRoot.splitPoint == this) {
+        if (this.strongComponent.splitPoint == this) {
             sps.add(this);
             sps = new HashSet<BasicBlock>();
             splitPointSuccessors = sps;
@@ -1848,6 +1913,71 @@ class BasicBlock implements Comparable<BasicBlock> {
         HashSet<BasicBlock> seen = new HashSet<BasicBlock>();
         splitPointSuccessors = new HashSet<BasicBlock>();
         computeSplitPointSuccessors(splitPointSuccessors, seen);
+    }
+
+
+    /**
+     * Set the {@link #strongComponent} fields of all blocks in the set.
+     */
+    public static SortedSet<StrongComponent> computeTransitiveClosures(Set<BasicBlock> blocks) {
+        // Esko Nuutila, An efficient transitive closure algorithm for
+        // cyclic digraphs, Information Processing Letters 52 (1994)
+        // 207-213.
+        // http://www.cs.hut.fi/~enu/tc.html
+        Stack<BasicBlock> nstack = new Stack<BasicBlock>();
+        Stack<StrongComponent> cstack = new Stack<StrongComponent>();
+        TreeSet<StrongComponent> components = new TreeSet<StrongComponent>();
+        int dfsIndex = 0;
+        for (BasicBlock v : blocks) {
+            if (v.dfsIndex == -1) {
+                dfsIndex = v.computeTransitiveClosure(dfsIndex, nstack, cstack, components);
+            }
+        }
+        return components;
+    }
+
+    private int computeTransitiveClosure(int dfsIndex,
+                                         Stack<BasicBlock> nstack, Stack<StrongComponent> cstack,
+                                         TreeSet<StrongComponent> components) {
+        this.strongRoot = this;
+        this.strongComponent = null;
+        this.dfsIndex = dfsIndex++;
+        nstack.push(this);
+        int hsaved = cstack.size();
+        for (BasicBlock w : successors) {
+            // no self-loops
+            if (w == this) {
+                continue;
+            }
+            if (w.dfsIndex == -1) {
+                dfsIndex = w.computeTransitiveClosure(dfsIndex, nstack, cstack, components);
+            }
+            if (w.strongComponent == null) {
+                if (w.strongRoot.dfsIndex < this.dfsIndex) {
+                    this.strongRoot = w.strongRoot;
+                } 
+            } else if (!nstack.contains(w)) { // FIXME: this test should be done done with a flag
+                cstack.push(w.strongComponent);
+            }
+        }
+        if (this.strongRoot == this) {
+            StrongComponent c = new StrongComponent(this);
+            components.add(c);
+            while (cstack.size() != hsaved) {
+                StrongComponent x = cstack.pop();
+                if (!c.transitiveClosure.contains(x)) {
+                    c.transitiveClosure.addAll(x.transitiveClosure);
+                }
+            }
+            BasicBlock w;
+            do {
+                w = nstack.pop();
+                w.strongComponent = c;
+                c.members.add(w);
+            } while (w != this);
+        }
+
+        return dfsIndex;
     }
 
     /**
@@ -1868,7 +1998,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 return m;
         }
         // none have been split ...
-        if (sccRoot.transitiveClosureSize > ClassWriter.MAX_CODE_LENGTH) {
+        if (this.strongComponent.transitiveClosureSize > ClassWriter.MAX_CODE_LENGTH) {
             // ... but *we* need splitting
             BasicBlock entry = lookMaxSizeSplitPointSuccessor();
             if (entry == null) {
@@ -1890,7 +2020,7 @@ class BasicBlock implements Comparable<BasicBlock> {
         int maxSize = 0;
         BasicBlock maxEntry = null;
         for (BasicBlock entry : splitPointSuccessors) {
-            Scc root = entry.sccRoot;
+            StrongComponent root = entry.strongComponent;
             if (root.transitiveClosureSize > maxSize) {
                 maxSize = root.transitiveClosureSize;
                 maxEntry = entry;
@@ -1899,12 +2029,13 @@ class BasicBlock implements Comparable<BasicBlock> {
         return maxEntry;
     }
 
-    public HashSet<SplitMethod> split(String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
+    public HashSet<SplitMethod> split(Set<StrongComponent> components,
+                                      String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
         computeSplitPointSuccessors();
         HashSet<SplitMethod> set = new HashSet<SplitMethod>();
         int id = 0;
-        sccRoot.computeTransitiveClosureSizes();
-        int totalSize = sccRoot.transitiveClosureSize;
+        StrongComponent.recomputeTransitiveClosureSizes(components);
+        int totalSize = this.strongComponent.transitiveClosureSize;
         for (;;) {
             BasicBlock entry = findSplitPoint();
             if (entry == null)
@@ -1912,20 +2043,24 @@ class BasicBlock implements Comparable<BasicBlock> {
 
             String name = nameGenerator.generateName(mainMethodName, id++);
             SplitMethod m = new SplitMethod(name, access, entry);
-            for (Scc root : entry.sccRoot.transitiveClosure) {
+            for (StrongComponent root : entry.strongComponent.transitiveClosure) {
                 if (root.splitMethod == null) {
                     root.splitMethod = m;
                 }
             }
             set.add(m);
-            totalSize -= entry.sccRoot.transitiveClosureSize;
+            totalSize -= entry.strongComponent.transitiveClosureSize;
             if (totalSize <= ClassWriter.MAX_CODE_LENGTH)
                 break;
-            sccRoot.computeTransitiveClosureSizes();
+            StrongComponent.recomputeTransitiveClosureSizes(components);
         }
         return set;
     }
 
+    @Override
+    public String toString() {
+        return "@" + position;
+    }
 
 }
 

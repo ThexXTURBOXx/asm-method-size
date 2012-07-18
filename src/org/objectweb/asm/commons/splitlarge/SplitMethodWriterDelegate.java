@@ -39,6 +39,7 @@ import java.util.TreeSet;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.SortedSet;
 
 final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
@@ -50,8 +51,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     ClassVisitor cv;
 
     final int maxMethodLength;
-
-    Scc scc;
 
     HashSet<SplitMethod> splitMethods;
 
@@ -193,17 +192,12 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         CycleEquivalence.compute(start);
         BasicBlock.computeLocalsReads(code, blocks);
         BasicBlock.computeInvocationSizes(isStatic, blocks);
-        this.scc = Scc.stronglyConnectedComponents(blocks);
-        this.scc.initializeAll();
+        SortedSet<BasicBlock.StrongComponent> scs = BasicBlock.computeTransitiveClosures(blocks);
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
-        // this.scc.computeSplitPoints();
-        // Collection<BasicBlock> splitPoints = new HashSet<BasicBlock>(this.scc.computeSplitPoints());
         Collection<BasicBlock> splitPoints = new HashSet<BasicBlock>(computeSplitPoints(terminalEdges));
-        // splitPoints2.remove(blocks.first());
-
         BasicBlock.computeSizes(code, blocks);
-        this.scc.computeSizes();
-        this.splitMethods = blocks.first().split(thisName, access, maxMethodLength, nameGenerator);
+        BasicBlock.StrongComponent.computeSizes(scs);
+        this.splitMethods = blocks.first().split(scs, thisName, access, maxMethodLength, nameGenerator);
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {
             visitLineNumberLabels();
@@ -244,7 +238,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 if ((entry != null)
                     && (entry.kind != BasicBlock.Kind.EXCEPTION_HANDLER)
                     && entry.hasFullyDefinedFrame()) {
-                    entry.sccRoot.splitPoint = entry;
+                    entry.strongComponent.splitPoint = entry;
                     splitBlocks.add(entry);
                 }
             }
@@ -336,8 +330,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             {
                 BasicBlock block = blocksByOffset[v];
                 if (block != null) {
-                    SplitMethod m = block.sccRoot.splitMethod;
-                    if (fallThrough && (m != currentBlock.sccRoot.splitMethod)) {
+                    SplitMethod m = block.strongComponent.splitMethod;
+                    if (fallThrough && (m != currentBlock.strongComponent.splitMethod)) {
                         jumpToMethod(mv, block);
                     }
                     if (currentBlock != null) {
@@ -564,8 +558,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     private void handleJump(MethodVisitor mv, int opcode, BasicBlock currentBlock, BasicBlock target) {
-        SplitMethod m = target.sccRoot.splitMethod;
-        if (m != currentBlock.sccRoot.splitMethod) {
+        SplitMethod m = target.strongComponent.splitMethod;
+        if (m != currentBlock.strongComponent.splitMethod) {
             int reverse = reverseBranch(opcode);
             if (reverse != -1) {
                 // ##### JSR
@@ -582,7 +576,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     private void jumpToMethod(MethodVisitor mv, BasicBlock target) {
-        target.sccRoot.splitMethod.visitJumpTo(cw, mv);
+        target.strongComponent.splitMethod.visitJumpTo(cw, mv);
     }
 
     private Label generateSwitchLabels(BasicBlock currentBlock,
@@ -590,7 +584,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                                        Label[] targetLabels) {
         
         Label dflt;
-        if (defaultBlock.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+        if (defaultBlock.strongComponent.splitMethod != currentBlock.strongComponent.splitMethod) {
             dflt = new Label();
         } else {
             dflt = defaultBlock.getStartLabel();
@@ -598,7 +592,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         int size = targetBlocks.length;
         for (int j = 0; j < size; ++j) {
             BasicBlock target = targetBlocks[j];
-            if (target.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+            if (target.strongComponent.splitMethod != currentBlock.strongComponent.splitMethod) {
                 targetLabels[j] = new Label();
             } else {
                 targetLabels[j] = target.getStartLabel();
@@ -611,14 +605,14 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                                         BasicBlock defaultBlock, Label defaultLabel,
                                         BasicBlock[] targetBlocks,
                                         Label[] targetLabels) {
-        if (defaultBlock.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+        if (defaultBlock.strongComponent.splitMethod != currentBlock.strongComponent.splitMethod) {
             mv.visitLabel(defaultLabel);
             jumpToMethod(mv, defaultBlock);
         }
         int size = targetBlocks.length;
         for (int j = 0; j < size; ++j) {
             BasicBlock target = targetBlocks[j];
-            if (target.sccRoot.splitMethod != currentBlock.sccRoot.splitMethod) {
+            if (target.strongComponent.splitMethod != currentBlock.strongComponent.splitMethod) {
                 mv.visitLabel(targetLabels[j]);
                 jumpToMethod(mv, target);
             }
@@ -681,9 +675,9 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             BasicBlock start = blocksByOffset[h.start.position];
             BasicBlock end = blocksByOffset[h.end.position];
             BasicBlock handler = blocksByOffset[h.handler.position];
-            SplitMethod m = handler.sccRoot.splitMethod;
-            assert m == start.sccRoot.splitMethod;
-            assert m == end.sccRoot.splitMethod;
+            SplitMethod m = handler.strongComponent.splitMethod;
+            assert m == start.strongComponent.splitMethod;
+            assert m == end.strongComponent.splitMethod;
             MethodVisitor mv;
             if (m == null) {
                 mv = mainMethodVisitor;
@@ -801,7 +795,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             while (i >= 0) {
                 BasicBlock b = blocksByOffset[i];
                 if (b != null) {
-                    method = b.sccRoot.splitMethod;
+                    method = b.strongComponent.splitMethod;
                     currentBlock = b;
                     break;
                 }
@@ -821,7 +815,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 if (currentBlock != null) {
                     endLabels.put(method, currentBlock.getEndLabel());
                 }
-                method = b.sccRoot.splitMethod;
+                method = b.strongComponent.splitMethod;
                 Label startLabel = startLabels.get(method);
                 if (startLabel == null) {
                     startLabels.put(method, b.getStartLabel());
