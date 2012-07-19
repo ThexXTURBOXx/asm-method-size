@@ -81,7 +81,7 @@ public class ClassWriterSCCTest extends TestCase {
         assertEquals(s, labels);
     }
 
-    private SortedSet<BasicBlock.StrongComponent> endMethod(int maxStack, int maxLocals) {
+    private SortedSet<StrongComponent> endMethod(int maxStack, int maxLocals) {
         this.mw.visitMaxs(0, 0);
         this.mw.visitEnd();
         this.cw.visitEnd();
@@ -129,7 +129,7 @@ public class ClassWriterSCCTest extends TestCase {
         startMethod();
         NOP();
 
-        SortedSet<BasicBlock.StrongComponent> scs = endMethod(0, 0);
+        SortedSet<StrongComponent> scs = endMethod(0, 0);
 
         assertEquals(1, scs.size());
         assertEquals(1, scs.first().members.size());
@@ -137,7 +137,7 @@ public class ClassWriterSCCTest extends TestCase {
     
     // for calling toArray
     private BasicBlock[] bbTag = new BasicBlock[0];
-    private BasicBlock.StrongComponent[] scTag = new BasicBlock.StrongComponent[0];
+    private StrongComponent[] scTag = new StrongComponent[0];
 
     /**
      * Method with one SCC.
@@ -148,7 +148,7 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l1);
         GOTO(l1);
 
-        SortedSet<BasicBlock.StrongComponent> scs = endMethod(0, 0);
+        SortedSet<StrongComponent> scs = endMethod(0, 0);
 
         assertEquals(1, scs.size());
         BasicBlock[] blocks = scs.first().members.toArray(bbTag);
@@ -177,11 +177,11 @@ public class ClassWriterSCCTest extends TestCase {
         IFNE(l1);
         LABEL(l4);
 
-        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
+        SortedSet<StrongComponent> scs = endMethod(1, 0);
 
         assertEquals(2, scs.size());
 
-        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
+        StrongComponent[] scsa = scs.toArray(scTag);
 
         BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
         BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);
@@ -222,11 +222,11 @@ public class ClassWriterSCCTest extends TestCase {
         IFNE(l1);
         LABEL(l5);
 
-        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
+        SortedSet<StrongComponent> scs = endMethod(1, 0);
 
         assertEquals(2, scs.size());
 
-        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
+        StrongComponent[] scsa = scs.toArray(scTag);
 
         BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
         BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);
@@ -263,11 +263,11 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l6);
         IFNE(l4);
 
-        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
+        SortedSet<StrongComponent> scs = endMethod(1, 0);
 
         assertEquals(3, scs.size());
         
-        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
+        StrongComponent[] scsa = scs.toArray(scTag);
 
         BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
         BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);
@@ -302,11 +302,11 @@ public class ClassWriterSCCTest extends TestCase {
         LABEL(l4);
         IFNE(l3);
 
-        SortedSet<BasicBlock.StrongComponent> scs = endMethod(1, 0);
+        SortedSet<StrongComponent> scs = endMethod(1, 0);
 
         assertEquals(3, scs.size());
 
-        BasicBlock.StrongComponent[] scsa = scs.toArray(scTag);
+        StrongComponent[] scsa = scs.toArray(scTag);
         
         BasicBlock[] blocks0 = scsa[0].members.toArray(bbTag);
         BasicBlock[] blocks1 = scsa[1].members.toArray(bbTag);

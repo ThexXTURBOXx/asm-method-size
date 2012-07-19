@@ -192,11 +192,11 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         CycleEquivalence.compute(start);
         BasicBlock.computeLocalsReads(code, blocks);
         BasicBlock.computeInvocationSizes(isStatic, blocks);
-        SortedSet<BasicBlock.StrongComponent> scs = BasicBlock.computeTransitiveClosures(blocks);
+        SortedSet<StrongComponent> scs = BasicBlock.computeTransitiveClosures(blocks);
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
         computeSplitPoints(terminalEdges);
         BasicBlock.computeSizes(code, blocks);
-        BasicBlock.StrongComponent.computeSizes(scs);
+        StrongComponent.computeSizes(scs);
         this.splitMethods = split(blocks, scs, thisName, access, maxMethodLength, nameGenerator);
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {
@@ -214,13 +214,13 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
 
     public static HashSet<SplitMethod> split(SortedSet<BasicBlock> blocks,
-                                             Set<BasicBlock.StrongComponent> components,
+                                             Set<StrongComponent> components,
                                              String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
         BasicBlock first = blocks.first();
         first.computeSplitPointSuccessors();
         HashSet<SplitMethod> set = new HashSet<SplitMethod>();
         int id = 0;
-        BasicBlock.StrongComponent.recomputeTransitiveClosureSizes(components);
+        StrongComponent.recomputeTransitiveClosureSizes(components);
         int totalSize = first.strongComponent.transitiveClosureSize;
         for (;;) {
             BasicBlock entry = first.findSplitPoint();
@@ -229,7 +229,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
             String name = nameGenerator.generateName(mainMethodName, id++);
             SplitMethod m = new SplitMethod(name, access, entry);
-            for (BasicBlock.StrongComponent root : entry.strongComponent.transitiveClosure) {
+            for (StrongComponent root : entry.strongComponent.transitiveClosure) {
                 if (root.splitMethod == null) {
                     root.splitMethod = m;
                 }
@@ -238,7 +238,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             totalSize -= entry.strongComponent.transitiveClosureSize;
             if (totalSize <= ClassWriter.MAX_CODE_LENGTH)
                 break;
-            BasicBlock.StrongComponent.recomputeTransitiveClosureSizes(components);
+            StrongComponent.recomputeTransitiveClosureSizes(components);
         }
         return set;
     }
