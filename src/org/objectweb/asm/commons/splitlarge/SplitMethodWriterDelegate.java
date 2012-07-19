@@ -33,7 +33,6 @@ import org.objectweb.asm.*;
 
 import java.util.Map;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.HashSet;
 import java.util.TreeSet;
 import java.util.HashMap;
@@ -194,7 +193,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         BasicBlock.computeInvocationSizes(isStatic, blocks);
         SortedSet<BasicBlock.StrongComponent> scs = BasicBlock.computeTransitiveClosures(blocks);
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end
-        Collection<BasicBlock> splitPoints = new HashSet<BasicBlock>(computeSplitPoints(terminalEdges));
+        computeSplitPoints(terminalEdges);
         BasicBlock.computeSizes(code, blocks);
         BasicBlock.StrongComponent.computeSizes(scs);
         this.splitMethods = blocks.first().split(scs, thisName, access, maxMethodLength, nameGenerator);
