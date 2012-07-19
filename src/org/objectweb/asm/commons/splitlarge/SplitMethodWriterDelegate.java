@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.TreeSet;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -196,7 +197,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         computeSplitPoints(terminalEdges);
         BasicBlock.computeSizes(code, blocks);
         BasicBlock.StrongComponent.computeSizes(scs);
-        this.splitMethods = blocks.first().split(scs, thisName, access, maxMethodLength, nameGenerator);
+        this.splitMethods = split(blocks, scs, thisName, access, maxMethodLength, nameGenerator);
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {
             visitLineNumberLabels();
@@ -210,6 +211,36 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         }
         transferAnnotations();
         transferNonstandardAttributes();
+    }
+
+    public static HashSet<SplitMethod> split(SortedSet<BasicBlock> blocks,
+                                             Set<BasicBlock.StrongComponent> components,
+                                             String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
+        BasicBlock first = blocks.first();
+        first.computeSplitPointSuccessors();
+        HashSet<SplitMethod> set = new HashSet<SplitMethod>();
+        int id = 0;
+        BasicBlock.StrongComponent.recomputeTransitiveClosureSizes(components);
+        int totalSize = first.strongComponent.transitiveClosureSize;
+        for (;;) {
+            BasicBlock entry = first.findSplitPoint();
+            if (entry == null)
+                throw new RuntimeException("no split point found");
+
+            String name = nameGenerator.generateName(mainMethodName, id++);
+            SplitMethod m = new SplitMethod(name, access, entry);
+            for (BasicBlock.StrongComponent root : entry.strongComponent.transitiveClosure) {
+                if (root.splitMethod == null) {
+                    root.splitMethod = m;
+                }
+            }
+            set.add(m);
+            totalSize -= entry.strongComponent.transitiveClosureSize;
+            if (totalSize <= ClassWriter.MAX_CODE_LENGTH)
+                break;
+            BasicBlock.StrongComponent.recomputeTransitiveClosureSizes(components);
+        }
+        return set;
     }
 
     public static Collection<BasicBlock> computeSplitPoints(Collection<CycleEquivalence.Edge> terminalEdges) {

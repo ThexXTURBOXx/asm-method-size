@@ -2029,34 +2029,6 @@ class BasicBlock implements Comparable<BasicBlock> {
         return maxEntry;
     }
 
-    public HashSet<SplitMethod> split(Set<StrongComponent> components,
-                                      String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
-        computeSplitPointSuccessors();
-        HashSet<SplitMethod> set = new HashSet<SplitMethod>();
-        int id = 0;
-        StrongComponent.recomputeTransitiveClosureSizes(components);
-        int totalSize = this.strongComponent.transitiveClosureSize;
-        for (;;) {
-            BasicBlock entry = findSplitPoint();
-            if (entry == null)
-                throw new RuntimeException("no split point found");
-
-            String name = nameGenerator.generateName(mainMethodName, id++);
-            SplitMethod m = new SplitMethod(name, access, entry);
-            for (StrongComponent root : entry.strongComponent.transitiveClosure) {
-                if (root.splitMethod == null) {
-                    root.splitMethod = m;
-                }
-            }
-            set.add(m);
-            totalSize -= entry.strongComponent.transitiveClosureSize;
-            if (totalSize <= ClassWriter.MAX_CODE_LENGTH)
-                break;
-            StrongComponent.recomputeTransitiveClosureSizes(components);
-        }
-        return set;
-    }
-
     @Override
     public String toString() {
         return "@" + position;
