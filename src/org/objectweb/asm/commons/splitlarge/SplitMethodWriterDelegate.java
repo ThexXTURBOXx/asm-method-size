@@ -417,41 +417,41 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                     if (l != null) {
                         label = l.position;
                     } else {
-                        label = v + readUnsignedShort(v + 1);
+                        label = v + ByteArray.readUnsignedShort(b, v + 1);
                     }
                 } else {
-                    label = v + readShort(v + 1);
+                    label = v + ByteArray.readShort(b, v + 1);
                 }
                 handleJump(mv, opcode, currentBlock, blocksByOffset[label]);
                 v += 3;
                 break;
             }
             case ClassWriter.LABELW_INSN:
-                handleJump(mv, opcode - 33, currentBlock, blocksByOffset[v + readInt(v + 1)]);
+                handleJump(mv, opcode - 33, currentBlock, blocksByOffset[v + ByteArray.readInt(b, v + 1)]);
                 v += 5;
                 break;
             case ClassWriter.WIDE_INSN:
                 opcode = b[v + 1] & 0xFF;
                 if (opcode == Opcodes.IINC) {
-                    mv.visitIincInsn(readUnsignedShort(v + 2), readShort(v + 4));
+                    mv.visitIincInsn(ByteArray.readUnsignedShort(b, v + 2), ByteArray.readShort(b, v + 4));
                     v += 6;
                 } else {
-                    mv.visitVarInsn(opcode, readUnsignedShort(v + 2));
+                    mv.visitVarInsn(opcode, ByteArray.readUnsignedShort(b, v + 2));
                     v += 4;
                 }
                 break;
             case ClassWriter.TABL_INSN: {
                 int start = v;
                 v = v + 4 - (v & 3);
-                int label = start + readInt(v);
+                int label = start + ByteArray.readInt(b, v);
                 BasicBlock defaultBlock = blocksByOffset[label];
-                int min = readInt(v + 4);
-                int max = readInt(v + 8);
+                int min = ByteArray.readInt(b, v + 4);
+                int max = ByteArray.readInt(b, v + 8);
                 v += 12;
                 int size = max - min + 1;
                 BasicBlock[] targetBlocks = new BasicBlock[size];
                 for (int j = 0; j < size; ++j) {
-                    targetBlocks[j] = blocksByOffset[start + readInt(v)];
+                    targetBlocks[j] = blocksByOffset[start + ByteArray.readInt(b, v)];
                     v += 4;
                 }
                 Label[] targetLabels = new Label[size];
@@ -466,15 +466,15 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
             case ClassWriter.LOOK_INSN: {
                 int start = v;
                 v = v + 4 - (v & 3);
-                int label = start + readInt(v);
+                int label = start + ByteArray.readInt(b, v);
                 BasicBlock defaultBlock = blocksByOffset[label];
-                int size = readInt(v + 4);
+                int size = ByteArray.readInt(b, v + 4);
                 v += 8;
                 int[] keys = new int[size];
                 BasicBlock[] targetBlocks = new BasicBlock[size];
                 for (int j = 0; j < size; ++j) {
-                    keys[j] = readInt(v);
-                    targetBlocks[j] = blocksByOffset[start + readInt(v + 4)];
+                    keys[j] = ByteArray.readInt(b, v);
+                    targetBlocks[j] = blocksByOffset[start + ByteArray.readInt(b, v + 4)];
                     v += 8;
                 }
                 Label[] targetLabels = new Label[size];
@@ -495,7 +495,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 v += 2;
                 break;
             case ClassWriter.SHORT_INSN:
-                mv.visitIntInsn(opcode, readShort(v + 1));
+                mv.visitIntInsn(opcode, ByteArray.readShort(b, v + 1));
                 v += 3;
                 break;
             case ClassWriter.LDC_INSN:
@@ -503,12 +503,12 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 v += 2;
                 break;
             case ClassWriter.LDCW_INSN:
-                mv.visitLdcInsn(constantPool.readConst(readUnsignedShort(v + 1)));
+                mv.visitLdcInsn(constantPool.readConst(ByteArray.readUnsignedShort(b, v + 1)));
                 v += 3;
                 break;
             case ClassWriter.FIELDORMETH_INSN:
             case ClassWriter.ITFMETH_INSN: {
-                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(readUnsignedShort(v + 1));
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
                 if (opcode < Opcodes.INVOKEVIRTUAL) {
                     mv.visitFieldInsn(opcode, sr.owner, sr.name, sr.desc);
                 } else {
@@ -522,7 +522,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.INDYMETH_INSN: {
-                ConstantPool.DynamicSymRef sr = constantPool.parseDynamicSymRef(readUnsignedShort(v + 1));
+                ConstantPool.DynamicSymRef sr = constantPool.parseDynamicSymRef(ByteArray.readUnsignedShort(b, v + 1));
 
                 byte[] bm = cw.bootstrapMethods.data;
                 
@@ -543,7 +543,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
             }
             case ClassWriter.TYPE_INSN:
-                mv.visitTypeInsn(opcode, constantPool.readClass(readUnsignedShort(v + 1)));
+                mv.visitTypeInsn(opcode, constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1)));
                 v += 3;
                 break;
             case ClassWriter.IINC_INSN:
@@ -552,7 +552,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
                 break;
                 // case MANA_INSN:
             default:
-                mv.visitMultiANewArrayInsn(constantPool.readClass(readUnsignedShort(v + 1)), b[v + 3] & 0xFF);
+                mv.visitMultiANewArrayInsn(constantPool.readClass(ByteArray.readUnsignedShort(b, v + 1)), b[v + 3] & 0xFF);
                 v += 4;
                 break;
             }
@@ -932,45 +932,5 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         mainMethodWriter.put(out);
     }
 
-
-    // ------------------------------------------------------------------------
-    // Utility methods: low level parsing
-    // ------------------------------------------------------------------------
-
-    /**
-     * Reads an unsigned short value in {@link #b b}. <i>This method is
-     * intended for {@link Attribute} sub classes, and is normally not needed by
-     * class generators or adapters.</i>
-     *
-     * @param index the start index of the value to be read in {@link #b b}.
-     * @return the read value.
-     */
-    public int readUnsignedShort(final int index) {
-        return ByteArray.readUnsignedShort(code.data, index);
-    }
-
-    /**
-     * Reads a signed short value in {@link #b b}. <i>This method is intended
-     * for {@link Attribute} sub classes, and is normally not needed by class
-     * generators or adapters.</i>
-     *
-     * @param index the start index of the value to be read in {@link #b b}.
-     * @return the read value.
-     */
-    public short readShort(final int index) {
-        return ByteArray.readShort(code.data, index);
-    }
-
-    /**
-     * Reads a signed int value in {@link #b b}. <i>This method is intended for
-     * {@link Attribute} sub classes, and is normally not needed by class
-     * generators or adapters.</i>
-     *
-     * @param index the start index of the value to be read in {@link #b b}.
-     * @return the read value.
-     */
-    public int readInt(final int index) {
-        return ByteArray.readInt(code.data, index);
-    }
 
 }
