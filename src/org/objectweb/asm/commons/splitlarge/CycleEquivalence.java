@@ -260,7 +260,7 @@ public class CycleEquivalence {
             }
         }
 
-        public void computeCycleEquivalence(EquivClass boring) {
+        public void computeCycleEquivalence() {
             // hi0 := min { t.dfsnum | (n, t) is a backedge } ;
             Node hi0 = null;
             for (Edge edge : this.backEdgesFrom) {
@@ -345,29 +345,25 @@ public class CycleEquivalence {
             Edge parent = this.parent;
             // if n is not the root of dfstree then
             if (parent != null) {
-                if (blist.size() == 0) {
-                    parent.equivClass = boring;
-                } else {
-                    // let e be the tree edge from parent(n) to n :
-                    // b := top(n.blist) ;
-                    Edge edge = blist.getFirst();
-                    // if b.recentSize != size(n.blist) then
-                    int bsize = blist.size();
-                    if (edge.recentSize != bsize) {
-                        // b.recentSize := size(n.bracketList) ;
-                        edge.recentSize = bsize;
-                        // b.recentEquivClass := new-class() ;
-                        edge.recentEquivClass = new EquivClass(blist);
-                    }
-                    // e.class := b.recentEquivClass ;
-                    parent.equivClass = edge.recentEquivClass;
+                // let e be the tree edge from parent(n) to n :
+                // b := top(n.blist) ;
+                Edge edge = blist.getFirst();
+                // if b.recentSize != size(n.blist) then
+                int bsize = blist.size();
+                if (edge.recentSize != bsize) {
+                    // b.recentSize := size(n.bracketList) ;
+                    edge.recentSize = bsize;
+                    // b.recentEquivClass := new-class() ;
+                    edge.recentEquivClass = new EquivClass(blist);
+                }
+                // e.class := b.recentEquivClass ;
+                parent.equivClass = edge.recentEquivClass;
                     
-                    /* check for e, b equivalence */
-                    // if b.recentSize = 1 then
-                    if (edge.recentSize == 1) {
-                        // b.class := e.class ;
-                        edge.equivClass = parent.equivClass;
-                    }
+                /* check for e, b equivalence */
+                // if b.recentSize = 1 then
+                if (edge.recentSize == 1) {
+                    // b.class := e.class ;
+                    edge.equivClass = parent.equivClass;
                 }
             }
         }
@@ -441,7 +437,7 @@ public class CycleEquivalence {
         start.addEdge(firstNode);
         
         Node end = new Node();
-        // FIXME? end.addEdge(start);
+        end.addEdge(start);
 
         // add edges
         for (Map.Entry<BasicBlock, Node> entry : blockNodes.entrySet()) {
@@ -468,9 +464,8 @@ public class CycleEquivalence {
 
     public static void computeCycleEquivalence(ArrayList<Node> nodes) {
         int i = nodes.size() - 1;
-        EquivClass boring = new EquivClass();
         while (i >= 0) {
-            nodes.get(i).computeCycleEquivalence(boring);
+            nodes.get(i).computeCycleEquivalence();
             --i;
         }
         for (Node node : nodes) {
