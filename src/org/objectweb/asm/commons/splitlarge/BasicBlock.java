@@ -1659,13 +1659,13 @@ class BasicBlock implements Comparable<BasicBlock> {
     }
 
     /**
-     * Set the {@link #localsRead} member to a bitset indexed by the
-     * frame offset of the local variables.
+     * Set the {@link #localsRead} and {@link #localsWritten} members
+     * to bitsets indexed by the frame offset of the local variables.
      *
      * Also, initialize {@link #localsReadTransitive} to a copy of
      * {@link #localsRead}.
      */
-    private void computeLocalsRead(ByteVector code) {
+    private void computeLocalsReadWritten(ByteVector code) {
         // locals to which we've written aren't relevant anymore
         if (frameData == null) {
             localsRead = new BitSet(0);
@@ -1775,7 +1775,7 @@ class BasicBlock implements Comparable<BasicBlock> {
     /**
      * @returns true if the set changed
      */
-    private boolean iterateLocalsReadTransitive() {
+    private boolean iterateLocalsReadWrittenTransitive() {
         BitSet old = (BitSet) localsReadTransitive.clone();
         for (BasicBlock b : successors) {
             BitSet sread = (BitSet) b.localsReadTransitive.clone();
@@ -1785,15 +1785,15 @@ class BasicBlock implements Comparable<BasicBlock> {
         return !old.equals(localsReadTransitive);
     }
     
-    public static void computeLocalsReads(ByteVector code, TreeSet<BasicBlock> blocks) {
+    public static void computeLocalsReadWrittens(ByteVector code, TreeSet<BasicBlock> blocks) {
         for (BasicBlock b : blocks) {
-            b.computeLocalsRead(code);
+            b.computeLocalsReadWritten(code);
         }
         // fixpoint iteration
         for (;;) {
             boolean same = true;
             for (BasicBlock b : blocks) {
-                if (b.iterateLocalsReadTransitive()) {
+                if (b.iterateLocalsReadWrittenTransitive()) {
                     same = false;
                 }
             }

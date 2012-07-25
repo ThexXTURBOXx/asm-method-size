@@ -190,7 +190,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         HashSet<CycleEquivalence.Edge> terminalEdges = new HashSet<CycleEquivalence.Edge>();
         CycleEquivalence.Node start = CycleEquivalence.computeSimpleUndigraph(blocks, terminalEdges);
         CycleEquivalence.compute(start);
-        BasicBlock.computeLocalsReads(code, blocks);
+        BasicBlock.computeLocalsReadWrittens(code, blocks);
         BasicBlock.computeInvocationSizes(isStatic, blocks);
         SortedSet<StrongComponent> scs = BasicBlock.computeTransitiveClosures(blocks);
         this.upwardLabelsByOffset = new Label[code.length + 1 ]; // the + 1 is for a label beyond the end

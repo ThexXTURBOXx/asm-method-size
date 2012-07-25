@@ -96,7 +96,7 @@ public class DataflowTest extends TestCase {
                                     new BasicBlock[code.length + 1],
                                     new Label[code.length + 2],
                                     labelTypes);
-        BasicBlock.computeLocalsReads(code, blocks);
+        BasicBlock.computeLocalsReadWrittens(code, blocks);
         return blocks.toArray(new BasicBlock[0]);
     }
 
