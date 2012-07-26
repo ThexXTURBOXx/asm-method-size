@@ -247,8 +247,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         LinkedList<BasicBlock> splitBlocks = new LinkedList<BasicBlock>();
         for (CycleEquivalence.Edge terminal : terminalEdges) {
             for (CycleEquivalence.Edge e : terminal.equivClass.edges) {
-                BasicBlock block1 = e.node1.block;
-                BasicBlock block2 = e.node2.block;
+                BasicBlock block1 = e.from.block;
+                BasicBlock block2 = e.to.block;
                 BasicBlock entry = null;
                 // get the edge destination
                 // FIXME: presumably, we could keep around the direction

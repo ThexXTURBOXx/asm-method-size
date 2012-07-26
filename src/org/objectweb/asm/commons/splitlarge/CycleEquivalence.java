@@ -113,27 +113,27 @@ public class CycleEquivalence {
          */
         boolean seen;
 
-        final Node node1, node2;
+        final Node from, to;
 
-        public Edge(Node node1, Node node2) {
-            this.node1 = node1;
-            this.node2 = node2;
+        public Edge(Node from, Node to) {
+            this.from = from;
+            this.to = to;
             this.seen = false;
             this.represented = null;
         }
 
         public Node getOtherNode(Node node) {
-            if (node == node1) {
-                return this.node2;
-            } else if (node == node2) {
-                return this.node1;
+            if (node == from) {
+                return this.to;
+            } else if (node == to) {
+                return this.from;
             } else {
                 throw new AssertionError("This node isn't at this edge.");
             }
         }
 
         public String toStringBase() {
-            return "(" + this.node1.toString() + " <-> " + this.node2.toString() + ")";
+            return "(" + this.from.toString() + " <-> " + this.to.toString() + ")";
         }
 
         @Override public String toString() {
