@@ -58,7 +58,11 @@ public class CycleEquivalence {
          */
         int size;
 
-        Collection<Edge> edges;
+        /**
+         * Edges of the equivalence class, in DFS order.
+         * Pairwise, these form the canonical SESE regions.
+         */
+        List<Edge> edges;
         Collection<Node> nodes; // FIXME: probably not needed
 
         public EquivClass(Edge bracket, int size) {
@@ -367,6 +371,16 @@ public class CycleEquivalence {
                 }
             }
         }
+
+        public void computeSESE() {
+            for (Edge edge : this.treeEdges) {
+                if (!edge.seen) {
+                    edge.seen = true;
+                    edge.equivClass.addEdge(edge);
+                    edge.getOtherNode(this).computeSESE();
+                }
+            }
+        }
     }
 
     /**
@@ -468,26 +482,26 @@ public class CycleEquivalence {
             nodes.get(i).computeCycleEquivalence();
             --i;
         }
+    }
+
+    private static void clearEdgeSeens(Collection<Node> nodes) {
         for (Node node : nodes) {
-            for (Edge edge : node.treeEdges) {
-                if (!edge.seen) {
-                    edge.equivClass.addEdge(edge);
-                    edge.seen = true;
-                }
-            }
-            for (Edge edge : node.backEdgesFrom) {
-                if (!edge.seen) {
-                    edge.equivClass.addEdge(edge);
-                    edge.seen = true;
-                }
+            for (Edge edge : node.allEdges) {
+                edge.seen = false;
             }
         }
+    }
+
+    public static void computeSESERegions(List<Node> nodes) {
+        clearEdgeSeens(nodes);
+        nodes.get(0).computeSESE();
     }
 
     public static ArrayList<Node> compute(Node start) {
         ArrayList<Node> nodes = new ArrayList<Node>();
         start.computeSpanningTree(nodes);
         computeCycleEquivalence(nodes);
+        computeSESERegions(nodes);
         return nodes;
     }
 
