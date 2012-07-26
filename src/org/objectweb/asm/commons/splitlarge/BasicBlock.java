@@ -76,7 +76,6 @@ class BasicBlock implements Comparable<BasicBlock> {
      */
     final HashSet<BasicBlock> predecessors;
 
-
     BasicBlock strongRoot;
     StrongComponent strongComponent;
     int dfsIndex;
@@ -122,6 +121,17 @@ class BasicBlock implements Comparable<BasicBlock> {
      * we'll use a sparse frames transfer.
      */
     public static int SPARSE_FRAME_TRANSFER_THRESHOLD = 100;
+
+    /**
+     * Number of items popped from the stack in the course of the
+     * block, relative to where we started.
+     */
+    public int poppedCount;
+    /**
+     * Number of items pushed by the end of the block, relative to
+     * the bottom reached by popping {@link #poppedCount} items.
+     */
+    public int pushedCount;
 
     public BasicBlock(int position) {
         this.dfsIndex = -1;
@@ -332,7 +342,33 @@ class BasicBlock implements Comparable<BasicBlock> {
         return frameCount;
     }
 
+
+    private static int pushDescDelta(String desc) {
+        int index = desc.charAt(0) == '(' ? desc.indexOf(')') + 1 : 0;
+        switch (desc.charAt(index)) {
+        case 'V':
+            return 0;
+        case 'Z':
+        case 'C':
+        case 'B':
+        case 'S':
+        case 'I':
+        case 'F':
+        case '[':
+            return 1;
+        case 'J':
+        case 'D':
+            return 2;
+        default:
+            throw new RuntimeException("unknown descriptor");
+        }
+    }
+
     private static int popDesc(int frameCount, final String desc) {
+        return frameCount - popDescDelta(desc);
+    }
+
+    private static int popDescDelta(String desc) {
         char c = desc.charAt(0);
         if (c == '(') {
             int n = 0;
@@ -340,14 +376,13 @@ class BasicBlock implements Comparable<BasicBlock> {
             for (int i = 0; i < types.length; ++i) {
                 n += types[i].getSize();
             }
-            return frameCount - n;
+            return n;
         } else if (c == 'J' || c == 'D') {
-            return frameCount - 2;
+            return 2;
         } else {
-            return frameCount - 1;
+            return 1;
         }
     }
-
 
     /**
      * If there's a two-word value at an index, invalidate it, as we
@@ -1469,13 +1504,20 @@ class BasicBlock implements Comparable<BasicBlock> {
     }
 
     /**
+     * Get end of code of this basic block.
+     */
+    public int getEnd(ByteVector code) {
+        return (subsequent != null) ? subsequent.position : code.length;
+    }
+
+    /**
      * This needs, for all basic blocks, the {@link #strongComponent} field to
      * be set, and the {@link StrongComponent#splitPoint} fields of that to be
      * set.  Also, we need the {@link #frameData} to be set.
      */
 
     public void computeSize(ByteVector code) {
-        int end = (subsequent != null) ? subsequent.position : code.length;
+        int end =  this.getEnd(code);
         int size = end - position;
         int v = position;
         byte[] b = code.data;
@@ -1674,7 +1716,7 @@ class BasicBlock implements Comparable<BasicBlock> {
             localsRead = new BitSet(frameData.frameLocal.length);
             localsWritten = new BitSet(frameData.frameLocal.length); // at least
         }
-        int end = (subsequent != null) ? subsequent.position : code.length;
+        int end = this.getEnd(code);
         int v = position;
         byte[] b = code.data;
         while (v < end) {
@@ -1803,6 +1845,400 @@ class BasicBlock implements Comparable<BasicBlock> {
         }
     }
 
+
+
+    /**
+     * Calculate a stack delta, setting {@link #poppedCount} and {@link #pushedCount}.
+     *
+     */
+    public void computeStackDelta(ByteVector code, ConstantPool constantPool) {
+        int currentSize = 0;
+        this.pushedCount = 0;
+        this.poppedCount = 0;
+        int end = this.getEnd(code);
+        int v = position;
+        byte[] b = code.data;
+        while (v < end) {
+            int opcode = b[v] & 0xFF; // opcode of current instruction
+
+            if (opcode == 196) { // WIDE
+                ++v;
+                opcode = b[v] & 0xFF;
+            }
+
+            switch (opcode) {
+            case Opcodes.NOP:
+            case Opcodes.INEG:
+            case Opcodes.LNEG:
+            case Opcodes.FNEG:
+            case Opcodes.DNEG:
+            case Opcodes.I2B:
+            case Opcodes.I2C:
+            case Opcodes.I2S:
+                v += 1;
+                break;
+            case Opcodes.GOTO:
+                v += 3;
+                break;
+            case 200: // GOTO_W
+                v += 5;
+                break;
+            case Opcodes.IINC:
+                v += 3;
+                break;
+            case Opcodes.ACONST_NULL:
+            case Opcodes.ICONST_M1:
+            case Opcodes.ICONST_0:
+            case Opcodes.ICONST_1:
+            case Opcodes.ICONST_2:
+            case Opcodes.ICONST_3:
+            case Opcodes.ICONST_4:
+            case Opcodes.ICONST_5:
+            case Opcodes.BIPUSH:
+            case Opcodes.SIPUSH:
+            case Opcodes.FCONST_0:
+            case Opcodes.FCONST_1:
+            case Opcodes.FCONST_2:
+                // ILOAD_n
+            case 26:
+            case 27:
+            case 28:
+            case 29:
+                // FLOAD_n
+            case 34:
+            case 35:
+            case 36:
+            case 37:
+                // ALOAD_n
+            case 42:
+            case 43:
+            case 44:
+            case 45:
+            case Opcodes.IALOAD:
+            case Opcodes.BALOAD:
+            case Opcodes.CALOAD:
+            case Opcodes.SALOAD:
+            case Opcodes.FALOAD:
+            case Opcodes.AALOAD:
+            case Opcodes.DUP:
+                currentSize = this.updatePoppedCount(currentSize, 0, 1);
+                v += 1;
+                break;
+            case Opcodes.ILOAD:
+            case Opcodes.FLOAD:
+            case Opcodes.ALOAD:
+            case Opcodes.LDC:
+                currentSize = this.updatePoppedCount(currentSize, 0, 1);
+                v += 2;
+                break;
+            case Opcodes.NEW:
+            case 19: // LDC_W
+                currentSize = this.updatePoppedCount(currentSize, 0, 1);
+                v += 3;
+                break;
+
+            case Opcodes.LCONST_0:
+            case Opcodes.LCONST_1:
+            case Opcodes.DCONST_0:
+            case Opcodes.DCONST_1:
+                // DLOAD_n
+            case 38:
+            case 39:
+            case 40:
+            case 41:
+            case Opcodes.LALOAD:
+            case Opcodes.D2L:
+            case Opcodes.DALOAD:
+            case Opcodes.L2D:
+            case Opcodes.DUP2: 
+            case 20: // LDC2_W
+                currentSize = this.updatePoppedCount(currentSize, 0, 2);
+                break;
+
+                // ISTORE_n
+            case 59:
+            case 60:
+            case 61:
+            case 62:
+                // FSTORE_n
+            case 67:
+            case 68:
+            case 69:
+            case 70:
+                // ASTORE_n
+            case 75:
+            case 76:
+            case 77:
+            case 78:
+            case Opcodes.POP:
+            case Opcodes.IRETURN:
+            case Opcodes.FRETURN:
+            case Opcodes.ARETURN:
+            case Opcodes.ATHROW:
+            case Opcodes.RETURN:
+            case Opcodes.MONITORENTER:
+            case Opcodes.MONITOREXIT:
+                currentSize = this.updatePoppedCount(currentSize, 1, 0);
+                v += 1;
+                break;
+
+            case Opcodes.ISTORE:
+            case Opcodes.FSTORE:
+            case Opcodes.ASTORE:
+            case Opcodes.LLOAD:
+            case Opcodes.DLOAD:
+                currentSize = this.updatePoppedCount(currentSize, 1, 0);
+                v += 2;
+                break;
+
+            case Opcodes.IFEQ:
+            case Opcodes.IFNE:
+            case Opcodes.IFLT:
+            case Opcodes.IFGE:
+            case Opcodes.IFGT:
+            case Opcodes.IFLE:
+            case Opcodes.IFNULL:
+            case Opcodes.IFNONNULL:
+                currentSize = this.updatePoppedCount(currentSize, 1, 0);
+                v += 3;
+                break;
+
+            case Opcodes.TABLESWITCH: {
+                currentSize = this.updatePoppedCount(currentSize, 1, 0);
+                // skips 0 to 3 padding bytes
+                v = v + 4 - (v & 3);
+                int j = ByteArray.readInt(b, v + 8) - ByteArray.readInt(b, v + 4) + 1;
+                v += 12 + 4 * j;
+                break;
+            }
+
+            case Opcodes.LOOKUPSWITCH: {
+                currentSize = this.updatePoppedCount(currentSize, 1, 0);
+                // skips 0 to 3 padding bytes
+                v = v + 4 - (v & 3);
+                int j = ByteArray.readInt(b, v + 4);
+                v += 8 + (j * 8);
+                break;
+            }
+ 
+                // LSTORE_n
+            case 63:
+            case 64:
+            case 65:
+            case 66:
+                // DSTORE_n
+            case 71:
+            case 72:
+            case 73:
+            case 74:
+            case Opcodes.POP2:
+            case Opcodes.LRETURN:
+            case Opcodes.DRETURN:
+                currentSize = this.updatePoppedCount(currentSize, 2, 0);
+                v += 1;
+                break;
+
+            case Opcodes.LSTORE:
+            case Opcodes.DSTORE:
+                currentSize = this.updatePoppedCount(currentSize, 2, 0);
+                v += 2;
+                break;
+                
+            case Opcodes.IF_ICMPEQ:
+            case Opcodes.IF_ICMPNE:
+            case Opcodes.IF_ICMPLT:
+            case Opcodes.IF_ICMPGE:
+            case Opcodes.IF_ICMPGT:
+            case Opcodes.IF_ICMPLE:
+            case Opcodes.IF_ACMPEQ:
+            case Opcodes.IF_ACMPNE:
+                currentSize = this.updatePoppedCount(currentSize, 2, 0);
+                v += 3;
+                break;
+
+            case Opcodes.IASTORE:
+            case Opcodes.BASTORE:
+            case Opcodes.CASTORE:
+            case Opcodes.SASTORE:
+            case Opcodes.FASTORE:
+            case Opcodes.AASTORE:
+                currentSize = this.updatePoppedCount(currentSize, 3, 0);
+                v += 1;
+                break;
+
+            case Opcodes.LASTORE:
+            case Opcodes.DASTORE:
+                currentSize = this.updatePoppedCount(currentSize, 4, 0);
+                v += 1;
+                break;
+
+            case Opcodes.DUP_X1:
+                currentSize = this.updatePoppedCount(currentSize, 2, 3);
+                v += 1;
+                break;
+            case Opcodes.DUP_X2:
+                currentSize = this.updatePoppedCount(currentSize, 3, 4);
+                v += 1;
+                break;
+            case Opcodes.DUP2_X1:
+                currentSize = this.updatePoppedCount(currentSize, 3, 5);
+                v += 1;
+                break;
+            case Opcodes.DUP2_X2:
+                currentSize = this.updatePoppedCount(currentSize, 4, 6);
+                v += 1;
+                break;
+            case Opcodes.SWAP:
+                currentSize = this.updatePoppedCount(currentSize, 2, 2);
+                v += 1;
+                break;
+            case Opcodes.IADD:
+            case Opcodes.ISUB:
+            case Opcodes.IMUL:
+            case Opcodes.IDIV:
+            case Opcodes.IREM:
+            case Opcodes.IAND:
+            case Opcodes.IOR:
+            case Opcodes.IXOR:
+            case Opcodes.ISHL:
+            case Opcodes.ISHR:
+            case Opcodes.IUSHR:
+            case Opcodes.L2I:
+            case Opcodes.D2I:
+            case Opcodes.FCMPL:
+            case Opcodes.FCMPG:
+            case Opcodes.FADD:
+            case Opcodes.FSUB:
+            case Opcodes.FMUL:
+            case Opcodes.FDIV:
+            case Opcodes.FREM:
+            case Opcodes.L2F:
+            case Opcodes.D2F:
+                currentSize = this.updatePoppedCount(currentSize, 2, 1);
+                v += 1;
+                break;
+            case Opcodes.LADD:
+            case Opcodes.LSUB:
+            case Opcodes.LMUL:
+            case Opcodes.LDIV:
+            case Opcodes.LREM:
+            case Opcodes.LAND:
+            case Opcodes.LOR:
+            case Opcodes.LXOR:
+            case Opcodes.DADD:
+            case Opcodes.DSUB:
+            case Opcodes.DMUL:
+            case Opcodes.DDIV:
+            case Opcodes.DREM:
+                currentSize = this.updatePoppedCount(currentSize, 4, 2);
+                v += 1;
+                break;
+            case Opcodes.LSHL:
+            case Opcodes.LSHR:
+            case Opcodes.LUSHR:
+                currentSize = this.updatePoppedCount(currentSize, 3, 2);
+                v += 1;
+                break;
+            case Opcodes.I2L:
+            case Opcodes.F2L:
+            case Opcodes.I2D:
+            case Opcodes.F2D:
+                currentSize = this.updatePoppedCount(currentSize, 1, 2);
+                v += 1;
+                break;
+            case Opcodes.I2F:
+            case Opcodes.F2I:
+            case Opcodes.ARRAYLENGTH:
+                currentSize = this.updatePoppedCount(currentSize, 1, 1);
+                v += 1;
+                break;
+            case Opcodes.INSTANCEOF:
+                currentSize = this.updatePoppedCount(currentSize, 1, 1);
+                v += 3;
+                break;
+            case Opcodes.LCMP:
+            case Opcodes.DCMPL:
+            case Opcodes.DCMPG:
+                currentSize = this.updatePoppedCount(currentSize, 4, 1);
+                v += 1;
+                break;
+            case Opcodes.JSR:
+            case 201: // JSR_W
+            case Opcodes.RET:
+                throw new RuntimeException("JSR/RET are not supported");
+            case Opcodes.GETSTATIC: {
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                currentSize += pushDescDelta(sr.desc);
+                v += 3;
+                break;
+            }
+            case Opcodes.PUTSTATIC: {
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                currentSize = this.updatePoppedCount(currentSize, popDescDelta(sr.desc), 0);
+                v += 3;
+                break;
+            }
+            case Opcodes.GETFIELD: {
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                currentSize = this.updatePoppedCount(currentSize, 1, pushDescDelta(sr.desc));
+                v += 3;
+                break;
+            }
+            case Opcodes.PUTFIELD: {
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                currentSize = this.updatePoppedCount(currentSize, popDescDelta(sr.desc) + 1, 0);
+                v += 3;
+                break;
+            }
+            case Opcodes.INVOKEVIRTUAL:
+            case Opcodes.INVOKESPECIAL:
+            case Opcodes.INVOKEINTERFACE: {
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                currentSize = this.updatePoppedCount(currentSize, popDescDelta(sr.desc) + 1, pushDescDelta(sr.desc));
+                v += 3;
+                break;
+            }
+            case Opcodes.INVOKESTATIC: {
+                ConstantPool.MemberSymRef sr = constantPool.parseMemberSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                currentSize = this.updatePoppedCount(currentSize, popDescDelta(sr.desc), pushDescDelta(sr.desc));
+                v += 3;
+                break;
+            }
+            case Opcodes.INVOKEDYNAMIC: {
+                ConstantPool.DynamicSymRef sr = constantPool.parseDynamicSymRef(ByteArray.readUnsignedShort(b, v + 1));
+                currentSize = this.updatePoppedCount(currentSize, popDescDelta(sr.desc), pushDescDelta(sr.desc));
+                v += 5;
+                break;
+            }
+            case Opcodes.NEWARRAY:
+                currentSize = this.updatePoppedCount(currentSize, 1, 1);
+                v += 2;
+                break;
+            case Opcodes.ANEWARRAY:
+            case Opcodes.CHECKCAST:
+                currentSize = this.updatePoppedCount(currentSize, 1, 1);
+                v += 3;
+                break;
+            case Opcodes.MULTIANEWARRAY:
+                currentSize = this.updatePoppedCount(currentSize, 1, 1);
+                v += 4;
+                break;
+            default:
+                throw new RuntimeException("unhandled opcode " + opcode);
+            }
+        }
+        this.pushedCount = currentSize + this.poppedCount;
+    }
+
+    private int updatePoppedCount(int currentSize, int popped, int pushed) {
+        currentSize -= popped;
+        if (currentSize < -this.poppedCount) {
+            this.poppedCount = -currentSize;
+        }
+        currentSize += pushed;
+        return currentSize;
+    }
+            
 
     /**
      * Traversal for building a tree of split points.
