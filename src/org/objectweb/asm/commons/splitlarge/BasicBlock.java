@@ -2384,6 +2384,29 @@ class BasicBlock implements Comparable<BasicBlock> {
         return maxEntry;
     }
 
+    /**
+     * Find all blocks in a SESE region.
+     * @param this entry block
+     * @param exit exit block
+     */
+    public Set<BasicBlock> regionBlocks(BasicBlock exit) {
+        HashSet<BasicBlock> blocks = new HashSet<BasicBlock>();
+        this.addRegionBlocks(exit, blocks);
+        return blocks;
+    }
+
+    private void addRegionBlocks(BasicBlock exit, HashSet<BasicBlock> blocks) {
+        if (this == exit) {
+            return;
+        }
+        if (!blocks.contains(this)) {
+            blocks.add(this);
+            for (BasicBlock s : this.successors) {
+                s.addRegionBlocks(exit, blocks);
+            }
+        }
+    }
+
     @Override
     public String toString() {
         return "@" + position;
