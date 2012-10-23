@@ -105,6 +105,7 @@ public class CycleEquivalenceTest extends TestCase {
         ArrayList<CycleEquivalence.Node> nodes = new ArrayList<CycleEquivalence.Node>();
         start.computeSpanningTree(nodes);
         CycleEquivalence.computeCycleEquivalence(nodes);
+        CycleEquivalence.computeSESERegions(nodes);
         
         CycleEquivalence.EquivClass ca = aIn.representativeEdge.equivClass;
         assertSame(2, ca.nodes.size());
