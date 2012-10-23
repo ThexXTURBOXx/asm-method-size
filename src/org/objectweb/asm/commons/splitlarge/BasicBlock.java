@@ -122,16 +122,42 @@ class BasicBlock implements Comparable<BasicBlock> {
      */
     public static int SPARSE_FRAME_TRANSFER_THRESHOLD = 100;
 
-    /**
-     * Number of items popped from the stack in the course of the
-     * block, relative to where we started.
-     */
-    public int poppedCount;
-    /**
-     * Number of items pushed by the end of the block, relative to
-     * the bottom reached by popping {@link #poppedCount} items.
-     */
-    public int pushedCount;
+    public static class StackDelta {
+        /**
+         * Number of items popped from the stack in the course of the
+         * block, relative to where we started.
+         */
+        public int poppedCount;
+        /**
+         * Number of items pushed by the end of the block, relative to
+         * the bottom reached by popping {@link #poppedCount} items.
+         */
+        public int pushedCount;
+        
+        public StackDelta() {
+            this(0, 0);
+        }
+
+        public StackDelta(int poppedCount, int pushedCount) {
+            this.poppedCount = poppedCount;
+            this.pushedCount = pushedCount;
+        }
+
+        public StackDelta combine(StackDelta following) {
+            if (following.poppedCount > this.pushedCount) {
+                int poppedCount = following.poppedCount - this.pushedCount + this.poppedCount;
+                int pushedCount =
+                    (following.pushedCount > following.poppedCount) 
+                    ? (this.pushedCount - following.poppedCount + following.pushedCount)
+                    : this.pushedCount;
+                return new StackDelta(poppedCount, pushedCount);
+            } else {
+                return new StackDelta(this.poppedCount, following.pushedCount);
+            }
+        }
+    }
+
+    StackDelta stackDelta;
 
     public BasicBlock(int position) {
         this.dfsIndex = -1;
@@ -1848,13 +1874,12 @@ class BasicBlock implements Comparable<BasicBlock> {
 
 
     /**
-     * Calculate a stack delta, setting {@link #poppedCount} and {@link #pushedCount}.
+     * Calculate a stack delta, setting {@link #stackDelta}.
      *
      */
     public void computeStackDelta(ByteVector code, ConstantPool constantPool) {
         int currentSize = 0;
-        this.pushedCount = 0;
-        this.poppedCount = 0;
+        this.stackDelta = new StackDelta();
         int end = this.getEnd(code);
         int v = position;
         byte[] b = code.data;
@@ -2227,13 +2252,13 @@ class BasicBlock implements Comparable<BasicBlock> {
                 throw new RuntimeException("unhandled opcode " + opcode);
             }
         }
-        this.pushedCount = currentSize + this.poppedCount;
+        this.stackDelta.pushedCount = currentSize + this.stackDelta.poppedCount;
     }
 
     private int updatePoppedCount(int currentSize, int popped, int pushed) {
         currentSize -= popped;
-        if (currentSize < -this.poppedCount) {
-            this.poppedCount = -currentSize;
+        if (currentSize < -this.stackDelta.poppedCount) {
+            this.stackDelta.poppedCount = -currentSize;
         }
         currentSize += pushed;
         return currentSize;

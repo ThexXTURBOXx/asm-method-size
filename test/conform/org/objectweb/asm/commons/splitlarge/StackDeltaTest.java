@@ -79,8 +79,8 @@ public class StackDeltaTest extends TestCase {
         ConstantPool constantPool = new ConstantPool(cw.getConstantPool(), cw.getConstantPoolSize());
         BasicBlock block = new BasicBlock(0);
         block.computeStackDelta(code, constantPool);
-        assertEquals(expectedPopCount, block.poppedCount);
-        assertEquals(expectedPushCount, block.pushedCount);
+        assertEquals(expectedPopCount, block.stackDelta.poppedCount);
+        assertEquals(expectedPushCount, block.stackDelta.pushedCount);
     }
 
     public void testTrivial1() {
