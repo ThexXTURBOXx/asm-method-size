@@ -40,6 +40,8 @@ import java.util.SortedSet;
 import java.util.Set;
 import java.util.Stack;
 
+import java.io.PrintWriter;
+
 /**
  * Basic block in flowgraph.
  *
@@ -2435,6 +2437,39 @@ class BasicBlock implements Comparable<BasicBlock> {
     @Override
     public String toString() {
         return "@" + position;
+    }
+    
+    private void printDotLabel(PrintWriter out) {
+        out.print("L");
+        out.print(this.position);
+    }
+
+    private void printDotFromHere(PrintWriter out) {
+        out.print("  ");
+        this.printDotLabel(out);
+        out.print(" [label=\"L");
+        out.print(this.position);
+        out.print("{");
+        out.print(this.strongComponent.transitiveClosureSize);
+        out.println("}\"];");
+        for (BasicBlock succ : splitPointSuccessors) {
+            out.print("  ");
+            this.printDotLabel(out);
+            out.print(" -> ");
+            succ.printDotLabel(out);
+            out.println(";");
+        }
+        for (BasicBlock succ : splitPointSuccessors) {
+            succ.printDotFromHere(out);
+        }
+    }
+
+    public void printDot(PrintWriter out, String name) {
+        out.print("digraph ");
+        out.print(name);
+        out.println(" {");
+        this.printDotFromHere(out);
+        out.println("}");
     }
 
 }

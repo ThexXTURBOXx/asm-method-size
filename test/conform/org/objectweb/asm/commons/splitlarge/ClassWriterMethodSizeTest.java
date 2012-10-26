@@ -37,6 +37,9 @@ import org.objectweb.asm.tree.ClassNode;
 
 import junit.framework.TestCase;
 
+import java.io.PrintWriter;
+import java.io.FileNotFoundException;
+
 /**
  * ClassWriter unit tests for method size restriction
  *
@@ -53,6 +56,8 @@ public class ClassWriterMethodSizeTest extends TestCase {
 
     int oldMaxCodeLength;
     int oldSparseThreshold;
+    
+    PrintWriter out;
 
     private void startMethod(String className, int access, int maxCodeLength, int sparseThreshold) {
         this.className = className;
@@ -60,7 +65,14 @@ public class ClassWriterMethodSizeTest extends TestCase {
         oldSparseThreshold = BasicBlock.SPARSE_FRAME_TRANSFER_THRESHOLD;
         ClassWriter.MAX_CODE_LENGTH = maxCodeLength;
         BasicBlock.SPARSE_FRAME_TRANSFER_THRESHOLD = sparseThreshold;
-        this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, new SplitMethodWriterDelegate());
+        /*
+        try {
+            this.out = new PrintWriter(className + ".dot");
+        }
+        catch (FileNotFoundException e) {
+        }
+        */
+        this.cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES, new SplitMethodWriterDelegate(/* this.out */));
         TraceClassVisitor tcv = new TraceClassVisitor(cw, new java.io.PrintWriter(System.out));
         this.cv = tcv;
         this.cv.visit(Opcodes.V1_6,
@@ -98,6 +110,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
             this.mv.visitMaxs(0, 0);
             this.mv.visitEnd();
             this.cv.visitEnd();
+            /* this.out.close(); */
             byte[] b = cw.toByteArray();
             (new ClassReader(b)).accept(new CheckClassAdapter(new ClassNode(), true), ClassReader.SKIP_DEBUG);
             // make sure this code may actually work

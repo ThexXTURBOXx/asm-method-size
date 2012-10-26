@@ -41,6 +41,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.SortedSet;
 
+import java.io.PrintWriter;
+
 final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
 
     /**
@@ -126,15 +128,25 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     }
     ArrayList<LineNumber> lineNumbers;
 
-    public SplitMethodWriterDelegate(INameGenerator nameGenerator) {
+    PrintWriter debugOut;
+
+    public SplitMethodWriterDelegate(INameGenerator nameGenerator, PrintWriter debugOut) {
         this.maxMethodLength = ClassWriter.MAX_CODE_LENGTH;
         this.nameGenerator = nameGenerator;
+        this.debugOut = debugOut;
     }
 
     public SplitMethodWriterDelegate() {
         this(new HashNameGenerator());
     }
 
+    public SplitMethodWriterDelegate(INameGenerator nameGenerator) {
+        this(nameGenerator, null);
+    }
+
+    public SplitMethodWriterDelegate(PrintWriter debugOut) {
+        this(new HashNameGenerator(), debugOut);
+    }
 
     @Override
     public void newMethod() {
@@ -197,6 +209,11 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         computeSplitPoints(terminalEdges);
         BasicBlock.computeSizes(code, blocks);
         StrongComponent.computeSizes(scs);
+        blocks.first().computeSplitPointSuccessors();
+        StrongComponent.recomputeTransitiveClosureSizes(scs);
+        if (this.debugOut != null) {
+            blocks.first().printDot(this.debugOut, cw.thisName + "__" + thisName);
+        }
         this.splitMethods = split(blocks, scs, thisName, access, maxMethodLength, nameGenerator);
         makeMethodWriters(labelTypes);
         if (lineNumber != null) {
@@ -216,11 +233,9 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     public static HashSet<SplitMethod> split(SortedSet<BasicBlock> blocks,
                                              Set<StrongComponent> components,
                                              String mainMethodName, int access, final int maxMethodLength, INameGenerator nameGenerator) {
-        BasicBlock first = blocks.first();
-        first.computeSplitPointSuccessors();
         HashSet<SplitMethod> set = new HashSet<SplitMethod>();
         int id = 0;
-        StrongComponent.recomputeTransitiveClosureSizes(components);
+        BasicBlock first = blocks.first();
         int totalSize = first.strongComponent.transitiveClosureSize;
         for (;;) {
             BasicBlock entry = first.findSplitPoint();
