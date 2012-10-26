@@ -231,7 +231,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo1Static() {
         Label l1 = new Label();
-        startMethod("Two1", Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 100);
+        startMethod("Two1Static", Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 100);
         PUSH();
         IFNE(l1);
         {
@@ -262,7 +262,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      */
     public void testTwo1New() {
         Label l1 = new Label();
-        startMethod("Two1", Opcodes.ACC_PUBLIC, 100);
+        startMethod("Two1New", Opcodes.ACC_PUBLIC, 100);
         this.mv.visitTypeInsn(Opcodes.NEW, "Two1");
         PUSH();
         IFNE(l1);
@@ -489,7 +489,7 @@ public class ClassWriterMethodSizeTest extends TestCase {
      * Method with three basic blocks
      */
     public void testThree1LocalVariables() {
-        startMethod("Three1", Opcodes.ACC_PUBLIC, 100);
+        startMethod("Three1LocalVariables", Opcodes.ACC_PUBLIC, 100);
         PUSH();
         ISTORE(1);
         PUSH();
