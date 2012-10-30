@@ -36,6 +36,8 @@ import java.util.HashMap;
 import java.util.SortedSet;
 import java.util.Collection;
 
+import java.io.PrintWriter;
+
 /**
  * Computing cycle equivalence according to
  * Johnson, Pearson, and Pingali,
@@ -380,6 +382,60 @@ public class CycleEquivalence {
                     edge.getOtherNode(this).computeSESE();
                 }
             }
+        }
+
+        private void printDotLabel(PrintWriter out) {
+            if (this.block != null) {
+                out.print("L");
+                out.print(this.block.position);
+            } else {
+                out.print("D");
+                out.print(this.dfsNum);
+            }
+        }
+
+        private void printDotFromHere(PrintWriter out) {
+            out.print("  ");
+            this.printDotLabel(out);
+            out.print(" [label=\"");
+            if (this.block != null) {
+                out.print("D");
+                out.print(this.dfsNum);
+                out.print("L");
+                out.print(this.block.position);
+                out.print("{");
+                out.print(this.block.size);
+                out.print("}");
+            } else {
+                out.print("D");
+                out.print(this.dfsNum);
+            }
+            out.println("\"];");
+            for (Edge e : treeEdges) {
+                out.print("  ");
+                this.printDotLabel(out);
+                out.print(" -> ");
+                e.getOtherNode(this).printDotLabel(out);
+                out.println(";");
+            }
+            for (Edge e : backEdgesFrom) {
+                out.print("  ");
+                this.printDotLabel(out);
+                out.print(" -> ");
+                e.getOtherNode(this).printDotLabel(out);
+                out.println(" [label=\"back\"];");
+            }
+            for (Edge e : treeEdges) {
+                e.getOtherNode(this).printDotFromHere(out);
+            }
+        }
+        
+        public void printDot(PrintWriter out, String name) {
+            out.print("digraph ");
+            out.print(name);
+            out.println(" {");
+            this.printDotFromHere(out);
+            out.println("}");
         }
     }
 

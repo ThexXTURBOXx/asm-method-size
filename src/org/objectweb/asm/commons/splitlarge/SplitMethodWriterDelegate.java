@@ -212,7 +212,10 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         blocks.first().computeSplitPointSuccessors();
         StrongComponent.recomputeTransitiveClosureSizes(scs);
         if (this.debugOut != null) {
-            blocks.first().printDot(this.debugOut, cw.thisName + "__" + thisName);
+            start.printDot(this.debugOut, cw.thisName + "_flow_" + thisName);
+        };
+        if (this.debugOut != null) {
+            blocks.first().printDot(this.debugOut, cw.thisName + "_splitPoints_" + thisName);
         }
         this.splitMethods = split(blocks, scs, thisName, access, maxMethodLength, nameGenerator);
         makeMethodWriters(labelTypes);
