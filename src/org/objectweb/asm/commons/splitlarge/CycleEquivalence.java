@@ -416,7 +416,7 @@ public class CycleEquivalence {
                 this.printDotLabel(out);
                 out.print(" -> ");
                 e.getOtherNode(this).printDotLabel(out);
-                out.println(";");
+                out.println(" [label=\"" + e.equivClass.toString() + "\"];");
             }
             for (Edge e : backEdgesFrom) {
                 out.print("  ");
@@ -424,6 +424,13 @@ public class CycleEquivalence {
                 out.print(" -> ");
                 e.getOtherNode(this).printDotLabel(out);
                 out.println(" [label=\"back\"];");
+            }
+            for (Edge e : cappingEdges) {
+                out.print("  ");
+                this.printDotLabel(out);
+                out.print(" -> ");
+                e.getOtherNode(this).printDotLabel(out);
+                out.println(" [label=\"capping\"];");
             }
             for (Edge e : treeEdges) {
                 e.getOtherNode(this).printDotFromHere(out);
