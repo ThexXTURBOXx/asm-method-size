@@ -427,9 +427,9 @@ public class CycleEquivalence {
             }
             for (Edge e : cappingEdges) {
                 out.print("  ");
-                this.printDotLabel(out);
-                out.print(" -> ");
                 e.getOtherNode(this).printDotLabel(out);
+                out.print(" -> ");
+                this.printDotLabel(out);
                 out.println(" [label=\"capping\"];");
             }
             for (Edge e : treeEdges) {
