@@ -30,6 +30,8 @@
 
 package org.objectweb.asm.commons.splitlarge;
 
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -542,5 +544,28 @@ public class CycleEquivalenceTest extends TestCase {
 
         assertNotSame(c6, c7);
     }
-    
+
+    /**
+     * Graph that, with the published algorithm, generates a (wrong)
+     * capping self-edge.
+     */
+    public void testCappingSelfEdge1() {
+        CycleEquivalence.Node n0 = new CycleEquivalence.Node();
+        CycleEquivalence.Node n1 = new CycleEquivalence.Node();
+        CycleEquivalence.Node n2 = new CycleEquivalence.Node();
+        CycleEquivalence.Node n3 = new CycleEquivalence.Node();
+
+        CycleEquivalence.Edge n0n1 = n0.addEdge(n1);
+        CycleEquivalence.Edge n1n2 = n1.addEdge(n2);
+        CycleEquivalence.Edge n1n3 = n1.addEdge(n3);
+        CycleEquivalence.Edge n2n1 = n2.addEdge(n1);
+        CycleEquivalence.Edge n3n0 = n3.addEdge(n0);
+
+        ArrayList<CycleEquivalence.Node> nodes = new ArrayList<CycleEquivalence.Node>();
+        n0.computeSpanningTree(nodes);
+
+        CycleEquivalence.computeCycleEquivalence(nodes);
+
+        assertSame(n0n1.equivClass, n1n3.equivClass);
+    }
 }
