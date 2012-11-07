@@ -32,7 +32,7 @@ package org.objectweb.asm.commons.splitlarge;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.SortedSet;
 import java.util.Collection;
 
@@ -308,6 +308,7 @@ public class CycleEquivalence {
         
             /* compute bracketlist */
             DList<Edge> blist = this.bracketList;
+            assert blist.size() == 0;
             // n.blist := create ()
             // for each child c of n do
             for (Edge edge : this.treeEdges) {
@@ -454,7 +455,7 @@ public class CycleEquivalence {
      */
     public static Node computeExpandedUndigraph(SortedSet<BasicBlock> blocks, Collection<Edge> terminalEdges) {
         // FIXME: stick the nodes in a field of BasicBlock
-        HashMap<BasicBlock, Node> blockNodesIn = new HashMap<BasicBlock, Node>(blocks.size());
+        TreeMap<BasicBlock, Node> blockNodesIn = new TreeMap<BasicBlock, Node>();
         ArrayList<Node> blockNodesOut = new ArrayList<Node>(blocks.size());
         // add nodes
         for (BasicBlock block : blocks) {
@@ -500,7 +501,7 @@ public class CycleEquivalence {
 
     public static Node computeSimpleUndigraph(SortedSet<BasicBlock> blocks, Collection<Edge> terminalEdges) {
         // FIXME: stick the nodes in a field of BasicBlock
-        HashMap<BasicBlock, Node> blockNodes = new HashMap<BasicBlock, Node>(blocks.size());
+        TreeMap<BasicBlock, Node> blockNodes = new TreeMap<BasicBlock, Node>();
         // add nodes
         for (BasicBlock block : blocks) {
             Node n = new Node(block);

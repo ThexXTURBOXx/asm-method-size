@@ -31,7 +31,6 @@ package org.objectweb.asm.commons.splitlarge;
 
 import org.objectweb.asm.*;
 
-import java.util.HashSet;
 import java.util.HashMap;
 import java.util.TreeSet;
 import java.util.Arrays;
@@ -71,18 +70,18 @@ class BasicBlock implements Comparable<BasicBlock> {
     /**
      * Successors in flowgraph.
      */
-    final HashSet<BasicBlock> successors;
+    final TreeSet<BasicBlock> successors;
 
     /**
      * Predecessors, i.e. inverse to {@link #successors}.
      */
-    final HashSet<BasicBlock> predecessors;
+    final TreeSet<BasicBlock> predecessors;
 
     BasicBlock strongRoot;
     StrongComponent strongComponent;
     int dfsIndex;
 
-    HashSet<BasicBlock> splitPointSuccessors;
+    TreeSet<BasicBlock> splitPointSuccessors;
 
     /**
      * Frame data needed to call {@link MethodWriter#visitFrame} on this block.
@@ -164,8 +163,8 @@ class BasicBlock implements Comparable<BasicBlock> {
     public BasicBlock(int position) {
         this.dfsIndex = -1;
         this.position = position;
-        this.successors = new HashSet<BasicBlock>();
-        this.predecessors = new HashSet<BasicBlock>();
+        this.successors = new TreeSet<BasicBlock>();
+        this.predecessors = new TreeSet<BasicBlock>();
         this.splitPointSuccessors = null;
         this.startLabel = null;
         this.kind = Kind.REGULAR;
@@ -2273,13 +2272,13 @@ class BasicBlock implements Comparable<BasicBlock> {
      * @param sps successors we're currently adding split points to
      * @param seen basic blocks we've already seen.
      */
-    private void computeSplitPointSuccessors(HashSet<BasicBlock> sps, HashSet<BasicBlock> seen) {
+    private void computeSplitPointSuccessors(TreeSet<BasicBlock> sps, TreeSet<BasicBlock> seen) {
         if (seen.contains(this))
             return;
         seen.add(this);
         if (this.strongComponent.splitPoint == this) {
             sps.add(this);
-            sps = new HashSet<BasicBlock>();
+            sps = new TreeSet<BasicBlock>();
             splitPointSuccessors = sps;
         }
         for (BasicBlock b : successors) {
@@ -2292,8 +2291,8 @@ class BasicBlock implements Comparable<BasicBlock> {
      * #splitPointSuccessors} field.
      */
     public void computeSplitPointSuccessors() {
-        HashSet<BasicBlock> seen = new HashSet<BasicBlock>();
-        splitPointSuccessors = new HashSet<BasicBlock>();
+        TreeSet<BasicBlock> seen = new TreeSet<BasicBlock>();
+        splitPointSuccessors = new TreeSet<BasicBlock>();
         computeSplitPointSuccessors(splitPointSuccessors, seen);
     }
 
@@ -2417,12 +2416,12 @@ class BasicBlock implements Comparable<BasicBlock> {
      * @param exit exit block
      */
     public Set<BasicBlock> regionBlocks(BasicBlock exit) {
-        HashSet<BasicBlock> blocks = new HashSet<BasicBlock>();
+        TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();
         this.addRegionBlocks(exit, blocks);
         return blocks;
     }
 
-    private void addRegionBlocks(BasicBlock exit, HashSet<BasicBlock> blocks) {
+    private void addRegionBlocks(BasicBlock exit, TreeSet<BasicBlock> blocks) {
         if (this == exit) {
             return;
         }
@@ -2473,5 +2472,3 @@ class BasicBlock implements Comparable<BasicBlock> {
     }
 
 }
-
-
