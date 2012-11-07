@@ -29,13 +29,15 @@
  */
 package org.objectweb.asm.commons.splitlarge;
 
+import java.util.Iterator;
+
 /**
  * Doubly-linked list.
  *
  * We can't use {@link java.util.LinkedList} because that doesn't
  * allow direct deletion of arbitrary nodes.
  */
-public class DList<A> {
+public class DList<A> implements Iterable<A> {
     
     public class Node {
         final A val;
@@ -72,6 +74,16 @@ public class DList<A> {
         return this.first;
     }
 
+    public DList<A> copy() {
+        DList<A> dl = new DList();
+        Node node = this.last;
+        while (node != null) {
+            dl.prepend(node.val);
+            node = node.prev;
+        }
+        return dl;
+    }
+
     public void appendDestroying(DList<A> other) {
         assert this.size >= 0;
         if (other.first != null) {
@@ -88,12 +100,17 @@ public class DList<A> {
     }
 
     public A getFirst() {
-        assert this.size >= 0;
+        assert this.size > 0;
         return this.first.val;
     }
 
+    public void deleteFirst() {
+        assert this.size > 0;
+        this.delete(this.first);
+    }
+
     public void delete(Node node) {
-        assert this.size >= 0;
+        assert this.size > 0;
         if (this.first == node) {
             this.first = node.next;
         } else {
@@ -105,7 +122,6 @@ public class DList<A> {
             node.next.prev = node.prev;
         }
         --this.size;
-            
     }
 
     private void zap() {
@@ -113,6 +129,33 @@ public class DList<A> {
         this.last = null;
         this.size = -1;
     }
+
+    public Iterator<A> iterator() {
+        class It implements Iterator<A> {
+            Node node;
+
+            public It(Node node) {
+                this.node = node;
+            }
+
+            public boolean hasNext() {
+                return node != null;
+            }
+            
+            public A next() {
+                A val = node.val;
+                node = node.next;
+                return val;
+            }
+            
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+        };
+        return new It(this.first);
+    }
+        
+        
 
     @Override public String toString() {
         StringBuffer b = new StringBuffer();
