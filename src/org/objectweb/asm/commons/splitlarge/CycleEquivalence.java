@@ -49,11 +49,23 @@ import java.io.PrintWriter;
 public class CycleEquivalence {
 
     public static class EquivClass {
+
+        public static class IdSource {
+            int n;
+            
+            public IdSource() {
+                this.n = 0;
+            }
+
+            public int getNew() {
+                return this.n++;
+            }
+        }
+
         /**
-         * Topmost bracket; identifies the class.
-         * May be <code>null</code> for edges with no brackets.
+         * Unique (within graph) id.
          */
-        Edge bracket;
+        int id; 
 
         /**
          * Size of the the bracket list.
@@ -67,19 +79,10 @@ public class CycleEquivalence {
         List<Edge> edges;
         Collection<Node> nodes; // FIXME: probably not needed
 
-        public EquivClass(Edge bracket, int size) {
-            this.bracket = bracket;
-            this.size = size;
+        public EquivClass(IdSource idSource) {
             this.edges = new ArrayList<Edge>();
             this.nodes = new ArrayList<Node>();
-        }
-
-        public EquivClass() {
-            this(null, 0);
-        }
-
-        public EquivClass(DList<Edge> bracketList) {
-            this(bracketList.getFirst(), bracketList.size());
+            this.id = idSource.getNew();
         }
 
         /**
@@ -93,11 +96,7 @@ public class CycleEquivalence {
         }
         
         @Override public String toString() {
-            if (this.bracket == null) {
-                return "<>";
-            } else {
-                return "<" + this.bracket.toStringBase() + ", " + this.size + ">";
-            }
+            return "<" + this.id + ">";
         }
     }
 
@@ -266,7 +265,7 @@ public class CycleEquivalence {
             }
         }
 
-        public void computeCycleEquivalence() {
+        void computeCycleEquivalence(EquivClass.IdSource idSource) {
             // hi0 := min { t.dfsnum | (n, t) is a backedge } ;
             Node hi0 = null;
             for (Edge edge : this.backEdgesFrom) {
@@ -327,7 +326,7 @@ public class CycleEquivalence {
                 // if b.class undefined then
                 if (edge.equivClass == null) {
                     // b.class := new-class () ;
-                    edge.equivClass = new  EquivClass(blist);
+                    edge.equivClass = new EquivClass(idSource);
                 }
             }
             // for each backedge e from n to an ancestor of n do
@@ -361,7 +360,7 @@ public class CycleEquivalence {
                     // b.recentSize := size(n.bracketList) ;
                     edge.recentSize = bsize;
                     // b.recentEquivClass := new-class() ;
-                    edge.recentEquivClass = new EquivClass(blist);
+                    edge.recentEquivClass = new EquivClass(idSource);
                 }
                 // e.class := b.recentEquivClass ;
                 parent.equivClass = edge.recentEquivClass;
@@ -541,9 +540,10 @@ public class CycleEquivalence {
     }
 
     public static void computeCycleEquivalence(ArrayList<Node> nodes) {
+        EquivClass.IdSource idSource = new EquivClass.IdSource();
         int i = nodes.size() - 1;
         while (i >= 0) {
-            nodes.get(i).computeCycleEquivalence();
+            nodes.get(i).computeCycleEquivalence(idSource);
             --i;
         }
     }
