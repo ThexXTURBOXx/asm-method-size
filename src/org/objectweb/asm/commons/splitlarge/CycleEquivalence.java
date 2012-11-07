@@ -337,6 +337,7 @@ public class CycleEquivalence {
             }
             // if hi2 < hi0 then
             if ((hi2 != null) &&
+                (hi2.dfsNum < this.dfsNum) &&
                 ((hi0 == null) || hi0.dfsNum > hi2.dfsNum)) {
                 /* create capping backedge */
                 // d := (n, node[hi2]) ;
