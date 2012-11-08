@@ -968,7 +968,7 @@ public class ClassWriter extends ClassVisitor {
             attrs.put(this, null, 0, -1, -1, out);
         }
         if (invalidFrames) {
-            ClassWriter cw = new ClassWriter(COMPUTE_FRAMES);
+            ClassWriter cw = new InvalidFramesClassWriter(this);
             new ClassReader(out.data).accept(cw, ClassReader.SKIP_FRAMES);
             return cw.toByteArray();
         }
@@ -1732,5 +1732,19 @@ public class ClassWriter extends ClassVisitor {
      */
     private void put112(final int b1, final int b2, final int s) {
         pool.put11(b1, b2).putShort(s);
+    }
+}
+
+class InvalidFramesClassWriter extends ClassWriter {
+    private ClassWriter inner;
+
+    public InvalidFramesClassWriter(ClassWriter inner) {
+        super(COMPUTE_FRAMES);
+        this.inner = inner;
+    }
+
+    @Override
+    protected String getCommonSuperClass(final String type1, final String type2) {
+        return this.inner.getCommonSuperClass(type1, type2);
     }
 }
