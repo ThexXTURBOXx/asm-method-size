@@ -248,7 +248,7 @@ public final class FrameData {
             appendFrameReferenceTypeDescriptor(b, name, 0);
             b.append(";");
         } else if (d == Opcodes.TOP) {
-            ; // it's not the TOP that counts, but what's before it
+            b.append("Ljava/lang/Object;"); /* loadValue pushes a NULL */
         } else {
             // #### UNINITIALIZED_THIS is missing
             throw new RuntimeException("can't handle this frame element");
@@ -367,7 +367,7 @@ public final class FrameData {
 
     private static void loadValue(MethodVisitor mv, int index, Object el) {
         if (el == Opcodes.TOP) {
-            ; // nothing
+            mv.visitInsn(Opcodes.ACONST_NULL); /* must do *something* ... */
         } else if (el == Opcodes.INTEGER) {
             mv.visitVarInsn(Opcodes.ILOAD, index);
         } else if (el == Opcodes.FLOAT) {
