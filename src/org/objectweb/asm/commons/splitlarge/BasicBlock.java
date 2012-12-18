@@ -223,11 +223,11 @@ class BasicBlock implements Comparable<BasicBlock> {
             int delta;
             if (tag < MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME) {
                 delta = tag;
+                frameStackCount = 0;
             } else if (tag < MethodWriter.RESERVED) {
                 delta = tag - MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME;
                 v = readFrameType(stackMap, constantPool, labelsByOffset, frameStack, 0, v);
                 frameStackCount = 1;
-
             } else {
                 delta = ByteArray.readUnsignedShort(b, v);
                 v += 2;
