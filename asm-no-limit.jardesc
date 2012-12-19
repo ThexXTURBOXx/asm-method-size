@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="MacRoman" standalone="no"?>
+<?xml version="1.0" encoding="US-ASCII" standalone="no"?>
 <jardesc>
     <jar path="star/lib/asm-all-nolimit.jar"/>
     <options buildIfNeeded="true" compress="true" descriptionLocation="/asm3/asm-no-limit.jardesc" exportErrors="false" exportWarnings="true" includeDirectoryEntries="false" overwrite="true" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
@@ -15,8 +15,8 @@
         <javaElement handleIdentifier="=asm3/src"/>
         <file path="/asm3/.classpath"/>
         <file path="/asm3/LICENSE.txt"/>
-        <javaElement handleIdentifier="=asm3/test\/conform"/>
         <file path="/asm3/build.config"/>
+        <javaElement handleIdentifier="=asm3/test\/conform"/>
         <file path="/asm3/.project"/>
         <folder path="/asm3/doc"/>
         <file path="/asm3/README.txt"/>
