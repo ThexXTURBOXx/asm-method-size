@@ -80,6 +80,12 @@ public final class FrameData {
      * @param isStatic says whether host method is static
      */
     public String getDescriptor(final String methodDescriptor, final boolean isStatic, BitSet localsRead, HashMap<Label, String> labelTypes) {
+
+        int argsCount = (isStatic ? 0 : 1) + frameLocal.length + frameStack.length;
+        if (argsCount > 255) {
+            throw new RuntimeException("too many arguments for split method (" + argsCount + ")");
+        }
+
         StringBuilder b = new StringBuilder();
 
         b.append("(");
