@@ -80,15 +80,10 @@ public final class FrameData {
      * @param isStatic says whether host method is static
      */
     public String getDescriptor(final String methodDescriptor, final boolean isStatic, BitSet localsRead, HashMap<Label, String> labelTypes) {
-
-        int argsCount = (isStatic ? 0 : 1) + frameLocal.length + frameStack.length;
-        if (argsCount > 255) {
-            throw new RuntimeException("too many arguments for split method (" + argsCount + ")");
-        }
-
         StringBuilder b = new StringBuilder();
 
         b.append("(");
+        int argsCount = 0;
         {
             // for non-static methods, this is the first local, and implicit
             int i = isStatic ? 0 : 1;
@@ -96,6 +91,7 @@ public final class FrameData {
                 Object el = frameLocal[i];
                 if ((localsRead == null) || localsRead.get(i)) {
                     appendFrameTypeDescriptor(b, el, labelTypes);
+                    ++argsCount;
                 }
                 i += typeFrameSize(el);
             }
@@ -105,9 +101,15 @@ public final class FrameData {
             while (i < frameStack.length) {
                 Object el = frameStack[i];
                 appendFrameTypeDescriptor(b, el, labelTypes);
+                ++argsCount;
                 i += typeFrameSize(el);
             }
         }
+
+        if (argsCount > 255) {
+            throw new RuntimeException("too many arguments for split method (" + argsCount + ")");
+        }
+
         b.append(")");
         b.append(Type.getReturnType(methodDescriptor));
         return b.toString();
