@@ -93,17 +93,19 @@ public final class FrameData {
             // for non-static methods, this is the first local, and implicit
             int i = isStatic ? 0 : 1;
             while (i < frameLocal.length) {
+                Object el = frameLocal[i];
                 if ((localsRead == null) || localsRead.get(i)) {
-                    appendFrameTypeDescriptor(b, frameLocal[i], labelTypes);
+                    appendFrameTypeDescriptor(b, el, labelTypes);
                 }
-                ++i;
+                i += typeFrameSize(el);
             }
         }
         {
             int i = 0;
             while (i < frameStack.length) {
-                appendFrameTypeDescriptor(b, frameStack[i], labelTypes);
-                ++i;
+                Object el = frameStack[i];
+                appendFrameTypeDescriptor(b, el, labelTypes);
+                i += typeFrameSize(el);
             }
         }
         b.append(")");
@@ -123,12 +125,15 @@ public final class FrameData {
          * operands (or whatever), so we'll need to copy the operands
          * into new local variables, and from there push them on top.
          */
-        // FIXME: need to adjust frameLocal
+        // FIXME: need to put the new stuff into frameLocal?
         {
-            int i = 0;
+            int i = 0, j = 0;
             while (i < frameStack.length) {
-                storeValue(mv, frameLocal.length + i, frameStack[frameStack.length - i - 1]);
+                Object el = frameStack[frameStack.length - i - 1];
+                // storeValue will skip the TOPs, so going backwards is OK
+                storeValue(mv, frameLocal.length + j, el);
                 ++i;
+                j += typeFrameSize(el);
             }
         }
         {
@@ -137,18 +142,20 @@ public final class FrameData {
             }
             int i = isStatic ? 0 : 1;
             while (i < frameLocal.length) {
+                Object el = frameLocal[i];
                 if ((localsRead == null) || localsRead.get(i)) {
-                    loadValue(mv, i, frameLocal[i]);
+                    loadValue(mv, i, el);
                 }
-                ++i;
+                i += typeFrameSize(el);
             }
         }
         {
             int i = 0;
             // now the relative frame indices correspond to the original stack indices
             while (i < frameStack.length) {
-                loadValue(mv, frameLocal.length + frameStack.length - i - 1, frameStack[i]);
-                ++i;
+                Object el = frameStack[i];
+                loadValue(mv, frameLocal.length + frameStack.length - i - 1, el);
+                i += typeFrameSize(el);
             }
         }
     }
@@ -261,6 +268,14 @@ public final class FrameData {
         }
     }
 
+    private static int typeFrameSize(Object el) {
+        if ((el == Opcodes.LONG) || (el == Opcodes.DOUBLE)) {
+            return 2;
+        } else {
+            return 1;
+        }
+    }
+
     private static void appendFrameReferenceTypeDescriptor(StringBuilder b, String name, int index) {
         // internal names and descriptors don't relate well
         while (name.charAt(index) == '[') {
@@ -280,8 +295,9 @@ public final class FrameData {
         int i = 0, size = frameStack.length;
         // the relative frame indices correspond to the original stack indices
         while (i < size) {
-            loadValue(mv, localSize + i, frameStack[i]);
-            ++i;
+            Object el = frameStack[i];
+            loadValue(mv, localSize + i, el);
+            i += typeFrameSize(el);
         }
     }
 
@@ -313,25 +329,48 @@ public final class FrameData {
             --frameCount; // remove "this" from the locals transferred
         }
         int m = isStatic ? 0 : 1;
+        int[] is = new int[frameCount];
+        int[] js = new int[frameCount];
+        int frameSize;
         {
-            int i = frameLocal.length - 1;
-            int j = frameCount - 1;
-            while (i >= m) {
+            int j = 0;
+            int i = m;
+            int k = 0;
+            while (i < frameLocal.length) {
+                int size = typeFrameSize(frameLocal[i]); 
                 if (readLocals.get(i)) {
-                    Object el = frameLocal[i];
-                    loadValue(mv, j + m, el);
-                    storeValue(mv, i, el);
-                    --j;
+                    is[k] = i;
+                    js[k] = j;
+                    ++k;
+                    j += size;
                 }
-                --i;
+                i += size;
             }
+            frameSize = j;
         }
+        /*
+         * We need to reconstruct the stack first because reconstructing
+         * the locals may overwrite them.
+         */
         {
             int i = 0, size = frameStack.length;
             // the relative frame indices correspond to the original stack indices
             while (i < size) {
-                loadValue(mv, frameCount + m + i, frameStack[i]);
-                ++i;
+                Object el = frameStack[i];
+                loadValue(mv, frameSize + m + i, el);
+                i += typeFrameSize(el);
+            }
+        }
+
+        {
+            int k = frameCount - 1;
+            while (k >= 0) {
+                int i = is[k];
+                int j = js[k];
+                Object el = frameLocal[i];
+                loadValue(mv, j + m, el);
+                storeValue(mv, i, el);
+                --k;
             }
         }
     }

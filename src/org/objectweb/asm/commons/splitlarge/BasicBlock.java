@@ -842,8 +842,8 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case 65:
                 case 66: {
                     int n = opcode - 63;
+                    --frameStackCount; // should be the TOP
                     frameLocal[n] = frameStack[--frameStackCount];
-                    --frameStackCount;
                     frameLocal[n + 1] = Opcodes.TOP;
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
@@ -870,9 +870,9 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case 73:
                 case 74: {
                     int n = opcode - 71;
+                    --frameStackCount;
                     frameLocal[n] = frameStack[--frameStackCount];
                     frameLocal[n + 1] = Opcodes.TOP;
-                    --frameStackCount;
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 1;
@@ -894,9 +894,9 @@ class BasicBlock implements Comparable<BasicBlock> {
                 case Opcodes.LSTORE:
                 case Opcodes.DSTORE: {
                     int n = b[v + 1] & 0xFF;
+                    --frameStackCount;
                     frameLocal[n] = frameStack[--frameStackCount];
                     frameLocal[n + 1] = Opcodes.TOP;
-                    --frameStackCount;
                     frameLocalCount = Math.max(frameLocalCount, n + 2);
                     invalidateTwoWordLocal(frameLocal, n - 1);
                     v += 2;

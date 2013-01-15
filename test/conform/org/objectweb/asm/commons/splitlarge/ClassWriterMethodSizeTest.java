@@ -130,7 +130,11 @@ public class ClassWriterMethodSizeTest extends TestCase {
     private void POP() {
         this.mv.visitInsn(Opcodes.POP);
     }
-    
+
+    private void POP2() {
+        this.mv.visitInsn(Opcodes.POP2);
+    }
+
     private void NOP() {
         this.mv.visitInsn(Opcodes.NOP);
     }
@@ -139,12 +143,24 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitInsn(Opcodes.ICONST_0);
     }
 
+    private void LPUSH() {
+        this.mv.visitInsn(Opcodes.LCONST_0);
+    }
+    
+    private void DPUSH() {
+        this.mv.visitInsn(Opcodes.DCONST_0);
+    }
+
     private void GOTO(final Label l) {
         this.mv.visitJumpInsn(Opcodes.GOTO, l);
     }
 
-    private void IFNE(final Label l) {
+   private void IFNE(final Label l) {
         this.mv.visitJumpInsn(Opcodes.IFNE, l);
+    }
+
+   private void L2I() {
+        this.mv.visitInsn(Opcodes.L2I);
     }
 
     private void RETURN() {
@@ -155,10 +171,25 @@ public class ClassWriterMethodSizeTest extends TestCase {
         this.mv.visitVarInsn(Opcodes.ILOAD, var);
     }
 
+    private void LLOAD(int var) {
+        this.mv.visitVarInsn(Opcodes.LLOAD, var);
+    }
+
+    private void DLOAD(int var) {
+        this.mv.visitVarInsn(Opcodes.DLOAD, var);
+    }
+
     private void ISTORE(int var) {
         this.mv.visitVarInsn(Opcodes.ISTORE, var);
     }
 
+    private void LSTORE(int var) {
+        this.mv.visitVarInsn(Opcodes.LSTORE, var);
+    }
+
+    private void DSTORE(int var) {
+        this.mv.visitVarInsn(Opcodes.DSTORE, var);
+    }
 
     private void TABLESWITCH(int min, int max, 
                              Label dflt, Label... labels) {
@@ -183,8 +214,8 @@ public class ClassWriterMethodSizeTest extends TestCase {
         endMethod();
     }
 
-    public void testBasicSparse() {
-        startMethod("BasicSparse", Opcodes.ACC_PUBLIC, 50, 0);
+    public void testBasicSparse1() {
+        startMethod("BasicSparse1", Opcodes.ACC_PUBLIC, 50, 0);
         {
             int i = 1;
             while (i < 10) {
@@ -205,6 +236,40 @@ public class ClassWriterMethodSizeTest extends TestCase {
             POP();
             ILOAD(5);
             POP();
+        }
+        RETURN();
+        endMethod();
+    }
+
+
+    public void testBasicSparse2() {
+        startMethod("BasicSparse2", Opcodes.ACC_PUBLIC, 50, 0);
+        {
+            int i = 0;
+            while (i < 10) {
+                PUSH();
+                ISTORE(i * 5 + 1);
+                LPUSH();
+                LSTORE(i * 5 + 2);
+                DPUSH();
+                DSTORE(i * 5 + 4);
+                ++i;
+            }
+        }
+        {
+            int i = 0;
+            while (i < 70) {
+                NOP();
+                ++i;
+            }
+            LLOAD(2);
+            POP2();
+            ILOAD(6);
+            POP();
+            LLOAD(7);
+            POP2();
+            DLOAD(9);
+            POP2();
         }
         RETURN();
         endMethod();
@@ -406,6 +471,42 @@ public class ClassWriterMethodSizeTest extends TestCase {
         PUSH();
         IFNE(l1);
         RETURN();
+        endMethod();
+    }
+
+    /**
+     * Method with essentially two large basic blocks, with stuff in
+     * the frame.
+     */
+    public void testTwo5() {
+        Label l1 = new Label();
+        startMethod("Two5", Opcodes.ACC_PUBLIC, 100);
+        LPUSH();
+        LSTORE(1);
+        LPUSH();
+        LSTORE(3);
+        LPUSH();
+        LLOAD(1);
+        // at this point we have this, two variables, and one operand
+        L2I();
+        IFNE(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
+        LABEL(l1);
+        {
+            int i = 0;
+            while (i < 60) {
+                NOP();
+                ++i;
+            }
+            RETURN();
+        }
         endMethod();
     }
 
