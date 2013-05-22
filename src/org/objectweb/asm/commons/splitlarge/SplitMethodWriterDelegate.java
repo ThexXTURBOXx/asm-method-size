@@ -99,6 +99,8 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     ArrayList<Branch> largeBranches;
 
     Label[] largeBranchTargets;
+    
+    HashMap<Integer, Integer> largeStackDeltas;
 
     static class LocalVariable {
         public String name;
@@ -153,6 +155,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         this.largeBranches = new ArrayList<Branch>();
         this.localVariables = new ArrayList<LocalVariable>();
         this.lineNumbers = new ArrayList<LineNumber>();
+        this.largeStackDeltas = new HashMap<Integer, Integer>();
     }
 
     @Override
@@ -171,6 +174,11 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
     public void noteLineNumber(int line, Label start) {
         lineNumbers.add(new LineNumber(line, start));
     }
+    
+    @Override
+    public void noteTooLargeStackMapDelta(int offset, int delta) {
+        this.largeStackDeltas.put(offset, delta);
+    }
 
     @Override
     public void visitEnd() {
@@ -186,7 +194,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         int frameLocalCount = computeMethodDescriptorFrame(cw.thisName, thisName, isStatic, this.descriptor, frameLocal);
         FrameData[] frameDataByOffset = new FrameData[code.length + 1];
         this.labelsByOffset = new Label[code.length];
-        BasicBlock.parseStackMap(stackMap, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
+        BasicBlock.parseStackMap(stackMap, largeStackDeltas, constantPool, frameCount, maxLocals, frameLocalCount, frameLocal, maxStack, labelsByOffset, frameDataByOffset);
         this.largeBranchTargets = computeLargeBranchTargets(largeBranches);
         this.blocksByOffset = new BasicBlock[code.length + 2];
         TreeSet<BasicBlock> blocks = new TreeSet<BasicBlock>();

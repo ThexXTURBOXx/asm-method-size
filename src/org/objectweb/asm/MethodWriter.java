@@ -1780,6 +1780,9 @@ public class MethodWriter extends MethodVisitor {
         } else {
             delta = frame[0] - previousFrame[0] - 1;
         }
+        if (delta > 0xffff && tooLargeDelegate != null) {
+            tooLargeDelegate.noteTooLargeStackMapDelta(stackMap.length, delta);
+        }
         if (cstackSize == 0) {
             k = clocalsSize - localsSize;
             switch (k) {

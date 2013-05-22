@@ -198,6 +198,7 @@ class BasicBlock implements Comparable<BasicBlock> {
     }
 
     public static void parseStackMap(ByteVector stackMap,
+                                     HashMap<Integer, Integer> largeDeltas,
                                      ConstantPool constantPool,
                                      int frameCount,
                                      int maxLocals, int frameLocalCount, Object[] frameLocal, int maxStack,
@@ -229,7 +230,12 @@ class BasicBlock implements Comparable<BasicBlock> {
                 v = readFrameType(stackMap, constantPool, labelsByOffset, frameStack, 0, v);
                 frameStackCount = 1;
             } else {
-                delta = ByteArray.readUnsignedShort(b, v);
+                Integer largeDelta = largeDeltas.get(v-1); // we did v++ above
+                if (largeDelta != null) {
+                    delta = largeDelta;
+                } else {
+                    delta = ByteArray.readUnsignedShort(b, v);
+                }
                 v += 2;
                 if (tag == MethodWriter.SAME_LOCALS_1_STACK_ITEM_FRAME_EXTENDED) {
                     v = readFrameType(stackMap, constantPool, labelsByOffset, frameStack, 0, v);

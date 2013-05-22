@@ -312,6 +312,14 @@ public abstract class MethodWriterDelegate {
     public abstract void noteTooLargeOffset(Label label, int reference);
 
     /**
+     * Note that a delta that occurs in a stack map is too large to be stored in the stack map.
+     * 
+     * @param offset is the offset of the delta within the stack map
+     * @param delta is the value of the delta
+     */
+    public abstract void noteTooLargeStackMapDelta(int offset, int delta);
+    
+    /**
      * Note a call to {@link MethodWriter#visitLocalVariable}.
      *
      * This gives us a chance to track local variables even though the
