@@ -591,6 +591,7 @@ class BasicBlock implements Comparable<BasicBlock> {
             int lastDefinedS = 0;
             int v = 0;
             int s = 0; // block size
+            int ins = 0;
             while (v < code.length) {
                 {
                     FrameData fd = frameDataByOffset[v];
@@ -1392,6 +1393,7 @@ class BasicBlock implements Comparable<BasicBlock> {
                 }
                 }
                 s += sizes[start];
+                ++ins;
              }
         }
 
