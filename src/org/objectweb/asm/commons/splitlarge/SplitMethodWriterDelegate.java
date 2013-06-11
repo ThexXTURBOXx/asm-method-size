@@ -1,5 +1,4 @@
 /***
- * ASM: a very small and fast Java bytecode manipulation framework
  * Copyright (c) 2000-2011 INRIA, France Telecom
  * All rights reserved.
  *
@@ -239,6 +238,7 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         }
         transferAnnotations();
         transferNonstandardAttributes();
+        endSplitMethods();
     }
 
     public static HashSet<SplitMethod> split(SortedSet<BasicBlock> blocks,
@@ -365,7 +365,6 @@ final public class SplitMethodWriterDelegate extends MethodWriterDelegate {
         startSplitMethods();
         writeBodyCode();
         visitExceptionHandlers();
-        endSplitMethods();
     }
 
 
