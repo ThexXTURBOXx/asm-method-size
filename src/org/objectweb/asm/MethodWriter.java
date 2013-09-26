@@ -448,7 +448,7 @@ public class MethodWriter extends MethodVisitor {
         }
         this.exceptions = null;
         if (exceptions != null && exceptions.length > 0) {
-            int exceptionCount = exceptions.length;
+            exceptionCount = exceptions.length;
             this.exceptions = new int[exceptionCount];
             for (int i = 0; i < exceptionCount; ++i) {
                 this.exceptions[i] = cw.newClass(exceptions[i]);
